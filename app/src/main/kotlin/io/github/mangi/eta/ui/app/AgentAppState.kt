@@ -120,6 +120,10 @@ internal class AgentAppState(
     private var persistenceJob: Job? = null
     private val runtimeRecoveryInProgress = AtomicBoolean(false)
     private val defaultThinkingEnabled = agentBooleanForUi(Prefs.Keys.AGENT_THINKING_ENABLED)
+    /** 「默认思考深度」设置（Eta Mod）；未设置或非法值时回退到深度思考总开关的旧行为。 */
+    private val defaultReasoningEffort: ReasoningEffort
+        get() = ReasoningEffort.fromWireValue(Prefs.getLocalString(Prefs.Keys.AGENT_DEFAULT_REASONING_EFFORT))
+            ?: ReasoningEffort.fromLegacy(defaultThinkingEnabled)
     private val initialConversations = AgentConversationStore.load(appContext)
     private var skillNoticeSequence = 0L
     private var pendingSkillZipUri: Uri? = null
@@ -133,7 +137,7 @@ internal class AgentAppState(
     private var conversationUpdatedAt: Map<String, Long> = initialConversations.updatedAt
 
     var homeState by mutableStateOf(
-        selectedConversationId?.let(conversationsById::get) ?: emptyChatState(defaultThinkingEnabled)
+        selectedConversationId?.let(conversationsById::get) ?: emptyChatState(defaultReasoningEffort)
     )
         private set
 
@@ -419,7 +423,7 @@ internal class AgentAppState(
             homeState = selectedConversationId
                 ?.let(conversationsById::get)
                 ?.withCurrentReasoningCapabilities()
-                ?: emptyChatState(defaultThinkingEnabled).withCurrentReasoningCapabilities()
+                ?: emptyChatState(defaultReasoningEffort).withCurrentReasoningCapabilities()
             conversationPaneState = conversationPaneState.copy(
                 selectedConversationId = selectedConversationId,
                 searchQuery = "",
@@ -718,7 +722,7 @@ internal class AgentAppState(
         )
         val archivedEffort = payload.reasoningEffort
             ?: payload.thinkingEnabled?.let(ReasoningEffort::fromLegacy)
-            ?: ReasoningEffort.fromLegacy(defaultThinkingEnabled)
+            ?: defaultReasoningEffort
         val existingState = conversationsById[conversationId] ?: emptyChatState(
             archivedEffort.enablesReasoning
         ).copy(reasoningEffort = archivedEffort)
@@ -831,7 +835,7 @@ internal class AgentAppState(
         if (homeState.messageEdit != null) cancelMessageEdit()
         fileAttachmentOwnerVersion += 1
         selectedConversationId = null
-        homeState = emptyChatState(defaultThinkingEnabled).withCurrentReasoningCapabilities()
+        homeState = emptyChatState(defaultReasoningEffort).withCurrentReasoningCapabilities()
         conversationPaneState = conversationPaneState.copy(
             selectedConversationId = null,
             searchQuery = "",
@@ -851,7 +855,7 @@ internal class AgentAppState(
             AgentModelClient.ConversationMessage(role = "assistant", content = text, messageId = greetingId),
         )
         selectedConversationId = id
-        homeState = emptyChatState(defaultThinkingEnabled).withCurrentReasoningCapabilities().copy(
+        homeState = emptyChatState(defaultReasoningEffort).withCurrentReasoningCapabilities().copy(
             roleplay = binding,
             history = transcript,
             journal = transcript,
@@ -889,7 +893,7 @@ internal class AgentAppState(
                 conversationsById = conversationsById + (nextId to homeState)
             } else {
                 selectedConversationId = null
-                homeState = emptyChatState(defaultThinkingEnabled).withCurrentReasoningCapabilities()
+                homeState = emptyChatState(defaultReasoningEffort).withCurrentReasoningCapabilities()
             }
         }
         conversationPaneState = conversationPaneState.copy(selectedConversationId = selectedConversationId)
@@ -1155,7 +1159,7 @@ internal class AgentAppState(
             conversationUpdatedAt = conversationUpdatedAt - conversationId
             fileAttachmentOwnerVersion += 1
             selectedConversationId = null
-            homeState = emptyChatState(defaultThinkingEnabled).withCurrentReasoningCapabilities()
+            homeState = emptyChatState(defaultReasoningEffort).withCurrentReasoningCapabilities()
             conversationPaneState = conversationPaneState.copy(selectedConversationId = null)
             refreshConversationSummaries()
             persistConversations()
@@ -2411,7 +2415,7 @@ internal class AgentAppState(
     private fun moveCurrentDraftToNewConversation() {
         val draft = homeState
         selectedConversationId = null
-        homeState = emptyChatState(defaultThinkingEnabled).copy(
+        homeState = emptyChatState(defaultReasoningEffort).copy(
             input = draft.input,
             thinkingEnabled = draft.reasoningEffort.enablesReasoning,
             reasoningEffort = draft.reasoningEffort,
@@ -2445,8 +2449,8 @@ internal class AgentAppState(
     private fun conversationIdForRun(runId: String): String? = runConversationIds[runId]
 
     private fun conversationStateForRun(runId: String): AgentChatHomeUiState {
-        val conversationId = conversationIdForRun(runId) ?: return emptyChatState(defaultThinkingEnabled)
-        return conversationsById[conversationId] ?: emptyChatState(defaultThinkingEnabled)
+        val conversationId = conversationIdForRun(runId) ?: return emptyChatState(defaultReasoningEffort)
+        return conversationsById[conversationId] ?: emptyChatState(defaultReasoningEffort)
     }
 
     private fun refreshConversationSummaries() {
@@ -2578,6 +2582,18 @@ internal class AgentAppState(
                 input = "",
                 isStreaming = false,
                 thinkingEnabled = thinkingEnabled,
+            )
+
+        /** Eta Mod：按「默认思考深度」构建设置生效的新会话初始状态。 */
+        fun emptyChatState(reasoningEffort: ReasoningEffort): AgentChatHomeUiState =
+            AgentChatHomeUiState(
+                messages = emptyList(),
+                history = emptyList(),
+                journal = emptyList(),
+                input = "",
+                isStreaming = false,
+                thinkingEnabled = reasoningEffort.enablesReasoning,
+                reasoningEffort = reasoningEffort,
             )
 
         fun newConversationId(): String = "conv-${UUID.randomUUID()}"

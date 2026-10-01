@@ -61,6 +61,7 @@ import io.github.mangi.eta.agent.accessibility.AccessibilityProtectionClient
 import io.github.mangi.eta.agent.accessibility.AgentAccessibilityService
 import io.github.mangi.eta.config.PowerAssistantTarget
 import io.github.mangi.eta.config.Prefs
+import io.github.mangi.eta.data.model.ReasoningEffort
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import io.github.mangi.eta.data.update.AppLatestRelease
@@ -209,6 +210,33 @@ private fun SettingsPageContent(
     // LSPosed 数据库）；未就绪时保持 null，UI 禁止修改。
     var prefs by remember { mutableStateOf(Prefs.remotePreferencesForUi(EtaApp.serviceInstance)) }
     val agentPrefs = remember { Prefs.localAgentPreferences() }
+    // Eta Mod：默认思考深度下拉
+    val defaultReasoningEffortOptions = remember {
+        listOf(
+            ReasoningEffort.DEFAULT,
+            ReasoningEffort.OFF,
+            ReasoningEffort.LOW,
+            ReasoningEffort.MEDIUM,
+            ReasoningEffort.HIGH,
+            ReasoningEffort.XHIGH,
+            ReasoningEffort.MAX,
+        )
+    }
+    val followModelEffortLabel = stringResource(R.string.settings_reasoning_effort_follow_model)
+    val defaultReasoningEffortItems = remember(defaultReasoningEffortOptions, followModelEffortLabel) {
+        defaultReasoningEffortOptions.map { effort ->
+            DropdownItem(
+                text = if (effort == ReasoningEffort.DEFAULT) followModelEffortLabel else effort.displayName,
+            )
+        }
+    }
+    var defaultReasoningEffort by remember {
+        mutableStateOf(
+            ReasoningEffort.fromWireValue(
+                agentPrefs?.getString(Prefs.Keys.AGENT_DEFAULT_REASONING_EFFORT, null),
+            ) ?: ReasoningEffort.DEFAULT,
+        )
+    }
     var powerAssistantTarget by remember(prefs) {
         mutableStateOf(prefs?.let(Prefs::powerAssistantTarget) ?: enhancementHistory.powerTarget())
     }
@@ -285,6 +313,36 @@ private fun SettingsPageContent(
                         key = Prefs.Keys.AGENT_AUTO_EXPAND_THINKING,
                         icon = Icons.Rounded.UnfoldMore,
                         iconTint = EtaPreferenceColors.Blue,
+                    )
+
+                    EtaPreferenceDivider()
+                    EtaDropdownPreference(
+                        title = stringResource(R.string.settings_default_reasoning_effort),
+                        summary = stringResource(R.string.settings_default_reasoning_effort_summary),
+                        items = defaultReasoningEffortItems,
+                        selectedIndex = defaultReasoningEffortOptions.indexOf(defaultReasoningEffort),
+                        onSelectedIndexChange = { index ->
+                            val effort = defaultReasoningEffortOptions.getOrNull(index)
+                                ?: return@EtaDropdownPreference
+                            val targetPrefs = agentPrefs ?: return@EtaDropdownPreference
+                            if (putStringSync(targetPrefs, Prefs.Keys.AGENT_DEFAULT_REASONING_EFFORT, effort.wireValue)) {
+                                defaultReasoningEffort = effort
+                            } else {
+                                Toast.makeText(
+                                    context.applicationContext,
+                                    context.getString(R.string.settings_write_failed),
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        },
+                        startAction = {
+                            EtaPreferenceIcon(
+                                icon = Icons.Rounded.AccountTree,
+                                tint = EtaPreferenceColors.Blue,
+                                enabled = agentPrefs != null,
+                            )
+                        },
+                        enabled = agentPrefs != null,
                     )
                 }
             }

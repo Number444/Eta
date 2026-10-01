@@ -44,6 +44,7 @@ internal object Prefs {
         const val AGENT_DEVICE_SENSITIVE_ACTION_TOOLS = "agent_device_sensitive_action_tools"
         const val AGENT_THINKING_ENABLED = "agent_thinking_enabled"
         const val AGENT_AUTO_EXPAND_THINKING = "agent_auto_expand_thinking"
+        const val AGENT_DEFAULT_REASONING_EFFORT = "agent_default_reasoning_effort"
         const val AGENT_RUNTIME_CONFIG_JSON = "agent_runtime_config_json"
 
         /** 全部布尔开关及其默认值。 */
@@ -124,6 +125,10 @@ internal object Prefs {
     fun getString(key: String): String {
         return remote?.getString(key, "") ?: ""
     }
+
+    /** 读取本地 Agent 配置的字符串值；未设置时返回空串（Eta Mod）。 */
+    fun getLocalString(key: String): String =
+        localAgent?.getString(key, "") ?: ""
 
     fun powerAssistantTarget(): PowerAssistantTarget = powerAssistantTarget(remote)
 

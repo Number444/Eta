@@ -5,6 +5,9 @@
   <string name="app_name">Eta Mod</string>
   <string name="settings_auto_expand_thinking">自动展开思考过程</string>
   <string name="settings_auto_expand_thinking_summary">关闭后，流式输出时思考与工作过程保持收起</string>
+  <string name="settings_default_reasoning_effort">默认思考深度</string>
+  <string name="settings_default_reasoning_effort_summary">对新建会话生效；超出模型支持范围时自动降级</string>
+  <string name="settings_reasoning_effort_follow_model">跟随模型默认</string>
   <string name="xposed_description">系统级 AI Agent，接管小布与小爱，解锁 Gemini 与一圈即搜，集成浏览器、终端与设备工具</string>
   <string name="agent_accessibility_label">Eta Agent</string>
   <string name="agent_accessibility_description">读取屏幕内容并执行点击、滑动、文字输入等操作，协助 Agent 完成任务。</string>
