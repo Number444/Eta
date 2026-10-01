@@ -22,6 +22,8 @@ internal class AgentTraceFormatter {
             "clear_text" -> "清空文本"
             "get_clipboard" -> "读取剪贴板"
             "search_apps" -> summarizeQueryArguments("搜索应用", toolCall.argumentsJson)
+            AgentWebSearchToolCatalog.WEB_SEARCH ->
+                summarizeQueryArguments("网页搜索", toolCall.argumentsJson)
             "launch_app" -> "打开应用"
             "get_current_context" -> "读取当前上下文"
             "observe_screen" -> summarizeObservationArguments(toolCall.argumentsJson)
@@ -243,6 +245,8 @@ internal class AgentTraceFormatter {
             "memory_get", "memory_write", "character_memory_get", "character_memory_write" ->
                 json?.let { summarizeMemoryResult(toolName, it) } ?: "完成"
             "search_apps" -> json?.let(::summarizeSearchAppsResult) ?: "完成"
+            AgentWebSearchToolCatalog.WEB_SEARCH ->
+                json?.optInt("count")?.let { "找到 $it 条结果" } ?: "完成"
             "launch_app" -> json?.let(::summarizeLaunchAppResult) ?: "已打开"
             else -> json?.let { summarizeGenericResult(it, result) } ?: "完成"
         }

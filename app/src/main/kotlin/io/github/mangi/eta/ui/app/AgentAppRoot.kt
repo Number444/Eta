@@ -274,12 +274,7 @@ fun AgentAppRoot(
             onConversationDelete = { conversation ->
                 conversationDeleteTarget = conversation
             },
-            onOpenTools = { pushRoute(AppRoute.Tools) },
-            onOpenSkills = { pushRoute(AppRoute.Skills) },
-            onOpenCharacters = { pushRoute(AppRoute.Characters) },
-            onOpenPermissions = { pushRoute(AppRoute.Permissions) },
             onOpenSettings = { pushRoute(AppRoute.Settings) },
-            onOpenModelProviders = { pushRoute(AppRoute.ModelProviders) },
         ) { padding ->
             Box(
                 modifier = Modifier

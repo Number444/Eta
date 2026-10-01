@@ -7,6 +7,9 @@ import android.content.SharedPreferences
 import android.net.Uri
 import android.provider.Settings
 import android.widget.Toast
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.AccessibilityNew
@@ -21,6 +24,7 @@ import androidx.compose.material.icons.rounded.Hearing
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Inventory
 import androidx.compose.material.icons.rounded.Inventory2
+import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.Lock
@@ -39,9 +43,11 @@ import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material.icons.rounded.TheaterComedy
 import androidx.compose.material.icons.rounded.TouchApp
+import androidx.compose.material.icons.rounded.TravelExplore
 import androidx.compose.material.icons.rounded.UnfoldMore
 import androidx.compose.material.icons.rounded.VerifiedUser
 import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -53,7 +59,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -92,7 +102,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
@@ -508,6 +521,58 @@ private fun SettingsPageContent(
                         icon = Icons.Rounded.Language,
                         iconTint = EtaPreferenceColors.Blue,
                     )
+
+                    EtaPreferenceDivider()
+                    SwitchPref(
+                        context = context,
+                        prefs = agentPrefs,
+                        title = stringResource(R.string.settings_web_search_title),
+                        summary = stringResource(R.string.settings_web_search_summary),
+                        key = Prefs.Keys.AGENT_WEB_SEARCH,
+                        icon = Icons.Rounded.TravelExplore,
+                        iconTint = EtaPreferenceColors.Blue,
+                    )
+
+                    EtaPreferenceDivider()
+                    // Exa API Key：与供应商 key 同款——明文存储在本机，界面掩码显示。
+                    var exaApiKey by remember(agentPrefs) {
+                        mutableStateOf(agentPrefs?.getString(Prefs.Keys.AGENT_EXA_API_KEY, "") ?: "")
+                    }
+                    var showExaKeyDialog by remember { mutableStateOf(false) }
+                    EtaArrowPreference(
+                        title = "Exa API Key",
+                        summary = if (exaApiKey.isBlank()) {
+                            stringResource(R.string.settings_exa_api_key_not_set)
+                        } else {
+                            maskSecretSummary(exaApiKey)
+                        },
+                        startAction = {
+                            EtaPreferenceIcon(Icons.Rounded.Key, tint = EtaPreferenceColors.Orange)
+                        },
+                        onClick = { showExaKeyDialog = true },
+                    )
+                    if (showExaKeyDialog) {
+                        ExaApiKeyDialog(
+                            initial = exaApiKey,
+                            onDismiss = { showExaKeyDialog = false },
+                            onSave = { value ->
+                                val trimmed = value.trim()
+                                if (agentPrefs?.edit()
+                                        ?.putString(Prefs.Keys.AGENT_EXA_API_KEY, trimmed)
+                                        ?.commit() == true
+                                ) {
+                                    exaApiKey = trimmed
+                                } else {
+                                    Toast.makeText(
+                                        context.applicationContext,
+                                        context.getString(R.string.settings_write_failed),
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                                }
+                                showExaKeyDialog = false
+                            },
+                        )
+                    }
 
                     EtaPreferenceDivider()
                     SwitchPref(
@@ -1108,6 +1173,54 @@ private fun SystemizerConfirmDialog(
 }
 
 // ── 带图标的布尔开关 ─────────────────────────────────────────────────────────
+
+/** 与供应商 key 同款的掩码显示：短 key 全掩，长 key 首尾各留 4 位。 */
+private fun maskSecretSummary(secret: String): String =
+    if (secret.length <= 8) {
+        "*".repeat(secret.length)
+    } else {
+        "${secret.take(4)}${"*".repeat(secret.length - 8)}${secret.takeLast(4)}"
+    }
+
+/** Exa API Key 输入弹窗：密码式输入 + 可见性切换，与供应商 key 输入同款。 */
+@Composable
+private fun ExaApiKeyDialog(
+    initial: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+) {
+    var value by remember { mutableStateOf(initial) }
+    var visible by remember { mutableStateOf(false) }
+    EtaWindowDialog(
+        show = true,
+        title = "Exa API Key",
+        summary = stringResource(R.string.settings_exa_api_key_summary),
+        onDismissRequest = onDismiss,
+    ) {
+        TextField(
+            value = value,
+            onValueChange = { value = it },
+            label = "API Key",
+            singleLine = true,
+            visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
+            trailingIcon = {
+                IconButton(onClick = { visible = !visible }) {
+                    Icon(
+                        imageVector = if (visible) Icons.Rounded.Visibility else Icons.Rounded.VisibilityOff,
+                        contentDescription = null,
+                    )
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        MiuixDialogActions(
+            confirmText = stringResource(R.string.action_confirm),
+            onCancel = onDismiss,
+            onConfirm = { onSave(value) },
+        )
+    }
+}
 
 /**
  * 单个布尔开关：状态随 [prefs]/[key] 变化重读，切换时同步写入。

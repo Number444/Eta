@@ -940,6 +940,11 @@
   <string name="accessibility_protection_unavailable">The accessibility protection backend is unavailable. Enable the system scope and restart</string>
   <string name="accessibility_protection_rejected">The system rejected the accessibility protection request</string>
   <string name="settings_write_failed">Couldn\'t save settings</string>
+  <string name="tool_web_search">Web search</string>
+  <string name="settings_web_search_title">Web search</string>
+  <string name="settings_web_search_summary">Let the model search the web with Exa</string>
+  <string name="settings_exa_api_key_summary">Used by the web search tool, stored on this device only</string>
+  <string name="settings_exa_api_key_not_set">Not set</string>
   <string name="status_processing">Processing…</string>
   <string name="power_assistant_system_default">System default assistant</string>
   <string name="systemizer_already_system">Google App is already a system priv-app</string>

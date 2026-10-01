@@ -14,6 +14,7 @@ internal object AgentRuntimePolicy {
     data class Permissions(
         val terminalTools: Boolean,
         val browserTools: Boolean,
+        val webSearchTools: Boolean = false,
         val deviceDirectTools: Boolean = false,
         val deviceSensitiveReadTools: Boolean = false,
         val deviceSensitiveActionTools: Boolean = false,
@@ -24,6 +25,7 @@ internal object AgentRuntimePolicy {
         Permissions(
             terminalTools = preferences.allowed(Prefs.Keys.AGENT_TERMINAL_TOOLS),
             browserTools = preferences.allowed(Prefs.Keys.AGENT_BROWSER_TOOLS),
+            webSearchTools = preferences.allowed(Prefs.Keys.AGENT_WEB_SEARCH),
             deviceDirectTools = preferences.allowed(Prefs.Keys.AGENT_DEVICE_DIRECT_TOOLS),
             deviceSensitiveReadTools =
                 preferences.allowed(Prefs.Keys.AGENT_DEVICE_SENSITIVE_READ_TOOLS),
@@ -44,6 +46,7 @@ internal object AgentRuntimePolicy {
         val constrained = config.copy(
             terminalTools = config.terminalTools && permissions.terminalTools,
             browserTools = config.browserTools && permissions.browserTools,
+            webSearchTools = config.webSearchTools && permissions.webSearchTools,
             deviceDirectTools = config.deviceDirectTools && permissions.deviceDirectTools,
             deviceSensitiveReadTools =
                 config.deviceSensitiveReadTools && permissions.deviceSensitiveReadTools,

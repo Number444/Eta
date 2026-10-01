@@ -79,12 +79,7 @@ fun AgentAppShell(
     onConversationRename: (ConversationSummaryUi) -> Unit,
     onConversationExport: (ConversationSummaryUi) -> Unit,
     onConversationDelete: (ConversationSummaryUi) -> Unit,
-    onOpenTools: () -> Unit,
-    onOpenSkills: () -> Unit,
-    onOpenCharacters: () -> Unit,
-    onOpenPermissions: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenModelProviders: () -> Unit,
     modifier: Modifier = Modifier,
     content: @Composable (PaddingValues) -> Unit,
 ) {
@@ -144,11 +139,6 @@ fun AgentAppShell(
                 onConversationExport = onConversationExport,
                 onConversationDelete = onConversationDelete,
                 onOpenSettings = onOpenSettings,
-                onOpenModelProviders = onOpenModelProviders,
-                onOpenTools = onOpenTools,
-                onOpenSkills = onOpenSkills,
-                onOpenCharacters = onOpenCharacters,
-                onOpenPermissions = onOpenPermissions,
             ) {
                 pageContent()
             }

@@ -109,6 +109,7 @@ internal object AgentRuntimeWire {
     private const val KEY_HOSTED_WEB_SEARCH_ENABLED = "hosted_web_search_enabled"
     private const val KEY_TERMINAL_TOOLS = "terminal_tools"
     private const val KEY_BROWSER_TOOLS = "browser_tools"
+    private const val KEY_WEB_SEARCH_TOOLS = "web_search_tools"
     private const val KEY_DEVICE_DIRECT_TOOLS = "device_direct_tools"
     private const val KEY_DEVICE_SENSITIVE_READ_TOOLS = "device_sensitive_read_tools"
     private const val KEY_DEVICE_SENSITIVE_ACTION_TOOLS = "device_sensitive_action_tools"
@@ -321,6 +322,7 @@ internal object AgentRuntimeWire {
         putBoolean(KEY_HOSTED_WEB_SEARCH_ENABLED, request.config.hostedWebSearchEnabled)
         putBoolean(KEY_TERMINAL_TOOLS, request.config.terminalTools)
         putBoolean(KEY_BROWSER_TOOLS, request.config.browserTools)
+        putBoolean(KEY_WEB_SEARCH_TOOLS, request.config.webSearchTools)
         putBoolean(KEY_DEVICE_DIRECT_TOOLS, request.config.deviceDirectTools)
         putBoolean(KEY_DEVICE_SENSITIVE_READ_TOOLS, request.config.deviceSensitiveReadTools)
         putBoolean(KEY_DEVICE_SENSITIVE_ACTION_TOOLS, request.config.deviceSensitiveActionTools)
@@ -462,6 +464,7 @@ internal object AgentRuntimeWire {
                 } else {
                     true
                 },
+                webSearchTools = bundle.getBoolean(KEY_WEB_SEARCH_TOOLS, false),
                 deviceDirectTools = if (bundle.containsKey(KEY_DEVICE_DIRECT_TOOLS)) {
                     bundle.getBoolean(KEY_DEVICE_DIRECT_TOOLS)
                 } else {

@@ -8,6 +8,7 @@ internal object AgentToolCatalog {
     fun build(
         terminalTools: Boolean,
         browserTools: Boolean,
+        webSearchTools: Boolean = false,
         deviceDirectTools: Boolean = true,
         deviceSensitiveReadTools: Boolean = false,
         deviceSensitiveActionTools: Boolean = false,
@@ -28,6 +29,7 @@ internal object AgentToolCatalog {
                 sensitiveActionTools = deviceSensitiveActionTools,
             )
             if (browserTools) AgentBrowserToolCatalog.appendTo(tools)
+            if (webSearchTools) AgentWebSearchToolCatalog.appendTo(tools)
             AgentSkillToolCatalog.appendTo(
                 tools,
                 githubDiscovery = skillGitHubDiscovery,

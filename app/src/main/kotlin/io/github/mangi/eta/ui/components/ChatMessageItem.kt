@@ -944,8 +944,8 @@ private fun AgentMessageBlock(
                         clipboardManager.setText(AnnotatedString(message.content))
                         copied = true
                     },
-                    minWidth = 30.dp,
-                    minHeight = 30.dp,
+                    minWidth = 40.dp,
+                    minHeight = 40.dp,
                 ) {
                     Icon(
                         imageVector = if (copied) Icons.Rounded.Check
@@ -953,7 +953,7 @@ private fun AgentMessageBlock(
                         contentDescription = stringResource(
                             if (copied) R.string.copy_copied else R.string.copy_answer,
                         ),
-                        modifier = Modifier.size(15.dp),
+                        modifier = Modifier.size(20.dp),
                         tint = if (copied) {
                             MiuixTheme.colorScheme.primary
                         } else {
@@ -983,24 +983,24 @@ private fun AgentMessageBlock(
                             }
                         },
                         enabled = !shareRendering,
-                        minWidth = 30.dp,
-                        minHeight = 30.dp,
+                        minWidth = 40.dp,
+                        minHeight = 40.dp,
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Share,
                             contentDescription = stringResource(R.string.share_as_image),
-                            modifier = Modifier.size(15.dp),
+                            modifier = Modifier.size(20.dp),
                             tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
                         )
                     }
                 }
                 if (showMessageActions) {
                     if (message.characterEditable) {
-                        IconButton(onClick = onEdit, enabled = messageActionsEnabled, minWidth = 30.dp, minHeight = 30.dp) {
+                        IconButton(onClick = onEdit, enabled = messageActionsEnabled, minWidth = 40.dp, minHeight = 40.dp) {
                             Icon(
                                 imageVector = Icons.Rounded.Edit,
                                 contentDescription = "编辑角色回复",
-                                modifier = Modifier.size(15.dp),
+                                modifier = Modifier.size(20.dp),
                                 tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
                             )
                         }
@@ -1009,13 +1009,13 @@ private fun AgentMessageBlock(
                         IconButton(
                             onClick = onRegenerate,
                             enabled = messageActionsEnabled,
-                            minWidth = 30.dp,
-                            minHeight = 30.dp,
+                            minWidth = 40.dp,
+                            minHeight = 40.dp,
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.Refresh,
                                 contentDescription = stringResource(R.string.ui_regenerate_reply_84a7d9),
-                                modifier = Modifier.size(15.dp),
+                                modifier = Modifier.size(20.dp),
                                 tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
                             )
                         }
@@ -1024,13 +1024,13 @@ private fun AgentMessageBlock(
                         IconButton(
                             onClick = onDelete,
                             enabled = messageActionsEnabled,
-                            minWidth = 30.dp,
-                            minHeight = 30.dp,
+                            minWidth = 40.dp,
+                            minHeight = 40.dp,
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.Delete,
                                 contentDescription = stringResource(R.string.ui_delete_this_conversation_3f351b),
-                                modifier = Modifier.size(15.dp),
+                                modifier = Modifier.size(20.dp),
                                 tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
                             )
                         }
@@ -1047,12 +1047,12 @@ private fun AgentMessageBlock(
                             IconButton(
                                 onClick = { onSelectCandidate(message.selectedCandidate - 1) },
                                 enabled = messageActionsEnabled && message.selectedCandidate > 0,
-                                minWidth = 28.dp, minHeight = 28.dp,
+                                minWidth = 37.dp, minHeight = 37.dp,
                             ) {
                                 Icon(
                                     imageVector = Icons.Rounded.ChevronLeft,
                                     contentDescription = "上一条候选回复",
-                                    modifier = Modifier.size(16.dp),
+                                    modifier = Modifier.size(21.dp),
                                     tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                                 )
                             }
@@ -1066,12 +1066,12 @@ private fun AgentMessageBlock(
                             IconButton(
                                 onClick = { onSelectCandidate(message.selectedCandidate + 1) },
                                 enabled = messageActionsEnabled && message.selectedCandidate < message.candidateCount - 1,
-                                minWidth = 28.dp, minHeight = 28.dp,
+                                minWidth = 37.dp, minHeight = 37.dp,
                             ) {
                                 Icon(
                                     imageVector = Icons.Rounded.ChevronRight,
                                     contentDescription = "下一条候选回复",
-                                    modifier = Modifier.size(16.dp),
+                                    modifier = Modifier.size(21.dp),
                                     tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                                 )
                             }

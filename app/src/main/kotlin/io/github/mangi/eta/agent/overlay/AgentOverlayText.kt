@@ -110,6 +110,7 @@ internal fun toolDisplayNameResource(name: String): Int? = when (name) {
     "launch_app" -> R.string.tool_launch_app
     "open_uri" -> R.string.tool_open_uri
     "browser_use" -> R.string.tool_browser_use
+    "web_search" -> R.string.tool_web_search
     "terminal" -> R.string.tool_terminal
     "run_command" -> R.string.tool_run_command
     "read_file" -> R.string.tool_read_file

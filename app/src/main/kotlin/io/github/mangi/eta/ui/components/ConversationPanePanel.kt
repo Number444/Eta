@@ -1,5 +1,10 @@
 package io.github.mangi.eta.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -31,15 +36,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.Extension
-import androidx.compose.material.icons.rounded.Inventory2
-import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.TheaterComedy
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -48,10 +49,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -95,9 +98,6 @@ private object ConversationPanelMetrics {
     val ActiveDotSize = 6.dp
     val ActiveDotGap = 10.dp
     val EmptyVerticalPadding = 28.dp
-    val DockTopGap = 2.dp
-    val DockEntryCornerRadius = 12.dp
-    val DockEntryIconSize = 20.dp
 }
 
 /**
@@ -123,11 +123,6 @@ internal fun ConversationPanePanel(
     onConversationExport: (ConversationSummaryUi) -> Unit,
     onConversationDelete: (ConversationSummaryUi) -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenModelProviders: () -> Unit,
-    onOpenTools: () -> Unit,
-    onOpenSkills: () -> Unit,
-    onOpenCharacters: () -> Unit,
-    onOpenPermissions: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // state.conversations 已由 AgentAppState 按标题、预览与消息内容过滤。
@@ -152,7 +147,11 @@ internal fun ConversationPanePanel(
                         .padding(horizontal = ConversationPanelMetrics.PaneHorizontalPadding),
                 ) {
                     Spacer(Modifier.height(ConversationPanelMetrics.TopInset))
-                    PaneActionBar(query = state.searchQuery, onSearchChange = onSearchChange)
+                    PaneActionBar(
+                        query = state.searchQuery,
+                        onSearchChange = onSearchChange,
+                        onOpenSettings = onOpenSettings,
+                    )
                     Spacer(Modifier.height(ConversationPanelMetrics.AfterActionBar))
                 }
             }
@@ -198,24 +197,15 @@ internal fun ConversationPanePanel(
                 }
             }
             PaneFixedRegion {
-                Column(
-                    modifier = Modifier
+                // Eta Mod：底部工具栏已移除，设置入口上移到搜索行；这里只保留底部安全区。
+                Spacer(
+                    Modifier
+                        .fillMaxWidth()
                         .windowInsetsPadding(
-                            WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal),
+                            WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom),
                         )
-                        .padding(horizontal = ConversationPanelMetrics.PaneHorizontalPadding),
-                ) {
-                    Spacer(Modifier.height(ConversationPanelMetrics.DockTopGap))
-                    PaneDock(
-                        onOpenSettings = onOpenSettings,
-                        onOpenModelProviders = onOpenModelProviders,
-                        onOpenTools = onOpenTools,
-                        onOpenSkills = onOpenSkills,
-                        onOpenCharacters = onOpenCharacters,
-                        onOpenPermissions = onOpenPermissions,
-                    )
-                    Spacer(Modifier.height(ConversationPanelMetrics.BottomInset))
-                }
+                        .height(ConversationPanelMetrics.BottomInset),
+                )
             }
         }
     }
@@ -235,13 +225,25 @@ private fun PaneFixedRegion(content: @Composable () -> Unit) {
 private fun PaneActionBar(
     query: String,
     onSearchChange: (String) -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
+    // Eta Mod：原底部工具栏精简为单个设置入口，上移为搜索行右侧的圆形按钮；
+    // 输入框获焦后向右延长盖住按钮，按钮渐隐让位，失焦后恢复。
+    var searchFocused by remember { mutableStateOf(false) }
+    var searchHeightPx by remember { mutableIntStateOf(0) }
+    val density = LocalDensity.current
+    // 圆直径等于搜索框实测高度；首帧未测量时用 44dp 占位避免跳变。
+    val settingsButtonSize = with(density) {
+        if (searchHeightPx > 0) searchHeightPx.toDp() else 44.dp
+    }
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         SearchBar(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .onSizeChanged { searchHeightPx = it.height },
             insideMargin = DpSize.Zero,
             expanded = false,
             onExpandedChange = {},
@@ -256,10 +258,39 @@ private fun PaneActionBar(
                     // 深色下侧栏已抬高到 surfaceContainer，搜索框需再高一档才能显出轮廓；
                     // 浅色的 surfaceContainerHigh 与 surfaceContainerHighest 相同，观感不变。
                     color = MiuixTheme.colorScheme.surfaceContainerHighest,
+                    modifier = Modifier.onFocusChanged { searchFocused = it.isFocused },
                 )
             },
             content = {},
         )
+        AnimatedVisibility(
+            visible = !searchFocused,
+            enter = expandHorizontally(expandFrom = Alignment.End) + fadeIn(),
+            exit = shrinkHorizontally(shrinkTowards = Alignment.End) + fadeOut(),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // 按钮到输入框的距离等于面板右边距，视觉上左右等距。
+                Spacer(modifier = Modifier.width(ConversationPanelMetrics.PaneHorizontalPadding))
+                Box(
+                    modifier = Modifier
+                        .size(settingsButtonSize)
+                        .clip(CircleShape)
+                        .background(MiuixTheme.colorScheme.surfaceContainerHighest)
+                        .clickable(
+                            onClickLabel = stringResource(R.string.route_settings),
+                            onClick = onOpenSettings,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Settings,
+                        contentDescription = stringResource(R.string.route_settings),
+                        modifier = Modifier.size(ConversationPanelMetrics.ActionIconSize),
+                        tint = MiuixTheme.colorScheme.onSurface,
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -471,81 +502,6 @@ private fun EmptyConversations(isSearching: Boolean) {
             vertical = ConversationPanelMetrics.EmptyVerticalPadding,
         ),
     )
-}
-
-@Composable
-private fun PaneDock(
-    onOpenSettings: () -> Unit,
-    onOpenModelProviders: () -> Unit,
-    onOpenTools: () -> Unit,
-    onOpenSkills: () -> Unit,
-    onOpenCharacters: () -> Unit,
-    onOpenPermissions: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        DockEntry(
-            icon = Icons.Rounded.Settings,
-            label = "设置",
-            onClick = onOpenSettings,
-            modifier = Modifier.weight(1f),
-        )
-        DockEntry(
-            icon = Icons.Rounded.Memory,
-            label = "模型",
-            onClick = onOpenModelProviders,
-            modifier = Modifier.weight(1f),
-        )
-        DockEntry(
-            icon = Icons.Rounded.Inventory2,
-            label = "工具",
-            onClick = onOpenTools,
-            modifier = Modifier.weight(1f),
-        )
-        DockEntry(
-            icon = Icons.Rounded.Extension,
-            label = "Skills",
-            onClick = onOpenSkills,
-            modifier = Modifier.weight(1f),
-        )
-        DockEntry(
-            icon = Icons.Rounded.Lock,
-            label = "权限",
-            onClick = onOpenPermissions,
-            modifier = Modifier.weight(1f),
-        )
-        DockEntry(
-            icon = Icons.Rounded.TheaterComedy,
-            label = "角色",
-            onClick = onOpenCharacters,
-            modifier = Modifier.weight(1f),
-        )
-    }
-}
-
-@Composable
-private fun DockEntry(
-    icon: ImageVector,
-    label: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier = modifier
-            .heightIn(min = 48.dp)
-            .clip(RoundedCornerShape(ConversationPanelMetrics.DockEntryCornerRadius))
-            .clickable(onClickLabel = label, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            modifier = Modifier.size(ConversationPanelMetrics.DockEntryIconSize),
-            tint = MiuixTheme.colorScheme.onSurface,
-        )
-    }
 }
 
 private data class ConversationDrawerGroup(

@@ -1313,6 +1313,7 @@ internal class AgentAppState(
             val config = RuntimeConfigRepository.currentRuntimeConfig()?.copy(
                 terminalTools = agentBooleanForUi(Prefs.Keys.AGENT_TERMINAL_TOOLS),
                 browserTools = agentBooleanForUi(Prefs.Keys.AGENT_BROWSER_TOOLS),
+                webSearchTools = agentBooleanForUi(Prefs.Keys.AGENT_WEB_SEARCH),
                 deviceDirectTools = agentBooleanForUi(Prefs.Keys.AGENT_DEVICE_DIRECT_TOOLS),
                 deviceSensitiveReadTools =
                     agentBooleanForUi(Prefs.Keys.AGENT_DEVICE_SENSITIVE_READ_TOOLS),
@@ -1415,6 +1416,7 @@ internal class AgentAppState(
                 suppressReasoning = true,
                 terminalTools = false,
                 browserTools = false,
+                webSearchTools = false,
                 deviceDirectTools = false,
                 deviceSensitiveReadTools = false,
                 deviceSensitiveActionTools = false,

@@ -12,6 +12,7 @@ import io.github.mangi.eta.agent.device.RootAccess
 import io.github.mangi.eta.agent.device.RootShellDeviceController
 import io.github.mangi.eta.agent.device.BoundedRootCommandExecutor
 import io.github.mangi.eta.agent.model.AgentModelClient
+import io.github.mangi.eta.agent.model.AgentWebSearchToolCatalog
 import io.github.mangi.eta.agent.model.AgentScreenObservationContract
 import io.github.mangi.eta.agent.model.AgentSensitiveToolPolicy
 import io.github.mangi.eta.agent.overlay.AgentHapticFeedback
@@ -171,6 +172,7 @@ internal class AgentLocalTools(
             }
             when (toolCall.name) {
                 "get_current_context" -> textResult(DeviceContextTool.current(context))
+                AgentWebSearchToolCatalog.WEB_SEARCH -> textResult(AgentWebSearchTool.execute(args))
                 "search_apps" -> textResult(searchApps(args))
                 "launch_app" -> textResult(launchApp(args))
                 "open_uri" -> textResult(openUri(args))

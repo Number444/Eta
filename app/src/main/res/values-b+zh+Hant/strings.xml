@@ -919,6 +919,11 @@
   <string name="accessibility_protection_unavailable">無障礙保護後端無法使用，請確認已啟用 system 作用範圍並重新啟動</string>
   <string name="accessibility_protection_rejected">系統拒絕了無障礙保護要求</string>
   <string name="settings_write_failed">無法儲存設定</string>
+  <string name="tool_web_search">網頁搜尋</string>
+  <string name="settings_web_search_title">網頁搜尋</string>
+  <string name="settings_web_search_summary">允許模型透過 Exa 連線搜尋</string>
+  <string name="settings_exa_api_key_summary">網頁搜尋工具使用，僅儲存在本機</string>
+  <string name="settings_exa_api_key_not_set">未填寫</string>
   <string name="status_processing">處理中…</string>
   <string name="power_assistant_system_default">系統預設助理</string>
   <string name="systemizer_already_system">Google App 已是系統 priv-app</string>
