@@ -1,6 +1,7 @@
 package io.github.mangi.eta.ui.components
 
 import io.github.mangi.eta.ui.voice.SpeechReadAloudButton
+import android.content.SharedPreferences
 import android.graphics.BitmapFactory
 import android.util.Base64
 import androidx.compose.animation.AnimatedContent
@@ -62,6 +63,7 @@ import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
@@ -139,6 +141,7 @@ import com.mikepenz.markdown.model.markdownPadding
 import com.mikepenz.markdown.model.rememberMarkdownState
 import com.mikepenz.markdown.utils.getUnescapedTextInNode
 import io.github.mangi.eta.R
+import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.agent.browser.AgentBrowserSession
 import io.github.mangi.eta.agent.browser.BrowserSessionSnapshot
 import io.github.mangi.eta.agent.model.AgentFileReferencePromptCodec
@@ -352,6 +355,30 @@ internal fun ChatMessageItem(
 }
 
 /**
+ * 读取「自动展开思考过程」开关（Eta Mod）。默认开启，与上游行为一致；
+ * 关闭后流式思考与工作过程保持收起，点击标题栏手动展开。
+ */
+@Composable
+private fun rememberAutoExpandThinking(): Boolean {
+    val prefs = remember { Prefs.localAgentPreferences() }
+    var enabled by remember {
+        mutableStateOf(
+            prefs?.getBoolean(Prefs.Keys.AGENT_AUTO_EXPAND_THINKING, true) ?: true
+        )
+    }
+    DisposableEffect(prefs) {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { changed, key ->
+            if (key == Prefs.Keys.AGENT_AUTO_EXPAND_THINKING) {
+                enabled = changed.getBoolean(key, true)
+            }
+        }
+        prefs?.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { prefs?.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
+    return enabled
+}
+
+/**
  * 把连续的思考与工具调用收束为一个可展开的工作过程，避免 Agent 事件退化为聊天气泡噪音。
  */
 @Composable
@@ -374,11 +401,12 @@ internal fun AgentWorkProcess(
     } as? ToolActivityMessageUi
     val runningToolTitle = runningTool?.argumentsSummary?.takeIf { it.isNotBlank() }
         ?: runningTool?.let { toolDisplayName(it.toolName) }
-    var expanded by rememberSaveable(id) { mutableStateOf(running) }
+    val autoExpandThinking = rememberAutoExpandThinking()
+    var expanded by rememberSaveable(id) { mutableStateOf(running && autoExpandThinking) }
     var manuallyExpanded by rememberSaveable(id) { mutableStateOf(false) }
 
-    LaunchedEffect(running) {
-        if (running && !manuallyExpanded) {
+    LaunchedEffect(running, autoExpandThinking) {
+        if (running && !manuallyExpanded && autoExpandThinking) {
             expanded = true
         }
     }
@@ -2213,7 +2241,10 @@ private fun ThinkingRow(
     modifier: Modifier = Modifier,
     compact: Boolean = false,
 ) {
-    var expanded by rememberSaveable(message.id) { mutableStateOf(!message.collapsed) }
+    val autoExpandThinking = rememberAutoExpandThinking()
+    var expanded by rememberSaveable(message.id) {
+        mutableStateOf(!message.collapsed && (autoExpandThinking || !message.isStreaming))
+    }
     var manuallyExpanded by rememberSaveable(message.id) { mutableStateOf(false) }
     val keepStreamingMarkdown = remember(message.id) { message.isStreaming }
     val streamingState = if (keepStreamingMarkdown) {
@@ -2223,8 +2254,8 @@ private fun ThinkingRow(
     }
     val completedMarkdownState = (streamingState ?: retainedStreamingState)
         ?.snapshot?.completedStateFor(message.content)
-    LaunchedEffect(message.isStreaming) {
-        if (message.isStreaming && !manuallyExpanded) expanded = true
+    LaunchedEffect(message.isStreaming, autoExpandThinking) {
+        if (message.isStreaming && !manuallyExpanded && autoExpandThinking) expanded = true
     }
 
     // Markdown 状态在行级提前创建：行进入组合（工作过程展开或滚动到可视区）时就开始

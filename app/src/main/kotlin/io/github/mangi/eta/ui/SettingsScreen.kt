@@ -38,6 +38,7 @@ import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material.icons.rounded.TheaterComedy
 import androidx.compose.material.icons.rounded.TouchApp
+import androidx.compose.material.icons.rounded.UnfoldMore
 import androidx.compose.material.icons.rounded.VerifiedUser
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.runtime.Composable
@@ -272,6 +273,17 @@ private fun SettingsPageContent(
                         title = stringResource(R.string.ui_deep_thinking_enabled_by_default_c032d6),
                         key = Prefs.Keys.AGENT_THINKING_ENABLED,
                         icon = Icons.Rounded.Psychology,
+                        iconTint = EtaPreferenceColors.Blue,
+                    )
+
+                    EtaPreferenceDivider()
+                    SwitchPref(
+                        context = context,
+                        prefs = agentPrefs,
+                        title = stringResource(R.string.settings_auto_expand_thinking),
+                        summary = stringResource(R.string.settings_auto_expand_thinking_summary),
+                        key = Prefs.Keys.AGENT_AUTO_EXPAND_THINKING,
+                        icon = Icons.Rounded.UnfoldMore,
                         iconTint = EtaPreferenceColors.Blue,
                     )
                 }
