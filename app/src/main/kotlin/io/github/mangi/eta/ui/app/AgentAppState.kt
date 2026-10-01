@@ -40,6 +40,7 @@ import io.github.mangi.eta.agent.runtime.AgentExternalArchivePayload
 import io.github.mangi.eta.agent.runtime.AgentRunArchiveStore
 import io.github.mangi.eta.agent.runtime.AgentRunCheckpointStore
 import io.github.mangi.eta.agent.runtime.AgentRuntimeClient
+import io.github.mangi.eta.agent.runtime.AgentRuntimePolicy
 import io.github.mangi.eta.agent.runtime.AgentRuntimeWire
 import io.github.mangi.eta.agent.runtime.AgentTokenUsage
 import io.github.mangi.eta.agent.runtime.AgentUiHandoffPayload
@@ -1404,21 +1405,20 @@ internal class AgentAppState(
             .getOrNull()?.takeIf { it.isEnabled } ?: return ""
         val model = provider.models.firstOrNull { it.id == modelId && it.isEnabled } ?: return ""
         val base = RuntimeConfigRepository.buildRuntimeConfig(provider, model)
-        // 压缩是内部机械任务：强制最低思考档（可关则关，强制思考的模型退回 DEFAULT 以免崩溃）。
-        val lowestEffort = if (base.reasoningCapabilities?.canDisable == true) {
-            ReasoningEffort.OFF
-        } else {
-            ReasoningEffort.DEFAULT
-        }
-        val compactConfig = base.copy(
-            thinkingEnabled = lowestEffort.enablesReasoning,
-            reasoningEffort = lowestEffort,
-            terminalTools = false,
-            browserTools = false,
-            deviceDirectTools = false,
-            deviceSensitiveReadTools = false,
-            deviceSensitiveActionTools = false,
-            hostedWebSearchEnabled = false,
+        // 压缩是内部机械任务：suppressReasoning 让请求层按协议落实「零思考」
+        // （支持关闭的发显式关闭形态，强制思考模型剥离全部思考参数）。
+        val compactConfig = AgentRuntimePolicy.stripThinkingOverrides(
+            base.copy(
+                thinkingEnabled = false,
+                reasoningEffort = ReasoningEffort.DEFAULT,
+                suppressReasoning = true,
+                terminalTools = false,
+                browserTools = false,
+                deviceDirectTools = false,
+                deviceSensitiveReadTools = false,
+                deviceSensitiveActionTools = false,
+                hostedWebSearchEnabled = false,
+            ),
         )
         return AgentRuntimeWire.encodeCompactConfig(compactConfig)
     }

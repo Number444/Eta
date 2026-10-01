@@ -13,6 +13,10 @@ internal object ProviderReasoning {
         request: JSONObject,
         config: AgentModelClient.ModelConfig,
     ) {
+        if (config.suppressReasoning) {
+            applyNoThinking(request, sourceType(config), config.model)
+            return
+        }
         val effort = validatedEffort(config)
         val sourceType = sourceType(config)
         if (
@@ -43,6 +47,11 @@ internal object ProviderReasoning {
         request: JSONObject,
         config: AgentModelClient.ModelConfig,
     ) {
+        if (config.suppressReasoning) {
+            stripThinkingOverrides(request)
+            request.put("reasoning", JSONObject().put("effort", "none"))
+            return
+        }
         if (config.reasoningCapabilities == null) return
         val effort = validatedEffort(config)
         if (sourceType(config) == ProviderSourceTypes.OPENAI) {
@@ -85,14 +94,14 @@ internal object ProviderReasoning {
         request: JSONObject,
         config: AgentModelClient.ModelConfig,
     ) {
+        if (config.suppressReasoning) {
+            applyAnthropicNoThinking(request)
+            return
+        }
         val effort = validatedEffort(config)
         if (effort == ReasoningEffort.DEFAULT) return
         if (effort == ReasoningEffort.OFF) {
-            request.put("thinking", JSONObject().put("type", "disabled"))
-            request.optJSONObject("output_config")?.let { outputConfig ->
-                outputConfig.remove("effort")
-                if (outputConfig.length() == 0) request.remove("output_config")
-            }
+            applyAnthropicNoThinking(request)
             return
         }
         require(effort != ReasoningEffort.MINIMAL) {
@@ -316,6 +325,73 @@ internal object ProviderReasoning {
     private fun applyNamedReasoningEffort(request: JSONObject, effort: ReasoningEffort) {
         request.put("reasoning_effort", if (effort == ReasoningEffort.OFF) "none" else effort.wireValue)
     }
+
+    // ── Eta Mod：零思考（suppressReasoning）请求形态 ─────────────────────
+
+    private fun applyAnthropicNoThinking(request: JSONObject) {
+        request.put("thinking", JSONObject().put("type", "disabled"))
+        request.optJSONObject("output_config")?.let { outputConfig ->
+            outputConfig.remove("effort")
+            if (outputConfig.length() == 0) request.remove("output_config")
+        }
+    }
+
+    /**
+     * 协议支持显式关闭就发关闭形态；协议不给关闭口的强制思考模型（如 kimi-k3）
+     * 只剥离、不发送任何思考参数。键清单必须与 AgentRuntimePolicy.THINKING_OVERRIDE_KEYS 保持一致。
+     */
+    private fun applyNoThinking(request: JSONObject, sourceType: String, modelId: String) {
+        stripThinkingOverrides(request)
+        val model = modelId.trim().lowercase()
+        when (sourceType) {
+            ProviderSourceTypes.BAILIAN -> when {
+                model.startsWith("qwen") -> {
+                    request.put("enable_thinking", false)
+                    request.remove("thinking_budget")
+                }
+                model.startsWith("kimi-k2.6") || model.startsWith("kimi-k2.5") ->
+                    request.put("thinking", JSONObject().put("type", "disabled"))
+                else -> Unit
+            }
+            ProviderSourceTypes.SILICONFLOW -> {
+                request.put("enable_thinking", false)
+                request.remove("thinking_budget")
+            }
+            ProviderSourceTypes.DEEPSEEK,
+            ProviderSourceTypes.MIMO ->
+                request.put("thinking", JSONObject().put("type", "disabled"))
+            ProviderSourceTypes.MOONSHOT -> when {
+                model.startsWith("kimi-k3") -> Unit
+                model.startsWith("kimi-k2.6") || model.startsWith("kimi-k2.5") ->
+                    request.put("thinking", JSONObject().put("type", "disabled"))
+                else -> request.put("reasoning_effort", "none")
+            }
+            ProviderSourceTypes.OPENROUTER ->
+                request.put("reasoning", JSONObject().put("effort", "none"))
+            ProviderSourceTypes.OPENAI,
+            ProviderSourceTypes.CUSTOM -> request.put("reasoning_effort", "none")
+            else -> Unit
+        }
+    }
+
+    private fun stripThinkingOverrides(request: JSONObject) {
+        THINKING_KEYS.forEach(request::remove)
+        request.optJSONObject("output_config")?.let { outputConfig ->
+            outputConfig.remove("effort")
+            if (outputConfig.length() == 0) request.remove("output_config")
+        }
+    }
+
+    private val THINKING_KEYS = setOf(
+        "thinking",
+        "thinking_budget",
+        "reasoning",
+        "reasoning_effort",
+        "reasoning_budget",
+        "reasoning_max_tokens",
+        "enable_thinking",
+    )
+
 
     private fun unsupportedEffort(providerName: String, effort: ReasoningEffort): Nothing =
         throw IllegalArgumentException("$providerName 不支持 ${effort.displayName} thinking effort")

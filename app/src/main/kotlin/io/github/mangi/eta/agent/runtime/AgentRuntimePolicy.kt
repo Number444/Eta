@@ -37,7 +37,9 @@ internal object AgentRuntimePolicy {
         permissions: Permissions,
     ): AgentModelClient.ModelConfig {
         val requestedEffort = config.effectiveReasoningEffort
-        val effectiveEffort = if (permissions.thinking) requestedEffort else ReasoningEffort.OFF
+        // suppressReasoning（压缩等内部任务）视同关闭思考权限：强制 OFF 并剥离思考覆盖。
+        val effectiveEffort =
+            if (permissions.thinking && !config.suppressReasoning) requestedEffort else ReasoningEffort.OFF
         val thinkingEnabled = effectiveEffort.enablesReasoning
         val constrained = config.copy(
             terminalTools = config.terminalTools && permissions.terminalTools,
@@ -51,14 +53,19 @@ internal object AgentRuntimePolicy {
             reasoningEffort = effectiveEffort,
         )
         if (thinkingEnabled) return constrained
-        return constrained.copy(
-            extraBodyJson = stripThinkingOverrides(constrained.extraBodyJson),
-            customBody = constrained.customBody.mapNotNull { body ->
-                if (body.key.isThinkingKey()) return@mapNotNull null
-                body.copy(value = body.value.stripThinkingOverrides())
-            },
-        )
+        return stripThinkingOverrides(constrained)
     }
+
+    /** 「零思考」净化：剥离 extraBody/customBody 中的思考覆盖（Eta Mod，供压缩配置构建复用）。 */
+    fun stripThinkingOverrides(
+        config: AgentModelClient.ModelConfig,
+    ): AgentModelClient.ModelConfig = config.copy(
+        extraBodyJson = stripThinkingOverrides(config.extraBodyJson),
+        customBody = config.customBody.mapNotNull { body ->
+            if (body.key.isThinkingKey()) return@mapNotNull null
+            body.copy(value = body.value.stripThinkingOverrides())
+        },
+    )
 
     private fun SharedPreferences?.allowed(key: String): Boolean {
         if (this == null) return false

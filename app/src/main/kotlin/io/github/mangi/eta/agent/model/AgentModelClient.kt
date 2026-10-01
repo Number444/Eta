@@ -231,7 +231,8 @@ internal object AgentModelClient {
         require(apiKey.isNotBlank()) { "请先配置 API Key" }
         require(model.isNotBlank()) { "请先配置模型名" }
         require(
-            reasoningCapabilities?.mandatory != true ||
+            suppressReasoning ||
+                reasoningCapabilities?.mandatory != true ||
                 effectiveReasoningEffort != ReasoningEffort.OFF
         ) { "当前模型强制启用思考，不能选择 Off 或禁用思考权限" }
         if (extraBodyJson.isNotBlank()) {
@@ -280,6 +281,11 @@ internal object AgentModelClient {
         val thinkingEnabled: Boolean = false,
         val reasoningEffort: ReasoningEffort? = null,
         val reasoningCapabilities: ModelReasoningCapabilities? = null,
+        /**
+         * Eta Mod：「零思考」标记（上下文压缩等内部任务）。请求层按协议发送显式关闭形态，
+         * 协议不给关闭口的强制思考模型则剥离全部思考参数、一个都不发。
+         */
+        val suppressReasoning: Boolean = false,
         val extraBodyJson: String = "",
         val customHeaders: List<CustomHeader> = emptyList(),
         val customBody: List<CustomBody> = emptyList()
