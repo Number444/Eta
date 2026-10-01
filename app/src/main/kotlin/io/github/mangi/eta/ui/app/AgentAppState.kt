@@ -70,6 +70,7 @@ import io.github.mangi.eta.ui.model.MessageEditUiState
 import io.github.mangi.eta.ui.model.PendingFileReferenceUi
 import io.github.mangi.eta.ui.model.PendingImageUi
 import io.github.mangi.eta.ui.model.PermissionHealthItemUi
+import io.github.mangi.eta.ui.model.QueuedMessageUi
 import io.github.mangi.eta.ui.model.PermissionHealthUiState
 import io.github.mangi.eta.ui.model.PermissionStatusUi
 import io.github.mangi.eta.ui.model.SkillItemUi
@@ -1627,6 +1628,52 @@ internal class AgentAppState(
         }
     }
 
+    // ── Eta Mod：排队/插入消息 ──────────────────────────────────────────
+
+    /** 运行期间把输入框文本排入当前会话队列；运行结束后按序自动发送。 */
+    fun queueCurrentMessage(text: String) {
+        val prompt = text.trim()
+        if (prompt.isBlank() || !homeState.isStreaming) return
+        updateCurrentConversation(
+            homeState.copy(
+                queuedMessages = homeState.queuedMessages +
+                    QueuedMessageUi(id = "queued-${UUID.randomUUID()}", text = prompt),
+            ),
+        )
+    }
+
+    /** 插入：立即从队列取出并作为 steering 补充注入正在运行的 run（下一轮 loop 前进入上下文）。 */
+    fun insertQueuedMessage(id: String) {
+        val item = homeState.queuedMessages.firstOrNull { it.id == id } ?: return
+        if (!homeState.isStreaming) return
+        val conversationId = selectedConversationId ?: return
+        val runId = runConversationIds.entries.firstOrNull { it.value == conversationId }?.key ?: return
+        updateCurrentConversation(
+            homeState.copy(queuedMessages = homeState.queuedMessages.filterNot { it.id == id }),
+        )
+        scope.launch(Dispatchers.IO) {
+            AgentRuntimeClient(appContext, AndroidAgentLogger).sendSupplement(runId, item.text)
+        }
+    }
+
+    /** 编辑：从队列取出并回填输入框（已有内容时换行追加）。 */
+    fun editQueuedMessage(id: String) {
+        val item = homeState.queuedMessages.firstOrNull { it.id == id } ?: return
+        val merged = if (homeState.input.isBlank()) item.text else homeState.input + "\n" + item.text
+        updateCurrentConversation(
+            homeState.copy(
+                queuedMessages = homeState.queuedMessages.filterNot { it.id == id },
+                input = merged,
+            ),
+        )
+    }
+
+    fun deleteQueuedMessage(id: String) {
+        updateCurrentConversation(
+            homeState.copy(queuedMessages = homeState.queuedMessages.filterNot { it.id == id }),
+        )
+    }
+
     private var permissionRefreshJob: Job? = null
 
     fun refreshPermissionHealth() {
@@ -2263,6 +2310,10 @@ internal class AgentAppState(
             )
         }
         setConversationStreaming(runId, false)
+        // Eta Mod：排队消化——CHAT 运行自然结束（含失败）后自动发送队列下一条；
+        // 用户手动停止不消化，避免停止后意外立刻发起新运行。
+        val wasStoppedByUser = result.error == LEGACY_STOPPED_ERROR || result.error == SYNTHETIC_STATUS_STOPPED
+        val finishedConversationId = conversationIdForRun(runId)
         conversationIdForRun(runId)?.let { id -> conversationsById[id]?.let {
             updateConversation(id, RoleplayConversationReducer.linkRun(it, runId))
         } }
@@ -2278,6 +2329,23 @@ internal class AgentAppState(
                 null
             }
         )
+        drainQueuedMessageIfIdle(finishedConversationId, result, wasStoppedByUser)
+    }
+
+    /** Eta Mod：运行结束后若队列非空则自动发送下一条；仅消化当前正在查看的会话。 */
+    private fun drainQueuedMessageIfIdle(
+        conversationId: String?,
+        result: AgentRuntimeWire.RunResult,
+        wasStoppedByUser: Boolean,
+    ) {
+        if (conversationId == null || wasStoppedByUser) return
+        if (result.operation != AgentRuntimeWire.OP_CHAT) return
+        if (conversationId != selectedConversationId) return
+        val state = conversationsById[conversationId] ?: return
+        if (state.isStreaming) return
+        val next = state.queuedMessages.firstOrNull() ?: return
+        updateConversation(conversationId, state.copy(queuedMessages = state.queuedMessages.drop(1)))
+        sendCurrentMessage(next.text)
     }
 
     private fun updateRunTrace(

@@ -120,6 +120,16 @@ internal class AgentRuntimeClient(
         }
     }
 
+    /** Eta Mod：向运行中的 run 发送用户补充消息（插入）；runId 不匹配活跃 run 时服务端忽略。 */
+    fun sendSupplement(runId: String, text: String) {
+        if (runId.isBlank() || text.isBlank()) return
+        withRuntimeMessenger(Unit) { serviceMessenger ->
+            val msg = Message.obtain(null, AgentRuntimeWire.MSG_SUPPLEMENT)
+            msg.data = AgentRuntimeWire.supplementBundle(runId, text)
+            serviceMessenger.send(msg)
+        }
+    }
+
     fun ackResult(runId: String): Boolean {
         if (runId.isBlank()) return false
         return withRuntimeMessenger(false) { serviceMessenger ->

@@ -344,6 +344,10 @@ fun AgentAppRoot(
                                     }
                                 }
                                 is AgentHomeAction.SelectReplyCandidate -> agentState.selectReplyCandidate(action.id, action.index)
+                                is AgentHomeAction.QueueMessage -> agentState.queueCurrentMessage(action.text)
+                                is AgentHomeAction.InsertQueuedMessage -> agentState.insertQueuedMessage(action.id)
+                                is AgentHomeAction.EditQueuedMessage -> agentState.editQueuedMessage(action.id)
+                                is AgentHomeAction.DeleteQueuedMessage -> agentState.deleteQueuedMessage(action.id)
                                 AgentHomeAction.OpenTools -> pushRoute(AppRoute.Tools)
                                 AgentHomeAction.OpenSkills -> pushRoute(AppRoute.Skills)
                                 AgentHomeAction.OpenPermissions -> pushRoute(AppRoute.Permissions)
@@ -396,6 +400,10 @@ fun AgentAppRoot(
                                     }
                                 }
                                 is AgentChatAction.SelectReplyCandidate -> agentState.selectReplyCandidate(action.id, action.index)
+                                is AgentChatAction.QueueMessage -> agentState.queueCurrentMessage(action.text)
+                                is AgentChatAction.InsertQueuedMessage -> agentState.insertQueuedMessage(action.id)
+                                is AgentChatAction.EditQueuedMessage -> agentState.editQueuedMessage(action.id)
+                                is AgentChatAction.DeleteQueuedMessage -> agentState.deleteQueuedMessage(action.id)
                             }
                         },
                     )

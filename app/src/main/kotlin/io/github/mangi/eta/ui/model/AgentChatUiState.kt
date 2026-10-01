@@ -23,6 +23,8 @@ internal data class AgentChatUiState(
     val pendingFileReferences: List<PendingFileReferenceUi> = emptyList(),
     val appliedRuntimeRunIds: List<String> = emptyList(),
     val messageEdit: MessageEditUiState? = null,
+    /** Eta Mod：运行期间排队的待发送消息（纯文本）；运行结束后按序自动发送。 */
+    val queuedMessages: List<QueuedMessageUi> = emptyList(),
     val roleplay: RoleplayBinding? = null,
     val roleplayMessages: RoleplayMessageState = RoleplayMessageState(),
 ) {
@@ -164,6 +166,13 @@ data class PendingImageUi(
     val uri: String,
     val dataUrl: String,
     val mimeType: String,
+)
+
+/** Eta Mod：排队消息（运行期间从输入框排入的纯文本草稿）。 */
+@Immutable
+data class QueuedMessageUi(
+    val id: String,
+    val text: String,
 )
 
 @Immutable

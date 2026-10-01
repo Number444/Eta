@@ -1159,6 +1159,11 @@
   <string name="chat_eta_working">Eta is working…</string>
   <string name="chat_input_hint">Ask Eta to do something</string>
   <string name="chat_stop">Stop</string>
+  <string name="chat_queue_message">Queue message</string>
+  <string name="queue_insert_now">Insert now</string>
+  <string name="queue_edit">Edit</string>
+  <string name="queue_delete">Delete</string>
+  <string name="share_as_image">Share as image</string>
   <string name="chat_send">Send</string>
   <string name="chat_reasoning_effort">Reasoning effort: %1$s</string>
   <string name="status_unsupported">Unsupported</string>

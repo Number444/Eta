@@ -39,7 +39,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDownward
+import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DocumentScanner
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.RocketLaunch
 import androidx.compose.material.icons.rounded.Terminal
@@ -71,6 +74,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
@@ -85,6 +89,7 @@ import io.github.mangi.eta.ui.model.AgentModelPickerUiState
 import io.github.mangi.eta.ui.model.MessageEditUiState
 import io.github.mangi.eta.ui.model.PendingFileReferenceUi
 import io.github.mangi.eta.ui.model.PendingImageUi
+import io.github.mangi.eta.ui.model.QueuedMessageUi
 import io.github.mangi.eta.ui.model.ThinkingMessageUi
 import io.github.mangi.eta.ui.model.ToolActivityMessageUi
 import io.github.mangi.eta.ui.model.ToolSummaryMessageUi
@@ -133,6 +138,11 @@ internal fun AgentChatBody(
     pendingImages: List<PendingImageUi>,
     pendingFileReferences: List<PendingFileReferenceUi>,
     messageEdit: MessageEditUiState?,
+    queuedMessages: List<QueuedMessageUi> = emptyList(),
+    onQueueMessage: (String) -> Unit = {},
+    onInsertQueued: (String) -> Unit = {},
+    onEditQueued: (String) -> Unit = {},
+    onDeleteQueued: (String) -> Unit = {},
     onReasoningEffortChange: (ReasoningEffort) -> Unit,
     onCompactContext: () -> Unit,
     canCompactContext: Boolean,
@@ -247,6 +257,11 @@ internal fun AgentChatBody(
             onAttachFolder = onAttachFolder,
             onAttachFilePath = onAttachFilePath,
             onRemoveFileReference = onRemoveFileReference,
+            queuedMessages = queuedMessages,
+            onQueueMessage = onQueueMessage,
+            onInsertQueued = onInsertQueued,
+            onEditQueued = onEditQueued,
+            onDeleteQueued = onDeleteQueued,
             onEditMessage = onEditMessage,
             onCancelMessageEdit = onCancelMessageEdit,
             onDeleteMessage = onDeleteMessage,
@@ -277,6 +292,11 @@ private fun AgentChatScaffold(
     pendingImages: List<PendingImageUi>,
     pendingFileReferences: List<PendingFileReferenceUi>,
     messageEdit: MessageEditUiState?,
+    queuedMessages: List<QueuedMessageUi>,
+    onQueueMessage: (String) -> Unit,
+    onInsertQueued: (String) -> Unit,
+    onEditQueued: (String) -> Unit,
+    onDeleteQueued: (String) -> Unit,
     showEmptySuggestions: Boolean,
     characterName: String?,
     keepBottomAnchored: Boolean,
@@ -335,6 +355,11 @@ private fun AgentChatScaffold(
                 pendingImages = pendingImages,
                 pendingFileReferences = pendingFileReferences,
                 messageEdit = messageEdit,
+                queuedMessages = queuedMessages,
+                onQueueMessage = onQueueMessage,
+                onInsertQueued = onInsertQueued,
+                onEditQueued = onEditQueued,
+                onDeleteQueued = onDeleteQueued,
                 onSubmit = onSubmit,
                 onReasoningEffortChange = onReasoningEffortChange,
                 onCompactContext = onCompactContext,
@@ -410,6 +435,19 @@ internal fun AgentConversationMessages(
     modifier: Modifier = Modifier,
 ) {
     val timelineEntries = remember(visibleMessages) { visibleMessages.toTimelineEntries() }
+    // Eta Mod：分享为长图时带上本轮的用户提问。
+    val shareUserPrompts = remember(visibleMessages) {
+        buildMap {
+            var lastUserPrompt: String? = null
+            visibleMessages.forEach { message ->
+                when (message) {
+                    is UserMessageUi -> lastUserPrompt = message.content
+                    is AgentMessageUi -> put(message.id, lastUserPrompt)
+                    else -> Unit
+                }
+            }
+        }
+    }
     // 复制按钮只出现在每轮对话的最终结果上，中间步骤的过渡文本不提供复制入口。
     // 流式进行中当前这一轮尚未收尾，此时的“最后一条正文”只是中间步骤，不标记。
     val finalResultMessageIds = remember(visibleMessages, isStreaming) {
@@ -652,6 +690,7 @@ internal fun AgentConversationMessages(
                             onDeleteMessage = onDeleteMessage,
                             onRegenerateMessage = onRegenerateMessage,
                             onSelectReplyCandidate = onSelectReplyCandidate,
+                            shareUserPrompt = (message as? AgentMessageUi)?.let { shareUserPrompts[it.id] },
                             modifier = itemModifier,
                         )
                     }
@@ -844,6 +883,11 @@ private fun AgentChatBottomBar(
     pendingImages: List<PendingImageUi>,
     pendingFileReferences: List<PendingFileReferenceUi>,
     messageEdit: MessageEditUiState?,
+    queuedMessages: List<QueuedMessageUi>,
+    onQueueMessage: (String) -> Unit,
+    onInsertQueued: (String) -> Unit,
+    onEditQueued: (String) -> Unit,
+    onDeleteQueued: (String) -> Unit,
     onSubmit: (String) -> Unit,
     onReasoningEffortChange: (ReasoningEffort) -> Unit,
     onCompactContext: () -> Unit,
@@ -916,6 +960,16 @@ private fun AgentChatBottomBar(
                 .navigationBarsPadding()
                 .padding(start = 14.dp, end = 14.dp, bottom = 12.dp),
         ) {
+            if (queuedMessages.isNotEmpty()) {
+                QueuedMessagesPanel(
+                    messages = queuedMessages,
+                    canInsert = isStreaming,
+                    onInsert = onInsertQueued,
+                    onEdit = onEditQueued,
+                    onDelete = onDeleteQueued,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            }
             AgentChatInputBar(
                 input = input,
                 modelPickerState = modelPickerState,
@@ -936,6 +990,7 @@ private fun AgentChatBottomBar(
                 canCompactContext = canCompactContext,
                 onModelSelected = onModelSelected,
                 onStop = onStop,
+                onQueueMessage = onQueueMessage,
                 onAttachImage = onAttachImage,
                 onRemoveImage = onRemoveImage,
                 onAttachFiles = onAttachFiles,
@@ -950,6 +1005,83 @@ private fun AgentChatBottomBar(
 }
 
 private val ChatBottomFrostHeight = 24.dp
+
+/**
+ * Eta Mod：排队消息面板——输入框上方的悬浮卡片，与输入框同风格（圆角 20dp、surfaceContainer），
+ * 每条排队消息一行：左侧文本摘要，右侧插入/编辑/删除三个操作按钮。
+ */
+@Composable
+private fun QueuedMessagesPanel(
+    messages: List<QueuedMessageUi>,
+    canInsert: Boolean,
+    onInsert: (String) -> Unit,
+    onEdit: (String) -> Unit,
+    onDelete: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        messages.forEach { item ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(MiuixTheme.colorScheme.surfaceContainer)
+                    .padding(start = 16.dp, top = 4.dp, end = 6.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = item.text,
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                if (canInsert) {
+                    IconButton(
+                        onClick = { onInsert(item.id) },
+                        minWidth = 32.dp,
+                        minHeight = 32.dp,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.ArrowUpward,
+                            contentDescription = stringResource(R.string.queue_insert_now),
+                            modifier = Modifier.size(16.dp),
+                            tint = MiuixTheme.colorScheme.primary,
+                        )
+                    }
+                }
+                IconButton(
+                    onClick = { onEdit(item.id) },
+                    minWidth = 32.dp,
+                    minHeight = 32.dp,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Edit,
+                        contentDescription = stringResource(R.string.queue_edit),
+                        modifier = Modifier.size(16.dp),
+                        tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
+                    )
+                }
+                IconButton(
+                    onClick = { onDelete(item.id) },
+                    minWidth = 32.dp,
+                    minHeight = 32.dp,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Delete,
+                        contentDescription = stringResource(R.string.queue_delete),
+                        modifier = Modifier.size(16.dp),
+                        tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
+                    )
+                }
+            }
+        }
+    }
+}
 
 private const val ChatBottomSentinelKey = "agent-chat-bottom-sentinel"
 private const val BOTTOM_FOLLOW_RESPONSE_SECONDS = 0.085f

@@ -83,6 +83,9 @@ internal object AgentRuntimeWire {
     /** service -> client：返回是否成功重新订阅指定 run。 */
     const val MSG_ATTACH_RUN_RESPONSE = 12
 
+    /** client -> service：向运行中的 run 插入用户补充消息（steering），下一轮 loop 迭代前进入上下文。 */
+    const val MSG_SUPPLEMENT = 16
+
     private const val MODULE_PACKAGE = "io.github.mangi.eta.mod"
     private const val SERVICE_CLASS = "io.github.mangi.eta.agent.runtime.AgentRuntimeService"
 
@@ -604,6 +607,14 @@ internal object AgentRuntimeWire {
     fun ackBundle(runId: String): Bundle = Bundle().apply {
         putString(KEY_RUN_ID, runId)
     }
+
+    fun supplementBundle(runId: String, text: String): Bundle = Bundle().apply {
+        putString(KEY_RUN_ID, runId)
+        putString(KEY_PROMPT, text)
+    }
+
+    fun supplementTextFromBundle(bundle: Bundle): String =
+        bundle.getString(KEY_PROMPT).orEmpty()
 
     fun attachRunResponseBundle(runId: String, attached: Boolean): Bundle = Bundle().apply {
         putString(KEY_RUN_ID, runId)

@@ -62,6 +62,7 @@ import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -71,6 +72,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -91,6 +93,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -157,10 +160,13 @@ import io.github.mangi.eta.ui.model.ToolActivityMessageUi
 import io.github.mangi.eta.ui.model.ToolActivityStatusUi
 import io.github.mangi.eta.ui.model.ToolSummaryMessageUi
 import io.github.mangi.eta.ui.model.UserMessageUi
+import io.github.mangi.eta.ui.app.LocalAppearanceSettings
+import io.github.mangi.eta.ui.share.MessageShareImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.intellij.markdown.IElementType
 import org.intellij.markdown.MarkdownElementTypes
@@ -274,6 +280,7 @@ internal fun ChatMessageItem(
     onDeleteMessage: (String) -> Unit = {},
     onRegenerateMessage: (String) -> Unit = {},
     onSelectReplyCandidate: (String, Int) -> Unit = { _, _ -> },
+    shareUserPrompt: String? = null,
 ) {
     when (message) {
         is UserMessageUi -> UserMessageBubble(
@@ -297,6 +304,7 @@ internal fun ChatMessageItem(
             onRegenerate = { onRegenerateMessage(message.id) },
             onEdit = { onEditMessage(message.id) },
             onSelectCandidate = { onSelectReplyCandidate(message.id, it) },
+            shareUserPrompt = shareUserPrompt,
             modifier = modifier,
         )
         is SystemNoticeMessageUi -> if (message.code == SystemNoticeCode.ContextCompaction) {
@@ -837,10 +845,16 @@ private fun AgentMessageBlock(
     onRegenerate: () -> Unit,
     onEdit: () -> Unit = {},
     onSelectCandidate: (Int) -> Unit = {},
+    shareUserPrompt: String? = null,
     modifier: Modifier = Modifier,
 ) {
     @Suppress("DEPRECATION")
     val clipboardManager = LocalClipboardManager.current
+    var shareRendering by remember(message.id) { mutableStateOf(false) }
+    val shareView = LocalView.current
+    val shareScope = rememberCoroutineScope()
+    val shareAppearance = LocalAppearanceSettings.current
+    val shareBrand = stringResource(R.string.app_name)
     var copied by remember(message.id) { mutableStateOf(false) }
     val keepStreamingMarkdown = remember(message.id) { message.isStreaming }
     var streamingRevealComplete by remember(message.id) {
@@ -946,6 +960,37 @@ private fun AgentMessageBlock(
                     )
                 }
                 if (allowSpeech) SpeechReadAloudButton(message.id, message.content)
+                // Eta Mod：分享为长图——把本轮问答离屏渲染成卡片 PNG 后走系统分享。
+                IconButton(
+                    onClick = {
+                        if (shareRendering) return@IconButton
+                        shareRendering = true
+                        shareScope.launch {
+                            runCatching {
+                                MessageShareImage.shareTurnAsImage(
+                                    anchor = shareView,
+                                    appearance = shareAppearance,
+                                    userPrompt = shareUserPrompt
+                                        ?.let { AgentFileReferencePromptCodec.parse(it).request }
+                                        ?.takeIf { it.isNotBlank() },
+                                    answerMarkdown = message.content,
+                                    brand = shareBrand,
+                                )
+                            }
+                            shareRendering = false
+                        }
+                    },
+                    enabled = !shareRendering,
+                    minWidth = 30.dp,
+                    minHeight = 30.dp,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Share,
+                        contentDescription = stringResource(R.string.share_as_image),
+                        modifier = Modifier.size(15.dp),
+                        tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
+                    )
+                }
                 if (showMessageActions) {
                     if (message.characterEditable) {
                         IconButton(onClick = onEdit, enabled = messageActionsEnabled, minWidth = 30.dp, minHeight = 30.dp) {
@@ -1036,7 +1081,7 @@ private fun AgentMessageBlock(
 }
 
 @Composable
-private fun StableMarkdown(
+internal fun StableMarkdown(
     content: String,
     modifier: Modifier = Modifier,
     tone: ChatMarkdownTone = ChatMarkdownTone.Answer,
@@ -1327,7 +1372,7 @@ internal fun streamingMarkdownBatchEnd(
 
 // ── Markdown 样式：克制的聊天排版，标题只作强调不作页面标题 ─────────────
 
-private enum class ChatMarkdownTone {
+internal enum class ChatMarkdownTone {
     Answer,
     Thinking,
 }

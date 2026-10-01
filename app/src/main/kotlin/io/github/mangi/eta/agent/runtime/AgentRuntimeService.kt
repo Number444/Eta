@@ -209,6 +209,17 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
                     if (runId.isNotBlank()) cancelRun(runId)
                 }
 
+                AgentRuntimeWire.MSG_SUPPLEMENT -> {
+                    // Eta Mod：App 内聊天的「插入」入口。runId 必须匹配当前活跃 run；
+                    // requestSupplement 已处理运行中 steering、已结束转 continuation run、非 CHAT 拒绝三种情形。
+                    val data = msg.data ?: return
+                    val runId = AgentRuntimeWire.runIdFromBundle(data)
+                    val text = AgentRuntimeWire.supplementTextFromBundle(data).trim()
+                    if (runId.isNotBlank() && text.isNotBlank() && runId == activeSession?.runId) {
+                        requestSupplement(text)
+                    }
+                }
+
                 AgentRuntimeWire.MSG_ACK_RESULT -> {
                     val runId = AgentRuntimeWire.runIdFromBundle(msg.data ?: return)
                     dispatchResultIo { AgentRuntimeResultStore.remove(this@AgentRuntimeService, runId) }

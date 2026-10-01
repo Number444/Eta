@@ -166,6 +166,17 @@
             android:exported="true"
             android:grantUriPermissions="false"
             android:permission="android.permission.MANAGE_ACCESSIBILITY" />
+
+        <!-- Eta Mod：分享为长图时把缓存 PNG 授权给目标应用 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="io.github.mangi.eta.mod.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/eta_share_paths" />
+        </provider>
     </application>
 
 </manifest>

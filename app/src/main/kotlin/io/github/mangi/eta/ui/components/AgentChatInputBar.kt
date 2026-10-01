@@ -41,6 +41,7 @@ import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Stop
@@ -99,6 +100,9 @@ private val StopIconSize = 10.dp
 private val ThinkingIconSize = 21.dp
 private val InputContainerShape = RoundedCornerShape(20.dp)
 
+/** Eta Mod：右下角按钮三态——普通发送 / 运行中停止 / 运行中有文本时排队。 */
+private enum class SendButtonMode { Send, Stop, Queue }
+
 /**
  * Agent 输入器始终保持同一空间结构，聚焦、输入和执行过程只改变状态，不搬动操作入口。
  */
@@ -123,6 +127,7 @@ internal fun AgentChatInputBar(
     onModelSelected: (String) -> Unit,
     onSubmit: (String) -> Unit,
     onStop: () -> Unit,
+    onQueueMessage: (String) -> Unit,
     onAttachImage: (String) -> Unit,
     onRemoveImage: (String) -> Unit,
     onAttachFiles: (List<String>) -> Unit,
@@ -147,6 +152,8 @@ internal fun AgentChatInputBar(
     val canSend = textFieldState.text.isNotBlank() ||
         pendingImages.isNotEmpty() ||
         pendingFileReferences.isNotEmpty()
+    // Eta Mod：运行中且输入框已有文本时，右下角按钮从「停止」变为「排队」。
+    val queueMode = isStreaming && !isEditingMessage && textFieldState.text.isNotBlank()
     val density = LocalDensity.current
     val statusBarTopPx = WindowInsets.statusBars.getTop(density)
     var inputContainerTopPx by remember { mutableIntStateOf(0) }
@@ -166,6 +173,14 @@ internal fun AgentChatInputBar(
             keyboard?.show()
         }
         wasEditingMessage = isEditingMessage
+    }
+
+    // Eta Mod：外部回填（如「编辑排队消息」）时同步输入框；state.input 在普通打字期间
+    // 不会变化，因此该 effect 只在外部写入 input 时触发，不干扰本地输入。
+    LaunchedEffect(input) {
+        if (!isEditingMessage && input != textFieldState.text.toString()) {
+            textFieldState.setTextAndPlaceCursorAtEnd(input)
+        }
     }
 
     LaunchedEffect(isStreaming, isCompacting) {
@@ -347,15 +362,24 @@ internal fun AgentChatInputBar(
                         )
 
                         IconButton(
-                            onClick = if (isStreaming) {
-                                onStop
-                            } else {
-                                {
-                                    if (canSend) {
+                            onClick = when {
+                                queueMode -> {
+                                    {
                                         dictation.cancel()
-                                        val submittedText = textFieldState.text.toString()
+                                        val queuedText = textFieldState.text.toString()
                                         textFieldState.clearText()
-                                        onSubmit(submittedText)
+                                        onQueueMessage(queuedText)
+                                    }
+                                }
+                                isStreaming -> onStop
+                                else -> {
+                                    {
+                                        if (canSend) {
+                                            dictation.cancel()
+                                            val submittedText = textFieldState.text.toString()
+                                            textFieldState.clearText()
+                                            onSubmit(submittedText)
+                                        }
                                     }
                                 }
                             },
@@ -366,6 +390,7 @@ internal fun AgentChatInputBar(
                             // 保留统一的点击区域，仅让可见圆形与相邻操作图标保持同一尺寸。
                             val sendButtonColor by animateColorAsState(
                                 targetValue = when {
+                                    queueMode -> MiuixTheme.colorScheme.primary
                                     isStreaming -> MiuixTheme.colorScheme.onSurface
                                     canSend -> MiuixTheme.colorScheme.primary
                                     else -> MiuixTheme.colorScheme.surfaceContainerHigh
@@ -381,7 +406,11 @@ internal fun AgentChatInputBar(
                                 contentAlignment = Alignment.Center,
                             ) {
                                 AnimatedContent(
-                                    targetState = isStreaming,
+                                    targetState = when {
+                                        queueMode -> SendButtonMode.Queue
+                                        isStreaming -> SendButtonMode.Stop
+                                        else -> SendButtonMode.Send
+                                    },
                                     transitionSpec = {
                                         (fadeIn(tween(130)) + scaleIn(tween(160), initialScale = 0.72f))
                                             .togetherWith(
@@ -390,25 +419,31 @@ internal fun AgentChatInputBar(
                                             )
                                     },
                                     label = "send_stop_icon",
-                                ) { streaming ->
+                                ) { mode ->
                                     Icon(
-                                        imageVector = if (streaming) {
-                                            Icons.Rounded.Stop
-                                        } else {
-                                            Icons.Rounded.ArrowUpward
+                                        imageVector = when (mode) {
+                                            SendButtonMode.Queue -> Icons.AutoMirrored.Rounded.PlaylistAdd
+                                            SendButtonMode.Stop -> Icons.Rounded.Stop
+                                            SendButtonMode.Send -> Icons.Rounded.ArrowUpward
                                         },
-                                        contentDescription = when {
-                                            streaming -> stringResource(R.string.chat_stop)
-                                            isEditingMessage && preserveFollowingMessages -> "保存消息"
-                                            else -> stringResource(R.string.chat_send)
+                                        contentDescription = when (mode) {
+                                            SendButtonMode.Queue -> stringResource(R.string.chat_queue_message)
+                                            SendButtonMode.Stop -> stringResource(R.string.chat_stop)
+                                            SendButtonMode.Send -> when {
+                                                isEditingMessage && preserveFollowingMessages -> "保存消息"
+                                                else -> stringResource(R.string.chat_send)
+                                            }
                                         },
                                         modifier = Modifier.size(
-                                            if (streaming) StopIconSize else SendIconSize
+                                            if (mode == SendButtonMode.Stop) StopIconSize else SendIconSize
                                         ),
-                                        tint = when {
-                                            streaming -> MiuixTheme.colorScheme.surface
-                                            canSend -> MiuixTheme.colorScheme.onPrimary
-                                            else -> MiuixTheme.colorScheme.onSurfaceVariantActions
+                                        tint = when (mode) {
+                                            SendButtonMode.Queue -> MiuixTheme.colorScheme.onPrimary
+                                            SendButtonMode.Stop -> MiuixTheme.colorScheme.surface
+                                            SendButtonMode.Send -> when {
+                                                canSend -> MiuixTheme.colorScheme.onPrimary
+                                                else -> MiuixTheme.colorScheme.onSurfaceVariantActions
+                                            }
                                         },
                                     )
                                 }
