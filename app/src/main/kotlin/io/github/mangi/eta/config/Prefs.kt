@@ -45,6 +45,8 @@ internal object Prefs {
         const val AGENT_THINKING_ENABLED = "agent_thinking_enabled"
         const val AGENT_AUTO_EXPAND_THINKING = "agent_auto_expand_thinking"
         const val AGENT_DEFAULT_REASONING_EFFORT = "agent_default_reasoning_effort"
+        const val AGENT_COMPACT_PROVIDER_ID = "agent_compact_provider_id"
+        const val AGENT_COMPACT_MODEL_ID = "agent_compact_model_id"
         const val AGENT_RUNTIME_CONFIG_JSON = "agent_runtime_config_json"
 
         /** 全部布尔开关及其默认值。 */

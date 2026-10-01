@@ -17,6 +17,9 @@ internal class AgentContextSession(
     private val onContextSnapshot: (AgentContextSnapshot) -> Unit,
     private val transcriptSize: () -> Int = { 0 },
     private val roleplay: Boolean = false,
+    /** Eta Mod：上下文压缩专用配置与延迟初始化的 provider；缺省时回退主模型。 */
+    private val compactConfig: AgentModelClient.ModelConfig? = null,
+    private val compactProvider: () -> AgentProviderClient? = { null },
 ) {
     val budget = AgentContextBudget(config.contextWindow)
     private var compacted = false
@@ -80,9 +83,20 @@ internal class AgentContextSession(
             var candidate = messages
             var attempts = 0
             do {
-                candidate = AgentContextCompactor(config, provider, runController, roleplay = roleplay).compact(
-                    candidate, systemCount, sensitiveIds(), force,
-                )
+                candidate = runCatching {
+                    AgentContextCompactor(
+                        compactConfig ?: config,
+                        if (compactConfig != null) compactProvider() ?: provider else provider,
+                        runController,
+                        roleplay = roleplay,
+                    ).compact(candidate, systemCount, sensitiveIds(), force)
+                }.getOrElse { failure ->
+                    // 压缩专用模型失败（网络/配置失效）时回退主模型重试，保证压缩可用。
+                    runController.throwIfCancelled()
+                    if (compactConfig == null) throw failure
+                    AgentContextCompactor(config, provider, runController, roleplay = roleplay)
+                        .compact(candidate, systemCount, sensitiveIds(), force)
+                }
                 attempts++
                 val tokens = budget.estimate(candidate, roundTools)
                 if (!budget.shouldCompact(tokens)) break

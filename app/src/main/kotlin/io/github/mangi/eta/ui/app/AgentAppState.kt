@@ -1347,6 +1347,7 @@ internal class AgentAppState(
                 }
                 return@launch
             }
+            val compactConfigJson = buildCompactConfigJson()
             val result = runInterruptible {
                 AgentRuntimeClient(appContext, AndroidAgentLogger).run(
                     request = AgentRuntimeWire.RunRequest(
@@ -1355,6 +1356,7 @@ internal class AgentAppState(
                         runId = runId,
                         prompt = prompt,
                         config = config,
+                        compactConfigJson = compactConfigJson,
                         images = modelImages,
                         history = history,
                         handoff = AgentRuntimeWire.EntryHandoff(
@@ -1391,6 +1393,34 @@ internal class AgentAppState(
             preparationJob.invokeOnCompletion { AgentExecutionService.release(leaseId) }
         }
         preparationJob.start()
+    }
+
+    /** Eta Mod：读取「上下文压缩模型」设置并构建备选配置；未设置或已失效时返回空串（回退主模型）。 */
+    private suspend fun buildCompactConfigJson(): String {
+        val providerId = Prefs.getLocalString(Prefs.Keys.AGENT_COMPACT_PROVIDER_ID)
+        val modelId = Prefs.getLocalString(Prefs.Keys.AGENT_COMPACT_MODEL_ID)
+        if (providerId.isBlank() || modelId.isBlank()) return ""
+        val provider = runCatching { ProviderRepository.providerById(providerId) }
+            .getOrNull()?.takeIf { it.isEnabled } ?: return ""
+        val model = provider.models.firstOrNull { it.id == modelId && it.isEnabled } ?: return ""
+        val base = RuntimeConfigRepository.buildRuntimeConfig(provider, model)
+        // 压缩是内部机械任务：强制最低思考档（可关则关，强制思考的模型退回 DEFAULT 以免崩溃）。
+        val lowestEffort = if (base.reasoningCapabilities?.canDisable == true) {
+            ReasoningEffort.OFF
+        } else {
+            ReasoningEffort.DEFAULT
+        }
+        val compactConfig = base.copy(
+            thinkingEnabled = lowestEffort.enablesReasoning,
+            reasoningEffort = lowestEffort,
+            terminalTools = false,
+            browserTools = false,
+            deviceDirectTools = false,
+            deviceSensitiveReadTools = false,
+            deviceSensitiveActionTools = false,
+            hostedWebSearchEnabled = false,
+        )
+        return AgentRuntimeWire.encodeCompactConfig(compactConfig)
     }
 
     private fun List<PendingImageUi>.toHistoryImages(): List<AgentModelClient.ModelImage> =

@@ -236,6 +236,7 @@ internal class AgentRuntimeRunExecutor(
             }
             val completedResponse = AgentModelClient.complete(
                 config = request.config,
+                compactConfig = AgentRuntimeWire.decodeCompactConfig(request.compactConfigJson),
                 sessionId = request.effectiveModelSessionId,
                 operationId = request.runId,
                 initialUserMessageId = uiPayload?.promptMessageId(request.runId) ?: "user-${request.runId}",

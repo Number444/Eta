@@ -237,6 +237,13 @@ private fun SettingsPageContent(
             ) ?: ReasoningEffort.DEFAULT,
         )
     }
+    // Eta Mod：上下文压缩模型（两级选择：服务商 → 模型）
+    var compactProviderId by remember {
+        mutableStateOf(agentPrefs?.getString(Prefs.Keys.AGENT_COMPACT_PROVIDER_ID, "").orEmpty())
+    }
+    var compactModelId by remember {
+        mutableStateOf(agentPrefs?.getString(Prefs.Keys.AGENT_COMPACT_MODEL_ID, "").orEmpty())
+    }
     var powerAssistantTarget by remember(prefs) {
         mutableStateOf(prefs?.let(Prefs::powerAssistantTarget) ?: enhancementHistory.powerTarget())
     }
@@ -344,6 +351,78 @@ private fun SettingsPageContent(
                         },
                         enabled = agentPrefs != null,
                     )
+
+                    // Eta Mod：上下文压缩模型（服务商 → 模型两级选择）
+                    val compactProviders = providers.filter { it.isEnabled }
+                    EtaPreferenceDivider()
+                    EtaDropdownPreference(
+                        title = stringResource(R.string.settings_compact_provider),
+                        summary = stringResource(R.string.settings_compact_model_summary),
+                        items = listOf(DropdownItem(text = stringResource(R.string.settings_compact_follow_main))) +
+                            compactProviders.map { DropdownItem(text = it.name) },
+                        selectedIndex = compactProviders.indexOfFirst { it.id == compactProviderId }
+                            .let { if (it < 0) 0 else it + 1 },
+                        onSelectedIndexChange = { index ->
+                            val targetPrefs = agentPrefs ?: return@EtaDropdownPreference
+                            val provider = compactProviders.getOrNull(index - 1)
+                            val newId = provider?.id.orEmpty()
+                            if (putStringSync(targetPrefs, Prefs.Keys.AGENT_COMPACT_PROVIDER_ID, newId) &&
+                                putStringSync(targetPrefs, Prefs.Keys.AGENT_COMPACT_MODEL_ID, "")
+                            ) {
+                                compactProviderId = newId
+                                compactModelId = ""
+                            } else {
+                                Toast.makeText(
+                                    context.applicationContext,
+                                    context.getString(R.string.settings_write_failed),
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        },
+                        startAction = {
+                            EtaPreferenceIcon(
+                                icon = Icons.Rounded.Memory,
+                                tint = EtaPreferenceColors.Blue,
+                                enabled = agentPrefs != null,
+                            )
+                        },
+                        enabled = agentPrefs != null,
+                    )
+                    val compactProvider = compactProviders.firstOrNull { it.id == compactProviderId }
+                    if (compactProvider != null) {
+                        val compactModels = compactProvider.models.filter { it.isEnabled }
+                        EtaPreferenceDivider()
+                        EtaDropdownPreference(
+                            title = stringResource(R.string.settings_compact_model),
+                            items = compactModels.map {
+                                DropdownItem(text = it.displayName.ifBlank { it.modelId })
+                            },
+                            selectedIndex = compactModels.indexOfFirst { it.id == compactModelId }
+                                .coerceAtLeast(0),
+                            onSelectedIndexChange = { index ->
+                                val model = compactModels.getOrNull(index)
+                                    ?: return@EtaDropdownPreference
+                                val targetPrefs = agentPrefs ?: return@EtaDropdownPreference
+                                if (putStringSync(targetPrefs, Prefs.Keys.AGENT_COMPACT_MODEL_ID, model.id)) {
+                                    compactModelId = model.id
+                                } else {
+                                    Toast.makeText(
+                                        context.applicationContext,
+                                        context.getString(R.string.settings_write_failed),
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                                }
+                            },
+                            startAction = {
+                                EtaPreferenceIcon(
+                                    icon = Icons.Rounded.Memory,
+                                    tint = EtaPreferenceColors.Blue,
+                                    enabled = agentPrefs != null,
+                                )
+                            },
+                            enabled = agentPrefs != null,
+                        )
+                    }
                 }
             }
 

@@ -18,6 +18,7 @@ import java.io.Closeable
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
 import java.io.File
 import kotlinx.serialization.json.Json
 
@@ -114,6 +115,7 @@ internal object AgentRuntimeWire {
     private const val KEY_EXTRA_BODY_JSON = "extra_body_json"
     private const val KEY_CUSTOM_HEADERS_JSON = "custom_headers_json"
     private const val KEY_CUSTOM_BODY_JSON = "custom_body_json"
+    private const val KEY_COMPACT_CONFIG_JSON = "compact_config_json"
     private const val KEY_IMAGES = "images"
     private const val KEY_HISTORY = "history"
     private const val KEY_CONTENT_JSON = "content_json"
@@ -162,6 +164,8 @@ internal object AgentRuntimeWire {
         val operation: String = OP_CHAT,
         val rewriteTargetMessageId: String? = null,
         val assistantScreenContext: String = "",
+        /** Eta Mod：可选的上下文压缩专用模型配置（序列化 JSON）；空串表示跟随主模型。 */
+        val compactConfigJson: String = "",
     ) {
         // 旧入口沿用会话 handoff；无持久会话的入口以首个 run 为会话起点。
         val effectiveModelSessionId: String
@@ -237,6 +241,15 @@ internal object AgentRuntimeWire {
 
     fun serviceIntent(): Intent =
         Intent(ACTION_BIND).setComponent(ComponentName(MODULE_PACKAGE, SERVICE_CLASS))
+
+    /** Eta Mod：压缩上下文专用模型配置的编解码；解析失败一律回退主模型。 */
+    fun encodeCompactConfig(config: AgentModelClient.ModelConfig): String =
+        json.encodeToString(config)
+
+    fun decodeCompactConfig(value: String): AgentModelClient.ModelConfig? =
+        value.takeIf { it.isNotBlank() }?.let { raw ->
+            runCatching { json.decodeFromString<AgentModelClient.ModelConfig>(raw) }.getOrNull()
+        }
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -316,6 +329,9 @@ internal object AgentRuntimeWire {
         putString(KEY_EXTRA_BODY_JSON, request.config.extraBodyJson)
         putString(KEY_CUSTOM_HEADERS_JSON, json.encodeToString(request.config.customHeaders))
         putString(KEY_CUSTOM_BODY_JSON, json.encodeToString(request.config.customBody))
+        if (request.compactConfigJson.isNotBlank()) {
+            putString(KEY_COMPACT_CONFIG_JSON, request.compactConfigJson)
+        }
         request.handoff?.let { putBundle(KEY_HANDOFF, toBundle(it)) }
         putParcelableArrayList(
             KEY_HISTORY,
@@ -419,6 +435,7 @@ internal object AgentRuntimeWire {
                 require(it.isNotBlank() && it.length <= 256) { "Invalid rewrite target" }
             },
             modelSessionId = bundle.getString(KEY_MODEL_SESSION_ID).orEmpty(),
+            compactConfigJson = bundle.getString(KEY_COMPACT_CONFIG_JSON).orEmpty(),
             config = AgentModelClient.ModelConfig(
                 providerId = bundle.getString(KEY_PROVIDER_ID).orEmpty(),
                 providerName = bundle.getString(KEY_PROVIDER_NAME).orEmpty(),

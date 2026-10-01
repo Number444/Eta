@@ -8,6 +8,10 @@
   <string name="settings_default_reasoning_effort">Default reasoning effort</string>
   <string name="settings_default_reasoning_effort_summary">Applied to new conversations; clamped to what the model supports</string>
   <string name="settings_reasoning_effort_follow_model">Follow model default</string>
+  <string name="settings_compact_provider">Compaction model provider</string>
+  <string name="settings_compact_model">Compaction model</string>
+  <string name="settings_compact_model_summary">Use the selected model for context compaction at the lowest reasoning tier; falls back to the main model if unavailable</string>
+  <string name="settings_compact_follow_main">Follow main model</string>
   <string name="xposed_description">A system-level AI agent that takes over Breeno and Super XiaoAI, enables Gemini and Circle to Search, and integrates browser, terminal, and device tools.</string>
   <string name="agent_accessibility_label">Eta Agent</string>
   <string name="agent_accessibility_description">Read screen content and perform taps, swipes, text input, and other actions to help the agent complete tasks.</string>

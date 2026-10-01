@@ -16,6 +16,8 @@ import org.json.JSONObject
  */
 internal class AgentLoop(
     private val config: AgentModelClient.ModelConfig,
+    /** Eta Mod：上下文压缩专用配置；null 时压缩仍走主模型。 */
+    private val compactConfig: AgentModelClient.ModelConfig? = null,
     private val messages: JSONArray,
     private val tools: JSONArray,
     private val provider: AgentProviderClient,
@@ -50,10 +52,15 @@ internal class AgentLoop(
     private val accumulatedReasoning = StringBuilder()
     private val sensitiveToolCallIds = linkedSetOf<String>()
     private var pendingToolImageMessage: JSONObject? = null
+    private val compactProvider: AgentProviderClient? by lazy {
+        compactConfig?.let(ProviderClientFactory::getClient)
+    }
     private val context = AgentContextSession(
         config, messages, systemCount, operationId, provider, runController,
         { sensitiveToolCallIds }, onEvent, onContextSnapshot, { transcript.length() },
         roleplay = roleplayContext != null,
+        compactConfig = compactConfig,
+        compactProvider = { compactProvider },
     )
     private var supplementIndex = initialSupplementIndex
 

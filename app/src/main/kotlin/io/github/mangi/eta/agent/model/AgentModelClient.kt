@@ -101,6 +101,8 @@ internal object AgentModelClient {
         roleplayContext: RoleplayRunContext? = null,
         rewriteReply: Boolean = false,
         assistantScreenContext: String = "",
+        /** Eta Mod：上下文压缩专用模型配置；null 或校验失败时回退主模型。 */
+        compactConfig: ModelConfig? = null,
         onContextSnapshot: (AgentContextSnapshot) -> Unit = {},
         onTranscript: (List<ConversationMessage>) -> Unit = {},
         onEvent: (AgentEvent) -> Unit = {}
@@ -162,6 +164,9 @@ internal object AgentModelClient {
             )
         )
         var promptRootAvailable = initialCapabilities.rootAvailable
+        val effectiveCompactConfig = compactConfig?.takeIf { candidate ->
+            runCatching { candidate.validate() }.isSuccess
+        }
         val loop = AgentLoop(
             transcript = transcript,
             systemCount = systemCount,
@@ -170,6 +175,7 @@ internal object AgentModelClient {
             onTranscript = onTranscript,
             sessionId = sessionId,
             config = config,
+            compactConfig = effectiveCompactConfig,
             messages = messages,
             tools = tools,
             provider = provider,
