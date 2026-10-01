@@ -4,13 +4,13 @@
   <string name="settings_language_system">跟隨系統</string>
   <string name="app_name">Eta Mod</string>
   <string name="settings_auto_expand_thinking">自動展開思考過程</string>
-  <string name="settings_auto_expand_thinking_summary">關閉後，串流輸出時思考與工作過程保持摺疊</string>
+  <string name="settings_auto_expand_thinking_summary">關閉後，串流輸出時思考保持摺疊；工具調用時間線仍自動展開</string>
   <string name="settings_default_reasoning_effort">預設思考深度</string>
   <string name="settings_default_reasoning_effort_summary">對新建對話生效；超出模型支援範圍時自動降級</string>
   <string name="settings_reasoning_effort_follow_model">跟隨模型預設</string>
   <string name="settings_compact_provider">壓縮模型服務商</string>
   <string name="settings_compact_model">壓縮用模型</string>
-  <string name="settings_compact_model_summary">壓縮上下文時改用所選模型，思考強制最低檔；失效時自動回退主模型</string>
+  <string name="settings_compact_model_summary">壓縮上下文時改用所選模型，請求不攜帶思考參數；失效時自動回退主模型</string>
   <string name="settings_compact_follow_main">跟隨主模型</string>
   <string name="xposed_description">系統級 AI Agent，接管小布與超級小愛，解鎖 Gemini 與圈選搜尋，整合瀏覽器、終端機與裝置工具。</string>
   <string name="agent_accessibility_label">Eta Agent</string>

@@ -401,12 +401,13 @@ internal fun AgentWorkProcess(
     } as? ToolActivityMessageUi
     val runningToolTitle = runningTool?.argumentsSummary?.takeIf { it.isNotBlank() }
         ?: runningTool?.let { toolDisplayName(it.toolName) }
-    val autoExpandThinking = rememberAutoExpandThinking()
-    var expanded by rememberSaveable(id) { mutableStateOf(running && autoExpandThinking) }
+    // 工作过程卡片始终跟随运行态自动展开（官方原行为）；「自动展开思考过程」开关
+    // 只作用于内部的 ThinkingRow，不影响工具调用时间线的可见性。
+    var expanded by rememberSaveable(id) { mutableStateOf(running) }
     var manuallyExpanded by rememberSaveable(id) { mutableStateOf(false) }
 
-    LaunchedEffect(running, autoExpandThinking) {
-        if (running && !manuallyExpanded && autoExpandThinking) {
+    LaunchedEffect(running) {
+        if (running && !manuallyExpanded) {
             expanded = true
         }
     }
