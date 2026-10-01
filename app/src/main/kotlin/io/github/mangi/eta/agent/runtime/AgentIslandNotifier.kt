@@ -62,12 +62,14 @@ internal object AgentIslandNotifier {
     @Volatile private var lastPostedAt = 0L
     @Volatile private var lastIconRes = 0
     @Volatile private var lastSubtitle = ""
+    @Volatile private var lastProviderName = ""
+    @Volatile private var runStartedAtMs = 0L
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private var pendingDismiss: Runnable? = null
 
     /** 每次任务开始重新探测（权限可能在系统设置里被改动），探测为耗时操作，须在后台线程调用。 */
-    fun onRunStarted(context: Context, iconRes: Int, subtitle: String = "") {
+    fun onRunStarted(context: Context, iconRes: Int, subtitle: String = "", providerName: String = "") {
         val appContext = context.applicationContext
         gateAllowed = probeGate(appContext)
         Log.d(TAG, "onRunStarted gate=$gateAllowed icon=$iconRes")
@@ -77,6 +79,8 @@ internal object AgentIslandNotifier {
         lastState = null
         lastIconRes = iconRes
         lastSubtitle = subtitle
+        lastProviderName = providerName
+        runStartedAtMs = System.currentTimeMillis()
         post(appContext, stateText(appContext, State.THINKING), ongoing = true)
         lastState = State.THINKING
     }
@@ -241,7 +245,7 @@ internal object AgentIslandNotifier {
             val pics = Bundle().apply {
                 putParcelable(PIC_KEY, Icon.createWithResource(context, iconRes))
             }
-            val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            val builder = NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification)
                 // 展开岛按「左图右文」排版：彩色大图 = 供应商品牌图标，标题 = 状态，正文 = 模型名。
                 .setLargeIcon(Icon.createWithResource(context, iconRes))
@@ -261,7 +265,27 @@ internal object AgentIslandNotifier {
                     putBundle("miui.focus.pics", pics)
                     putString("miui.focus.param", focusParam)
                 })
-                .build()
+            // 信息层级：subText = 供应商名；运行期间显示已用时。
+            if (lastProviderName.isNotBlank()) builder.setSubText(lastProviderName)
+            if (ongoing && runStartedAtMs > 0L) {
+                builder.setWhen(runStartedAtMs).setUsesChronometer(true)
+                // 展开岛渲染 action 按钮（澎湃对 B 站等媒体卡片已验证渲染），提供一键停止。
+                val stopIntent = PendingIntent.getService(
+                    context,
+                    2,
+                    Intent(context, AgentExecutionService::class.java)
+                        .setAction(AgentExecutionService.ACTION_STOP),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                )
+                builder.addAction(
+                    NotificationCompat.Action.Builder(
+                        null,
+                        context.getString(R.string.execution_stop),
+                        stopIntent,
+                    ).build(),
+                )
+            }
+            val notification = builder.build()
             Log.d(TAG, "post text=$text ongoing=$ongoing")
             NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
         }.onFailure { Log.w(TAG, "post failed: ${it.javaClass.simpleName}: ${it.message}") }

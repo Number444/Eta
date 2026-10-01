@@ -86,6 +86,7 @@ internal class AgentRuntimeRunExecutor(
                         modelOrProviderBrandLogoRes(request.config.model, request.config.providerSourceType)
                             ?: R.drawable.ic_notification,
                         request.config.modelDisplayName,
+                        request.config.providerName,
                     )
                 }
             }
