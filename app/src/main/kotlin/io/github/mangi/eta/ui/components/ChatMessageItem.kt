@@ -136,6 +136,7 @@ import com.mikepenz.markdown.compose.elements.listDepth
 import com.mikepenz.markdown.m3.Markdown
 import com.mikepenz.markdown.m3.markdownColor
 import com.mikepenz.markdown.m3.markdownTypography
+import com.mikepenz.markdown.model.MarkdownAnimations
 import com.mikepenz.markdown.model.MarkdownState
 import com.mikepenz.markdown.model.State
 import com.mikepenz.markdown.model.markdownAnimations
@@ -162,6 +163,7 @@ import io.github.mangi.eta.ui.model.ToolSummaryMessageUi
 import io.github.mangi.eta.ui.model.UserMessageUi
 import io.github.mangi.eta.ui.app.LocalAppearanceSettings
 import io.github.mangi.eta.ui.share.MessageShareImage
+import io.github.mangi.eta.ui.share.ShareTurn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filter
@@ -280,7 +282,7 @@ internal fun ChatMessageItem(
     onDeleteMessage: (String) -> Unit = {},
     onRegenerateMessage: (String) -> Unit = {},
     onSelectReplyCandidate: (String, Int) -> Unit = { _, _ -> },
-    shareUserPrompt: String? = null,
+    shareTurn: ShareTurn? = null,
 ) {
     when (message) {
         is UserMessageUi -> UserMessageBubble(
@@ -304,7 +306,7 @@ internal fun ChatMessageItem(
             onRegenerate = { onRegenerateMessage(message.id) },
             onEdit = { onEditMessage(message.id) },
             onSelectCandidate = { onSelectReplyCandidate(message.id, it) },
-            shareUserPrompt = shareUserPrompt,
+            shareTurn = shareTurn,
             modifier = modifier,
         )
         is SystemNoticeMessageUi -> if (message.code == SystemNoticeCode.ContextCompaction) {
@@ -845,7 +847,7 @@ private fun AgentMessageBlock(
     onRegenerate: () -> Unit,
     onEdit: () -> Unit = {},
     onSelectCandidate: (Int) -> Unit = {},
-    shareUserPrompt: String? = null,
+    shareTurn: ShareTurn? = null,
     modifier: Modifier = Modifier,
 ) {
     @Suppress("DEPRECATION")
@@ -961,35 +963,36 @@ private fun AgentMessageBlock(
                 }
                 if (allowSpeech) SpeechReadAloudButton(message.id, message.content)
                 // Eta Mod：分享为长图——把本轮问答离屏渲染成卡片 PNG 后走系统分享。
-                IconButton(
-                    onClick = {
-                        if (shareRendering) return@IconButton
-                        shareRendering = true
-                        shareScope.launch {
-                            runCatching {
-                                MessageShareImage.shareTurnAsImage(
-                                    anchor = shareView,
-                                    appearance = shareAppearance,
-                                    userPrompt = shareUserPrompt
-                                        ?.let { AgentFileReferencePromptCodec.parse(it).request }
-                                        ?.takeIf { it.isNotBlank() },
-                                    answerMarkdown = message.content,
-                                    brand = shareBrand,
-                                )
+                // 分享的最小单位是一轮：组装好的 ShareTurn 由列表层按轮边界提供。
+                if (shareTurn != null) {
+                    IconButton(
+                        onClick = {
+                            if (shareRendering) return@IconButton
+                            shareRendering = true
+                            shareScope.launch {
+                                runCatching {
+                                    MessageShareImage.shareTurnAsImage(
+                                        anchor = shareView,
+                                        appearance = shareAppearance,
+                                        turns = listOf(shareTurn),
+                                        finalParsedState = completedMarkdownState,
+                                        brand = shareBrand,
+                                    )
+                                }
+                                shareRendering = false
                             }
-                            shareRendering = false
-                        }
-                    },
-                    enabled = !shareRendering,
-                    minWidth = 30.dp,
-                    minHeight = 30.dp,
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Share,
-                        contentDescription = stringResource(R.string.share_as_image),
-                        modifier = Modifier.size(15.dp),
-                        tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
-                    )
+                        },
+                        enabled = !shareRendering,
+                        minWidth = 30.dp,
+                        minHeight = 30.dp,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Share,
+                            contentDescription = stringResource(R.string.share_as_image),
+                            modifier = Modifier.size(15.dp),
+                            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
+                        )
+                    }
                 }
                 if (showMessageActions) {
                     if (message.characterEditable) {
@@ -1087,6 +1090,7 @@ internal fun StableMarkdown(
     tone: ChatMarkdownTone = ChatMarkdownTone.Answer,
     markdownState: MarkdownState? = null,
     parsedState: State.Success? = null,
+    animations: MarkdownAnimations? = null,
 ) {
     // 流式终态已有完整 AST，直接复用，避免新解析器的 Loading 原文先撑高页面再缩回。
     val state = parsedState ?: (markdownState ?: rememberMarkdownState(
@@ -1101,6 +1105,7 @@ internal fun StableMarkdown(
         padding = chatMarkdownPadding(),
         dimens = chatMarkdownDimens(),
         components = components,
+        animations = animations ?: markdownAnimations(),
         modifier = modifier,
         loading = {
             // 保留与最终正文接近的高度，避免历史消息异步解析完成后越界绘制。

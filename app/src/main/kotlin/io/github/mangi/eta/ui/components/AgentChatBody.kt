@@ -94,6 +94,7 @@ import io.github.mangi.eta.ui.model.ThinkingMessageUi
 import io.github.mangi.eta.ui.model.ToolActivityMessageUi
 import io.github.mangi.eta.ui.model.ToolSummaryMessageUi
 import io.github.mangi.eta.ui.model.UserMessageUi
+import io.github.mangi.eta.ui.share.buildShareTurns
 import io.github.mangi.eta.ui.model.latestContextUsage
 import kotlin.math.exp
 import kotlin.math.min
@@ -435,19 +436,9 @@ internal fun AgentConversationMessages(
     modifier: Modifier = Modifier,
 ) {
     val timelineEntries = remember(visibleMessages) { visibleMessages.toTimelineEntries() }
-    // Eta Mod：分享为长图时带上本轮的用户提问。
-    val shareUserPrompts = remember(visibleMessages) {
-        buildMap {
-            var lastUserPrompt: String? = null
-            visibleMessages.forEach { message ->
-                when (message) {
-                    is UserMessageUi -> lastUserPrompt = message.content
-                    is AgentMessageUi -> put(message.id, lastUserPrompt)
-                    else -> Unit
-                }
-            }
-        }
-    }
+    // Eta Mod：分享为长图——分享的最小单位是一轮，按轮边界组装好正文/工具段，
+    // 键为每轮最后一条助手消息（即分享按钮所在消息）的 id。
+    val shareTurns = remember(visibleMessages) { buildShareTurns(visibleMessages) }
     // 复制按钮只出现在每轮对话的最终结果上，中间步骤的过渡文本不提供复制入口。
     // 流式进行中当前这一轮尚未收尾，此时的“最后一条正文”只是中间步骤，不标记。
     val finalResultMessageIds = remember(visibleMessages, isStreaming) {
@@ -690,7 +681,7 @@ internal fun AgentConversationMessages(
                             onDeleteMessage = onDeleteMessage,
                             onRegenerateMessage = onRegenerateMessage,
                             onSelectReplyCandidate = onSelectReplyCandidate,
-                            shareUserPrompt = (message as? AgentMessageUi)?.let { shareUserPrompts[it.id] },
+                            shareTurn = (message as? AgentMessageUi)?.let { shareTurns[it.id] },
                             modifier = itemModifier,
                         )
                     }
