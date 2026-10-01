@@ -2,6 +2,21 @@
 
 **简体中文** | [English](README_EN.md)
 
+> ## Eta Mod（本仓库）
+>
+> 本仓库是 [Mangi-11/Eta](https://github.com/Mangi-11/Eta) 的个人 Mod 版，与官方版**共存安装**互不影响（applicationId `io.github.mangi.eta.mod`，应用名「Eta Mod」，独立签名）。
+>
+> **版本号规则**：`官方版本号-三位 Mod 版本号`，如 `3.0.6-001`——左段跟随上游官方版本，右段为本 Mod 的迭代号（001 起）；跟随上游升级后右段归零重排。
+>
+> **Mod 特性**（相对官方版）：
+>
+> 1. **思考过程不自动展开**：默认折叠思考块，可手动展开；支持手动设置默认思考深度；可单独选择压缩/摘要模型。
+> 2. **工具调用块逐次展开**：每次工具调用的详情默认可见，不再只显示「正在处理」。
+> 3. **压缩请求强制零思考**：上下文压缩请求按各厂商协议显式关闭思考或剥离全部思考参数。
+> 4. **厂商余额显示**：厂商配置页新增可展开的「余额查询」（API 地址 + JSON 路径，默认关闭，附测试按钮）；余额显示在模型选择弹窗厂商名右侧，随主题强调色。
+> 5. **小米超级岛**：任务状态（思考中 / 输出中 / 工具调用）实时上岛；展开岛为「左图右文」排版（彩色厂商图标 + 状态标题 + 模型名）；完成时小岛原地显示「已完成」约 8 秒后自动消失。实现基于 Android 16 LiveUpdate（`requestPromotedOngoing` + `shortCriticalText`，声明 `POST_PROMOTED_NOTIFICATIONS` 权限），无需小米开放平台白名单；需在系统通知设置中开启「实时动态通知」。设置入口位于设置页「权限」区。注：澎湃 OS 的「岛主动展开」动画仅由小米焦点通知协议触发（需云端白名单），LiveUpdate 通道无法程序化展开岛屿。
+
+
 <p><a href="https://github.com/Mangi-11/Eta/releases"><img src="https://img.shields.io/github/downloads/Mangi-11/Eta/total?logo=github&amp;label=%E4%B8%8B%E8%BD%BD%E9%87%8F&amp;color=1677FF" alt="GitHub Releases 累计下载量"></a> <img src="https://img.shields.io/badge/minSdk-34-3DDC84?logo=android&amp;logoColor=white" alt="minSdk 34"> <img src="https://img.shields.io/badge/Kotlin-2.4.10-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin 2.4.10"> <img src="https://img.shields.io/badge/AGP-9.3.2-3DDC84?logo=android&amp;logoColor=white" alt="AGP 9.3.2"> <img src="https://img.shields.io/badge/Assistant%20Integrations-ColorOS%20%26%20HyperOS-1677FF" alt="Assistant integrations for ColorOS and HyperOS"></p>
 
 **面向 Android 的第三方系统级 AI 助手**

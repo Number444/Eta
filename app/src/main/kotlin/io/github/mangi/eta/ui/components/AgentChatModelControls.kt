@@ -1,5 +1,6 @@
 package io.github.mangi.eta.ui.components
 
+import android.util.Log
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -84,7 +85,9 @@ internal fun AgentModelPickerButton(
     val providerBalances by ProviderBalanceStore.balances.collectAsState()
     LaunchedEffect(showPopup) {
         if (showPopup) {
+            Log.d("EtaBalance", "picker popup opened, triggering refresh")
             runCatching { ProviderBalanceStore.refresh(ProviderRepository.allProviders()) }
+                .onFailure { Log.w("EtaBalance", "refresh failed: ${it.javaClass.simpleName}: ${it.message}") }
         }
     }
     val selected = state.selectedModel

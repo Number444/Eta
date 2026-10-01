@@ -8,11 +8,13 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Icon
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import io.github.mangi.eta.R
@@ -31,6 +33,7 @@ import org.json.JSONObject
 internal object AgentIslandNotifier {
     private const val CHANNEL_ID = "eta_island"
     private const val NOTIFICATION_ID = 1207
+    private const val TAG = "EtaIsland"
     internal const val PIC_KEY = "miui.focus.pic_eta_island"
     private const val MIN_UPDATE_INTERVAL_MS = 1_500L
     private const val FINAL_DISMISS_MS = 8_000L
@@ -43,6 +46,7 @@ internal object AgentIslandNotifier {
 
     /** 设置页状态行用：耗时调用，须在后台线程执行。 */
     fun querySupportStatus(context: Context): SupportStatus = runCatching {
+        if (Build.VERSION.SDK_INT >= 36) return SupportStatus.SUPPORTED
         val focusProtocol = Settings.System.getInt(
             context.contentResolver,
             "notification_focus_protocol",
@@ -57,19 +61,22 @@ internal object AgentIslandNotifier {
     @Volatile private var lastState: State? = null
     @Volatile private var lastPostedAt = 0L
     @Volatile private var lastIconRes = 0
+    @Volatile private var lastSubtitle = ""
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private var pendingDismiss: Runnable? = null
 
     /** 每次任务开始重新探测（权限可能在系统设置里被改动），探测为耗时操作，须在后台线程调用。 */
-    fun onRunStarted(context: Context, iconRes: Int) {
+    fun onRunStarted(context: Context, iconRes: Int, subtitle: String = "") {
         val appContext = context.applicationContext
         gateAllowed = probeGate(appContext)
+        Log.d(TAG, "onRunStarted gate=$gateAllowed icon=$iconRes")
         if (!gateAllowed) return
         cancelPendingDismiss()
         runActive = true
         lastState = null
         lastIconRes = iconRes
+        lastSubtitle = subtitle
         post(appContext, stateText(appContext, State.THINKING), ongoing = true)
         lastState = State.THINKING
     }
@@ -91,7 +98,10 @@ internal object AgentIslandNotifier {
         runActive = false
         if (!wasActive || !gateAllowed) return
         val appContext = context.applicationContext
-        post(appContext, terminalText(appContext, terminal), ongoing = false)
+        // 终态：小岛原地更新为终态文本（同频道同 ID），8s 后撤销。
+        // 注：澎湃 OS 的「岛展开」动画仅由小米焦点通知协议触发（需开放平台白名单，onAuthFailed 已证实），
+        // LiveUpdate 通道无法主动展开；heads-up 方案实测只会产生第二个岛，已弃用。
+        post(appContext, terminalText(appContext, terminal), ongoing = true)
         lastState = null
         cancelPendingDismiss()
         val manager = NotificationManagerCompat.from(appContext)
@@ -120,6 +130,8 @@ internal object AgentIslandNotifier {
 
     private fun probeGate(context: Context): Boolean = runCatching {
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return@runCatching false
+        // Android 16 LiveUpdate 通道：澎湃 OS 3 桥接为超级岛，无需厂商鉴权。
+        if (Build.VERSION.SDK_INT >= 36) return@runCatching true
         val focusProtocol = Settings.System.getInt(
             context.contentResolver,
             "notification_focus_protocol",
@@ -153,28 +165,38 @@ internal object AgentIslandNotifier {
         )
     }
 
-    /** 岛参数 JSON（官方 param_v2 模版 1）；抽成纯函数便于单元测试。 */
-    internal fun buildFocusParam(text: String, appName: String): String =
+    /** 岛参数 JSON（官方 param_v2 模版 1）；抽成纯函数便于单元测试。字段值对齐真机工作样本（MiShare）。 */
+    internal fun buildFocusParam(text: String, appName: String, packageName: String): String =
         JSONObject().apply {
             put("param_v2", JSONObject().apply {
                 put("protocol", 1)
                 put("business", "agent_task")
+                // updatable=true 时 notifyId 必填，缺了系统直接按普通通知处理
+                put("notifyId", packageName + NOTIFICATION_ID)
                 put("islandFirstFloat", false)
                 put("enableFloat", false)
                 put("updatable", true)
+                put("reopen", "reopen")
+                put("filterWhenNoPermission", false)
+                put("timeout", 720)
                 // OS2 状态栏焦点信息
                 put("ticker", text)
                 put("tickerPic", PIC_KEY)
                 // 息屏显示
                 put("aodTitle", text)
-                // 焦点通知内容
+                // 焦点通知内容（官方示例：type=2 + colorTitle）
                 put("baseInfo", JSONObject().apply {
-                    put("type", 1)
+                    put("type", 2)
                     put("title", text)
                     put("content", appName)
+                    put("colorTitle", "#3482FF")
                 })
                 put("param_island", JSONObject().apply {
                     put("islandProperty", 1)
+                    put("islandPriority", 1)
+                    put("islandOrder", true)
+                    put("islandTimeout", 10)
+                    put("expandedTime", 5)
                     put("bigIslandArea", JSONObject().apply {
                         put("imageTextInfoLeft", JSONObject().apply {
                             put("type", 1)
@@ -184,6 +206,8 @@ internal object AgentIslandNotifier {
                             })
                             put("textInfo", JSONObject().apply {
                                 put("title", text)
+                                put("content", appName)
+                                put("narrowFont", false)
                                 put("showHighlightColor", false)
                             })
                         })
@@ -200,39 +224,47 @@ internal object AgentIslandNotifier {
 
     @SuppressLint("MissingPermission") // gate 已检查 areNotificationsEnabled
     private fun post(context: Context, text: String, ongoing: Boolean) {
-        ensureChannel(context)
-        lastPostedAt = SystemClock.uptimeMillis()
-        val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
-            ?: Intent()
-        val contentIntent = PendingIntent.getActivity(
-            context,
-            0,
-            launchIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        val iconRes = lastIconRes.takeIf { it != 0 } ?: R.drawable.ic_notification
-        val appName = context.getString(R.string.app_name)
-        val pics = Bundle().apply {
-            putParcelable(PIC_KEY, Icon.createWithResource(context, iconRes))
-        }
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(appName)
-            .setContentText(text)
-            .setTicker(text)
-            .setContentIntent(contentIntent)
-            .setOngoing(ongoing)
-            .setAutoCancel(!ongoing)
-            .setOnlyAlertOnce(true)
-            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
-            .addExtras(Bundle().apply {
-                putBundle("miui.focus.pics", pics)
-                putString("miui.focus.param", buildFocusParam(text, appName))
-            })
-            .build()
         runCatching {
+            ensureChannel(context)
+            lastPostedAt = SystemClock.uptimeMillis()
+            val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+                ?: Intent()
+            val contentIntent = PendingIntent.getActivity(
+                context,
+                0,
+                launchIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            val iconRes = lastIconRes.takeIf { it != 0 } ?: R.drawable.ic_notification
+            val appName = context.getString(R.string.app_name)
+            val focusParam = buildFocusParam(text, appName, context.packageName)
+            val pics = Bundle().apply {
+                putParcelable(PIC_KEY, Icon.createWithResource(context, iconRes))
+            }
+            val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification)
+                // 展开岛按「左图右文」排版：彩色大图 = 供应商品牌图标，标题 = 状态，正文 = 模型名。
+                .setLargeIcon(Icon.createWithResource(context, iconRes))
+                .setContentTitle(text)
+                .setContentText(lastSubtitle.ifBlank { appName })
+                .setTicker(text)
+                .setContentIntent(contentIntent)
+                .setOngoing(ongoing)
+                .setAutoCancel(!ongoing)
+                .setOnlyAlertOnce(true)
+                .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+                // Android 16 Live Update：澎湃 OS 3 将其桥接为超级岛，无需小米焦点通知鉴权
+                // （参考 rikkahub-agent 的已验证实现）；低版本系统上由 Compat 自动忽略。
+                .setRequestPromotedOngoing(true)
+                .setShortCriticalText(text)
+                .addExtras(Bundle().apply {
+                    putBundle("miui.focus.pics", pics)
+                    putString("miui.focus.param", focusParam)
+                })
+                .build()
+            Log.d(TAG, "post text=$text ongoing=$ongoing")
             NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
-        }
+        }.onFailure { Log.w(TAG, "post failed: ${it.javaClass.simpleName}: ${it.message}") }
     }
 
     private fun cancelPendingDismiss() {

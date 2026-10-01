@@ -44,6 +44,7 @@ import io.github.mangi.eta.data.model.CustomProviderSetting
 import io.github.mangi.eta.data.model.OpenAiEndpointMode
 import io.github.mangi.eta.data.model.ProviderSetting
 import io.github.mangi.eta.data.model.withId
+import io.github.mangi.eta.data.repository.ProviderBalanceFetcher
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.data.repository.RemoteModelFetcher
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
@@ -203,6 +204,8 @@ private fun ProviderConfigTab(
     val context = LocalContext.current
     var headersExpanded by rememberSaveable { mutableStateOf(false) }
     var balanceExpanded by rememberSaveable { mutableStateOf(false) }
+    var balanceTesting by remember { mutableStateOf(false) }
+    var balanceTestResult by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
     var apiKeyVisible by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<String?>(null) }
     var testStatus by remember { mutableStateOf<String?>(null) }
@@ -365,6 +368,41 @@ private fun ProviderConfigTab(
             onBalanceJsonPathChange = { onDraftChange(draft.copy(balanceJsonPath = it)) },
             expanded = balanceExpanded,
             onExpandedChange = { balanceExpanded = it },
+            testEnabled = draft.balanceUrl.isNotBlank() && draft.balanceJsonPath.isNotBlank(),
+            testRunning = balanceTesting,
+            testResult = balanceTestResult?.second,
+            testIsError = balanceTestResult?.first == false,
+            onTest = {
+                if (balanceTesting) return@providerBalanceEditor
+                balanceTesting = true
+                balanceTestResult = null
+                scope.launch {
+                    try {
+                        val result = ProviderBalanceFetcher.fetch(
+                            buildUpdatedProvider(
+                                source = provider,
+                                name = draft.name,
+                                baseUrl = draft.baseUrl,
+                                apiKey = draft.apiKey,
+                                systemPrompt = draft.systemPrompt,
+                                isEnabled = draft.isEnabled,
+                                endpointMode = draft.endpointMode,
+                                hostedWebSearchEnabled = draft.hostedWebSearchEnabled,
+                                anthropicVersion = draft.anthropicVersion,
+                                customHeaders = draft.headers.map { it.header },
+                                balanceUrl = draft.balanceUrl,
+                                balanceJsonPath = draft.balanceJsonPath,
+                            ),
+                        )
+                        balanceTestResult = result.fold(
+                            onSuccess = { true to it },
+                            onFailure = { false to (it.message ?: it.javaClass.simpleName) },
+                        )
+                    } finally {
+                        balanceTesting = false
+                    }
+                }
+            },
         )
 
         item(key = "preferences_and_prompt") {

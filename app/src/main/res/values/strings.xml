@@ -19,6 +19,8 @@
   <string name="provider_balance_url_label">Balance API URL (full URL, or /path relative to Base URL)</string>
   <string name="provider_balance_path_label">Balance JSON path (e.g. data.total_balance)</string>
   <string name="provider_balance_hint">Sent as a GET request with Bearer auth and your custom headers.</string>
+  <string name="provider_balance_test">Test</string>
+  <string name="provider_balance_testing">Testing…</string>
   <string name="island_channel_name">Task island</string>
   <string name="island_state_thinking">Thinking</string>
   <string name="island_state_output">Output</string>

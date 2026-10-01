@@ -3,6 +3,7 @@ package io.github.mangi.eta.ui.pages.providers
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
@@ -10,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.res.stringResource
@@ -19,6 +21,7 @@ import io.github.mangi.eta.ui.components.EtaPreference
 import io.github.mangi.eta.ui.components.EtaPreferenceDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -33,6 +36,11 @@ internal fun LazyListScope.providerBalanceEditor(
     onBalanceJsonPathChange: (String) -> Unit,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
+    testEnabled: Boolean,
+    testRunning: Boolean,
+    testResult: String?,
+    testIsError: Boolean,
+    onTest: () -> Unit,
 ) {
     item(key = "balance_query") {
         ProviderSection(title = stringResource(R.string.provider_balance_section)) {
@@ -81,6 +89,34 @@ internal fun LazyListScope.providerBalanceEditor(
                         style = MiuixTheme.textStyles.footnote2,
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     )
+                    // 实测当前填写的地址与路径，失败原因直接展示，便于排错。
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        TextButton(
+                            text = stringResource(
+                                if (testRunning) {
+                                    R.string.provider_balance_testing
+                                } else {
+                                    R.string.provider_balance_test
+                                },
+                            ),
+                            onClick = onTest,
+                            enabled = testEnabled && !testRunning,
+                        )
+                        if (testResult != null) {
+                            Text(
+                                text = testResult,
+                                style = MiuixTheme.textStyles.footnote1,
+                                color = if (testIsError) {
+                                    MiuixTheme.colorScheme.error
+                                } else {
+                                    MiuixTheme.colorScheme.primary
+                                },
+                            )
+                        }
+                    }
                 }
             }
         }

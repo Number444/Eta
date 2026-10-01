@@ -23,25 +23,34 @@ class AgentIslandNotifierTest {
 
     @Test
     fun focusParamMatchesOfficialTemplate1() {
-        val root = JSONObject(AgentIslandNotifier.buildFocusParam("思考中", "Eta"))
+        val root = JSONObject(
+            AgentIslandNotifier.buildFocusParam("思考中", "Eta", "io.github.mangi.eta.mod"),
+        )
         val v2 = root.getJSONObject("param_v2")
 
         assertEquals(1, v2.getInt("protocol"))
         assertEquals("agent_task", v2.getString("business"))
+        // updatable=true 时 notifyId 必填（真机样本确认）
+        assertEquals("io.github.mangi.eta.mod1207", v2.getString("notifyId"))
         assertFalse(v2.getBoolean("islandFirstFloat"))
         assertFalse(v2.getBoolean("enableFloat"))
         assertTrue(v2.getBoolean("updatable"))
+        assertEquals("reopen", v2.getString("reopen"))
+        assertFalse(v2.getBoolean("filterWhenNoPermission"))
+        assertEquals(720, v2.getInt("timeout"))
         assertEquals("思考中", v2.getString("ticker"))
         assertEquals(AgentIslandNotifier.PIC_KEY, v2.getString("tickerPic"))
         assertEquals("思考中", v2.getString("aodTitle"))
 
         val baseInfo = v2.getJSONObject("baseInfo")
-        assertEquals(1, baseInfo.getInt("type"))
+        assertEquals(2, baseInfo.getInt("type"))
         assertEquals("思考中", baseInfo.getString("title"))
         assertEquals("Eta", baseInfo.getString("content"))
 
         val island = v2.getJSONObject("param_island")
         assertEquals(1, island.getInt("islandProperty"))
+        assertEquals(1, island.getInt("islandPriority"))
+        assertTrue(island.getBoolean("islandOrder"))
 
         val bigIsland = island.getJSONObject("bigIslandArea")
         val left = bigIsland.getJSONObject("imageTextInfoLeft")
@@ -50,6 +59,7 @@ class AgentIslandNotifierTest {
         assertEquals(AgentIslandNotifier.PIC_KEY, left.getJSONObject("picInfo").getString("pic"))
         val textInfo = left.getJSONObject("textInfo")
         assertEquals("思考中", textInfo.getString("title"))
+        assertEquals("Eta", textInfo.getString("content"))
         assertFalse(textInfo.getBoolean("showHighlightColor"))
         // 模版 1：B 区为空（大岛除 A 区组件外不携带其它内容字段）
         assertEquals(setOf("imageTextInfoLeft"), bigIsland.keys().asSequence().toSet())

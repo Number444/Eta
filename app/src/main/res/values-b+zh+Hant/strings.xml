@@ -19,6 +19,8 @@
   <string name="provider_balance_url_label">餘額 API 位址（完整 URL，或以 / 開頭相對 Base URL）</string>
   <string name="provider_balance_path_label">餘額 JSON 路徑（如 data.total_balance）</string>
   <string name="provider_balance_hint">使用 GET 請求，自動附帶 Bearer 認證與自訂請求標頭。</string>
+  <string name="provider_balance_test">測試</string>
+  <string name="provider_balance_testing">測試中…</string>
   <string name="island_channel_name">任務狀態島</string>
   <string name="island_state_thinking">思考中</string>
   <string name="island_state_output">輸出中</string>

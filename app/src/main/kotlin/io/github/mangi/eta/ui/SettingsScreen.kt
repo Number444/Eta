@@ -433,38 +433,6 @@ private fun SettingsPageContent(
                             enabled = agentPrefs != null,
                         )
                     }
-
-                    // Eta Mod：小米超级岛状态行；权限未开时点击直达系统通知设置。
-                    EtaPreferenceDivider()
-                    EtaArrowPreference(
-                        title = stringResource(R.string.settings_island_title),
-                        summary = stringResource(
-                            when (islandStatus) {
-                                AgentIslandNotifier.SupportStatus.SUPPORTED ->
-                                    R.string.settings_island_summary_supported
-                                AgentIslandNotifier.SupportStatus.NO_PERMISSION ->
-                                    R.string.settings_island_summary_no_permission
-                                AgentIslandNotifier.SupportStatus.UNSUPPORTED ->
-                                    R.string.settings_island_summary_unsupported
-                                AgentIslandNotifier.SupportStatus.CHECKING ->
-                                    R.string.settings_island_summary_checking
-                            },
-                        ),
-                        startAction = {
-                            EtaPreferenceIcon(
-                                icon = Icons.Rounded.Notifications,
-                                tint = EtaPreferenceColors.Blue,
-                            )
-                        },
-                        onClick = {
-                            runCatching {
-                                context.startActivity(
-                                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                                        .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
-                                )
-                            }
-                        },
-                    )
                 }
             }
 
@@ -938,6 +906,61 @@ private fun SettingsPageContent(
                             enabled = prefs != null && !accessibilityProtectionPending,
                         )
                     }
+
+                    // Eta Mod：小米超级岛状态行；权限未开时点击直达系统通知设置。
+                    EtaPreferenceDivider()
+                    EtaArrowPreference(
+                        title = stringResource(R.string.settings_island_title),
+                        summary = stringResource(
+                            when (islandStatus) {
+                                AgentIslandNotifier.SupportStatus.SUPPORTED ->
+                                    R.string.settings_island_summary_supported
+                                AgentIslandNotifier.SupportStatus.NO_PERMISSION ->
+                                    R.string.settings_island_summary_no_permission
+                                AgentIslandNotifier.SupportStatus.UNSUPPORTED ->
+                                    R.string.settings_island_summary_unsupported
+                                AgentIslandNotifier.SupportStatus.CHECKING ->
+                                    R.string.settings_island_summary_checking
+                            },
+                        ),
+                        startAction = {
+                            EtaPreferenceIcon(
+                                icon = Icons.Rounded.Notifications,
+                                tint = EtaPreferenceColors.Blue,
+                            )
+                        },
+                        endActions = {
+                            if (islandStatus != AgentIslandNotifier.SupportStatus.CHECKING) {
+                                val granted =
+                                    islandStatus == AgentIslandNotifier.SupportStatus.SUPPORTED
+                                Text(
+                                    text = stringResource(
+                                        when (islandStatus) {
+                                            AgentIslandNotifier.SupportStatus.SUPPORTED ->
+                                                R.string.status_authorized
+                                            AgentIslandNotifier.SupportStatus.NO_PERMISSION ->
+                                                R.string.status_unauthorized
+                                            else -> R.string.status_unsupported
+                                        },
+                                    ),
+                                    fontSize = MiuixTheme.textStyles.body2.fontSize,
+                                    color = if (granted) {
+                                        MiuixTheme.colorScheme.onSurfaceVariantActions
+                                    } else {
+                                        MiuixTheme.colorScheme.error
+                                    },
+                                )
+                            }
+                        },
+                        onClick = {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                        .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
+                                )
+                            }
+                        },
+                    )
                 }
             }
 

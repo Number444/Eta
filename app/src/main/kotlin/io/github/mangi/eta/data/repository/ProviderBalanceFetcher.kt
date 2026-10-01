@@ -1,5 +1,7 @@
 package io.github.mangi.eta.data.repository
 
+import android.util.Log
+
 import io.github.mangi.eta.agent.model.AgentHttpClient
 import io.github.mangi.eta.agent.model.ProviderRequestHeaders
 import io.github.mangi.eta.data.model.ProviderSetting
@@ -89,6 +91,7 @@ internal object ProviderBalanceFetcher {
  */
 internal object ProviderBalanceStore {
     private const val TTL_MS = 5 * 60 * 1000L
+    private const val TAG = "EtaBalance"
 
     private data class CacheEntry(val value: String, val fetchedAt: Long)
 
@@ -106,6 +109,11 @@ internal object ProviderBalanceStore {
         val configurable = providers
             .filter { it.balanceUrl.isNotBlank() && it.balanceJsonPath.isNotBlank() }
             .associateBy { it.id }
+        Log.d(
+            TAG,
+            "refresh: providers=${providers.size}, configurable=${configurable.size}, " +
+                "configuredIds=${providers.filter { it.balanceUrl.isNotBlank() }.map { it.id.take(8) }}",
+        )
         val removed = cache.keys - configurable.keys
         if (removed.isNotEmpty()) {
             removed.forEach(cache::remove)
@@ -118,6 +126,7 @@ internal object ProviderBalanceStore {
             scope.launch {
                 try {
                     val value = ProviderBalanceFetcher.fetch(provider).getOrDefault("")
+                    Log.d(TAG, "fetched ${provider.id.take(8)} -> '$value'")
                     cache[provider.id] = CacheEntry(value, System.currentTimeMillis())
                     _balances.value = _balances.value + (provider.id to value)
                 } finally {
