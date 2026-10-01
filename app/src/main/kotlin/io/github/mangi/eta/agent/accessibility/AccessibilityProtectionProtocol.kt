@@ -13,11 +13,11 @@ internal object AccessibilityProtectionProtocol {
     const val VERSION = 1
 
     const val ACTION_SET =
-        "io.github.mangi.eta.action.SET_ACCESSIBILITY_PROTECTION"
+        "io.github.mangi.eta.mod.action.SET_ACCESSIBILITY_PROTECTION"
     const val ACTION_RECOVER =
-        "io.github.mangi.eta.action.RECOVER_ACCESSIBILITY_SERVICE"
+        "io.github.mangi.eta.mod.action.RECOVER_ACCESSIBILITY_SERVICE"
     const val PERMISSION =
-        "io.github.mangi.eta.permission.CONTROL_ACCESSIBILITY_PROTECTION"
+        "io.github.mangi.eta.mod.permission.CONTROL_ACCESSIBILITY_PROTECTION"
     const val RECEIVER_PACKAGE = "android"
 
     const val EXTRA_PROTOCOL_VERSION = "protocol_version"
@@ -30,7 +30,7 @@ internal object AccessibilityProtectionProtocol {
     const val SETTING_NAME = "eta_accessibility_protection_enabled"
     const val DEFAULT_ENABLED = false
 
-    const val HEALTH_AUTHORITY = "io.github.mangi.eta.accessibility.health"
+    const val HEALTH_AUTHORITY = "io.github.mangi.eta.mod.accessibility.health"
     const val HEALTH_METHOD = "accessibility_health"
     const val HEALTH_STATUS = "status"
     const val HEALTH_STATUS_CONNECTED = "connected"

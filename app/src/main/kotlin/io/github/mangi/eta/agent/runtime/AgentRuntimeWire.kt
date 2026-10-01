@@ -43,7 +43,7 @@ internal object AgentRuntimeWire {
     )
 
     /** bind 获取服务端 Messenger 的 Intent action。 */
-    const val ACTION_BIND = "io.github.mangi.eta.agent.runtime.BIND"
+    const val ACTION_BIND = "io.github.mangi.eta.mod.agent.runtime.BIND"
 
     // Messenger.what
     /** client -> service：开始一次 Agent 运行，[Message.replyTo] 携带 client Messenger。 */
@@ -82,7 +82,7 @@ internal object AgentRuntimeWire {
     /** service -> client：返回是否成功重新订阅指定 run。 */
     const val MSG_ATTACH_RUN_RESPONSE = 12
 
-    private const val MODULE_PACKAGE = "io.github.mangi.eta"
+    private const val MODULE_PACKAGE = "io.github.mangi.eta.mod"
     private const val SERVICE_CLASS = "io.github.mangi.eta.agent.runtime.AgentRuntimeService"
 
     private const val KEY_TYPE = "type"
