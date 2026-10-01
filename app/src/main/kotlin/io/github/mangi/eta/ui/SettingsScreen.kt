@@ -26,6 +26,7 @@ import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PowerSettingsNew
 import androidx.compose.material.icons.rounded.Psychology
@@ -43,6 +44,7 @@ import androidx.compose.material.icons.rounded.VerifiedUser
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -59,6 +61,7 @@ import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.accessibility.AccessibilityProtectionClient
 import io.github.mangi.eta.agent.accessibility.AgentAccessibilityService
+import io.github.mangi.eta.agent.runtime.AgentIslandNotifier
 import io.github.mangi.eta.config.PowerAssistantTarget
 import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.data.model.ReasoningEffort
@@ -244,6 +247,13 @@ private fun SettingsPageContent(
     var compactModelId by remember {
         mutableStateOf(agentPrefs?.getString(Prefs.Keys.AGENT_COMPACT_MODEL_ID, "").orEmpty())
     }
+    // Eta Mod：小米超级岛支持状态（权限查询为耗时调用，后台探测一次）。
+    var islandStatus by remember { mutableStateOf(AgentIslandNotifier.SupportStatus.CHECKING) }
+    LaunchedEffect(Unit) {
+        islandStatus = withContext(Dispatchers.IO) {
+            AgentIslandNotifier.querySupportStatus(context.applicationContext)
+        }
+    }
     var powerAssistantTarget by remember(prefs) {
         mutableStateOf(prefs?.let(Prefs::powerAssistantTarget) ?: enhancementHistory.powerTarget())
     }
@@ -423,6 +433,38 @@ private fun SettingsPageContent(
                             enabled = agentPrefs != null,
                         )
                     }
+
+                    // Eta Mod：小米超级岛状态行；权限未开时点击直达系统通知设置。
+                    EtaPreferenceDivider()
+                    EtaArrowPreference(
+                        title = stringResource(R.string.settings_island_title),
+                        summary = stringResource(
+                            when (islandStatus) {
+                                AgentIslandNotifier.SupportStatus.SUPPORTED ->
+                                    R.string.settings_island_summary_supported
+                                AgentIslandNotifier.SupportStatus.NO_PERMISSION ->
+                                    R.string.settings_island_summary_no_permission
+                                AgentIslandNotifier.SupportStatus.UNSUPPORTED ->
+                                    R.string.settings_island_summary_unsupported
+                                AgentIslandNotifier.SupportStatus.CHECKING ->
+                                    R.string.settings_island_summary_checking
+                            },
+                        ),
+                        startAction = {
+                            EtaPreferenceIcon(
+                                icon = Icons.Rounded.Notifications,
+                                tint = EtaPreferenceColors.Blue,
+                            )
+                        },
+                        onClick = {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                        .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
+                                )
+                            }
+                        },
+                    )
                 }
             }
 

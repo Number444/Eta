@@ -54,6 +54,7 @@ class EtaDatabaseMigrationTest {
                 EtaDatabase.MIGRATION_18_19,
                 EtaDatabase.MIGRATION_19_20,
                 EtaDatabase.MIGRATION_20_21,
+                EtaDatabase.MIGRATION_21_22,
             )
             .build()
         try {
@@ -118,6 +119,8 @@ class EtaDatabaseMigrationTest {
             assertEquals(null, runBlocking(Dispatchers.IO) { database.conversationDao().state() })
             assertEquals(listOf("built-in", "manual"), provider.models.map { it.modelId })
             assertEquals(false, provider.hostedWebSearchEnabled)
+            assertEquals("", provider.balanceUrl)
+            assertEquals("", provider.balanceJsonPath)
             assertEquals(false, migratedMessage.isEdited)
             assertEquals(emptyList<RuntimeInFlightRunWithEvents>(), inFlightRuns)
             assertEquals(listOf("mcp-1"), mcpServers.map { it.id })

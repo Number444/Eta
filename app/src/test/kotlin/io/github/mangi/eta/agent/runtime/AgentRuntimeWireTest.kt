@@ -384,6 +384,21 @@ class AgentRuntimeWireTest {
     }
 
     @Test
+    fun compactConfigRoundTripPreservesSuppressReasoning() {
+        val config = AgentModelClient.ModelConfig(
+            baseUrl = "https://api.openai.com/v1",
+            apiKey = "test-key",
+            model = "gpt-test",
+            systemPrompt = "system",
+            suppressReasoning = true,
+        )
+
+        val decoded = AgentRuntimeWire.decodeCompactConfig(AgentRuntimeWire.encodeCompactConfig(config))
+
+        assertEquals(true, decoded?.suppressReasoning)
+    }
+
+    @Test
     fun unknownReasoningEffortJsonFallsBackToDefault() {
         val config = Json.decodeFromString<AgentModelClient.ModelConfig>(
             """

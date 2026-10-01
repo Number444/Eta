@@ -31,6 +31,8 @@ import io.github.mangi.eta.agent.voice.EtaAssistantOverlayService
 import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.core.safeLogType
 import io.github.mangi.eta.data.repository.AgentMemoryRepository
+import io.github.mangi.eta.ui.components.modelOrProviderBrandLogoRes
+import io.github.mangi.eta.R
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 
@@ -76,6 +78,16 @@ internal class AgentRuntimeRunExecutor(
         val timing = AgentRunTiming(AndroidAgentLogger)
 
         val result = try {
+            // Eta Mod：小米超级岛上岛（压缩等内部任务不上岛）；任何异常都不影响主流程。
+            if (request.operation != AgentRuntimeWire.OP_COMPACT) {
+                runCatching {
+                    AgentIslandNotifier.onRunStarted(
+                        appContext,
+                        modelOrProviderBrandLogoRes(request.config.model, request.config.providerSourceType)
+                            ?: R.drawable.ic_notification,
+                    )
+                }
+            }
             checkpointRecorder = AgentRunCheckpointRecorder.create(appContext, request)
             entrySurfaceGuard = EntrySurfaceGuard.from(
                 handoff = request.handoff,
@@ -332,6 +344,17 @@ internal class AgentRuntimeRunExecutor(
         } finally {
             runCatching { toolsBinding?.close() }
             runCatching { toolExecutor?.close() }
+            // Eta Mod：小米超级岛终态（已完成/已失败/已停止，展示约 8s 后撤销）。
+            runCatching {
+                AgentIslandNotifier.onRunFinished(
+                    appContext,
+                    when {
+                        cancelled -> AgentIslandNotifier.Terminal.STOPPED
+                        response != null -> AgentIslandNotifier.Terminal.COMPLETED
+                        else -> AgentIslandNotifier.Terminal.FAILED
+                    },
+                )
+            }
         }
 
         if (cancelled && session.isTerminal) {
@@ -401,5 +424,20 @@ internal class AgentRuntimeRunExecutor(
                     "Agent runtime event projection failed: type=${throwable.safeLogType()}"
                 }
             }
+        // Eta Mod：小米超级岛状态刷新（思考中/输出中/工具调用）。
+        runCatching {
+            when (event) {
+                is AgentEvent.AssistantBlockStart -> when (event.kind) {
+                    AgentEvent.AssistantBlockKind.THINKING ->
+                        AgentIslandNotifier.onRunState(appContext, AgentIslandNotifier.State.THINKING)
+                    AgentEvent.AssistantBlockKind.TEXT ->
+                        AgentIslandNotifier.onRunState(appContext, AgentIslandNotifier.State.OUTPUT)
+                    AgentEvent.AssistantBlockKind.TOOL_CALL -> Unit
+                }
+                is AgentEvent.ToolStarted ->
+                    AgentIslandNotifier.onRunState(appContext, AgentIslandNotifier.State.TOOL)
+                else -> Unit
+            }
+        }
     }
 }

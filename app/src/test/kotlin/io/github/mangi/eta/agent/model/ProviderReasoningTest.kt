@@ -393,6 +393,91 @@ class ProviderReasoningTest {
         }
     }
 
+    // ── Eta Mod：suppressReasoning（压缩零思考）────────────────────────
+
+    @Test
+    fun suppressReasoningStripsThinkingFieldsAndClosesProtocol() {
+        val request = JSONObject()
+            .put("reasoning_effort", "high")
+            .put("thinking_budget", 4096)
+            .put("metadata", "kept")
+
+        ProviderReasoning.applyOpenAiCompatibleRequest(
+            request,
+            config(source = ProviderSourceTypes.BAILIAN, effort = ReasoningEffort.HIGH, model = "qwen3-max")
+                .copy(suppressReasoning = true),
+        )
+
+        assertFalse(request.has("reasoning_effort"))
+        assertFalse(request.has("thinking_budget"))
+        assertEquals(false, request.getBoolean("enable_thinking"))
+        assertEquals("kept", request.getString("metadata"))
+    }
+
+    @Test
+    fun suppressReasoningMandatoryModelSendsNothingInsteadOfCrashing() {
+        // 强制思考模型（kimi-k3）：协议无关闭口，只剥离不发送，也不走强制校验。
+        val request = JSONObject().put("reasoning_effort", "high")
+
+        ProviderReasoning.applyOpenAiCompatibleRequest(
+            request,
+            config(source = ProviderSourceTypes.MOONSHOT, effort = ReasoningEffort.DEFAULT, model = "kimi-k3")
+                .copy(
+                    suppressReasoning = true,
+                    reasoningCapabilities = ModelReasoningCapabilities(
+                        supportedEfforts = listOf(ReasoningEffort.HIGH),
+                        mandatory = true,
+                    ),
+                ),
+        )
+
+        assertFalse(request.has("reasoning_effort"))
+        assertFalse(request.has("thinking"))
+        assertFalse(request.has("reasoning"))
+    }
+
+    @Test
+    fun suppressReasoningBypassesProviderDefaultForceEnable() {
+        // kimi-k2.6 默认会被强制 enable_thinking；零思考时必须改为显式关闭形态。
+        val request = JSONObject()
+
+        ProviderReasoning.applyOpenAiCompatibleRequest(
+            request,
+            config(source = ProviderSourceTypes.BAILIAN, effort = ReasoningEffort.DEFAULT, model = "kimi-k2.6")
+                .copy(suppressReasoning = true),
+        )
+
+        assertEquals("disabled", request.getJSONObject("thinking").getString("type"))
+        assertFalse(request.has("enable_thinking"))
+    }
+
+    @Test
+    fun suppressReasoningResponsesSendsReasoningNone() {
+        val request = JSONObject().put("reasoning", JSONObject().put("effort", "high"))
+
+        ProviderReasoning.applyResponsesRequest(
+            request,
+            config(source = ProviderSourceTypes.CUSTOM, effort = ReasoningEffort.HIGH)
+                .copy(suppressReasoning = true),
+        )
+
+        assertEquals("none", request.getJSONObject("reasoning").getString("effort"))
+    }
+
+    @Test
+    fun suppressReasoningAnthropicDisablesThinking() {
+        val request = JSONObject().put("output_config", JSONObject().put("effort", "high"))
+
+        ProviderReasoning.applyAnthropicRequest(
+            request,
+            config(source = ProviderSourceTypes.ANTHROPIC, effort = ReasoningEffort.HIGH)
+                .copy(suppressReasoning = true),
+        )
+
+        assertEquals("disabled", request.getJSONObject("thinking").getString("type"))
+        assertFalse(request.has("output_config"))
+    }
+
     private fun config(
         source: String,
         effort: ReasoningEffort,
