@@ -25,6 +25,8 @@ internal data class ProviderConfigDraft(
     val hostedWebSearchEnabled: Boolean,
     val anthropicVersion: String,
     val headers: List<ProviderHeaderDraft> = emptyList(),
+    val balanceUrl: String = "",
+    val balanceJsonPath: String = "",
 ) {
     companion object {
         fun from(provider: ProviderSetting): ProviderConfigDraft = ProviderConfigDraft(
@@ -42,6 +44,8 @@ internal data class ProviderConfigDraft(
             hostedWebSearchEnabled = provider.hostedWebSearchEnabled,
             anthropicVersion = (provider as? AnthropicProviderSetting)?.anthropicVersion
                 ?: AnthropicProviderSetting.DEFAULT_ANTHROPIC_VERSION,
+            balanceUrl = provider.balanceUrl,
+            balanceJsonPath = provider.balanceJsonPath,
         )
     }
 }
@@ -58,6 +62,8 @@ internal val ProviderConfigDraftSaver = mapSaver(
             "endpointMode" to draft.endpointMode,
             "hostedWebSearchEnabled" to draft.hostedWebSearchEnabled,
             "anthropicVersion" to draft.anthropicVersion,
+            "balanceUrl" to draft.balanceUrl,
+            "balanceJsonPath" to draft.balanceJsonPath,
         )
     },
     restore = { state ->
@@ -73,6 +79,8 @@ internal val ProviderConfigDraftSaver = mapSaver(
             endpointMode = state.getValue("endpointMode") as String,
             hostedWebSearchEnabled = state.getValue("hostedWebSearchEnabled") as Boolean,
             anthropicVersion = state.getValue("anthropicVersion") as String,
+            balanceUrl = state["balanceUrl"] as? String ?: "",
+            balanceJsonPath = state["balanceJsonPath"] as? String ?: "",
         )
     },
 )
@@ -88,8 +96,12 @@ internal fun buildUpdatedProvider(
     hostedWebSearchEnabled: Boolean,
     anthropicVersion: String,
     customHeaders: List<CustomHeader>,
+    balanceUrl: String = "",
+    balanceJsonPath: String = "",
 ): ProviderSetting {
     val prompt = systemPrompt.trim().takeIf { it.isNotBlank() }
+    val trimmedBalanceUrl = balanceUrl.trim()
+    val trimmedBalancePath = balanceJsonPath.trim()
     return when (source) {
         is OpenAiCompatibleProviderSetting -> source.copy(
             customHeaders = customHeaders.map { it.copy(name = it.name.trim()) },
@@ -100,6 +112,8 @@ internal fun buildUpdatedProvider(
             isEnabled = isEnabled,
             endpointMode = endpointMode,
             hostedWebSearchEnabled = hostedWebSearchEnabled,
+            balanceUrl = trimmedBalanceUrl,
+            balanceJsonPath = trimmedBalancePath,
         )
         is CustomProviderSetting -> source.copy(
             customHeaders = customHeaders.map { it.copy(name = it.name.trim()) },
@@ -110,6 +124,8 @@ internal fun buildUpdatedProvider(
             isEnabled = isEnabled,
             endpointMode = endpointMode,
             hostedWebSearchEnabled = hostedWebSearchEnabled,
+            balanceUrl = trimmedBalanceUrl,
+            balanceJsonPath = trimmedBalancePath,
         )
         is AnthropicProviderSetting -> source.copy(
             customHeaders = customHeaders.map { it.copy(name = it.name.trim()) },
@@ -119,6 +135,8 @@ internal fun buildUpdatedProvider(
             systemPrompt = prompt,
             isEnabled = isEnabled,
             anthropicVersion = anthropicVersion.trim().ifBlank { AnthropicProviderSetting.DEFAULT_ANTHROPIC_VERSION },
+            balanceUrl = trimmedBalanceUrl,
+            balanceJsonPath = trimmedBalancePath,
         )
     }
 }

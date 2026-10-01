@@ -43,6 +43,8 @@ internal data class ProviderEntity(
     @ColumnInfo(name = "hosted_web_search_enabled", defaultValue = "0")
     val hostedWebSearchEnabled: Boolean,
     @ColumnInfo(name = "anthropic_version") val anthropicVersion: String,
+    @ColumnInfo(name = "balance_url", defaultValue = "''") val balanceUrl: String = "",
+    @ColumnInfo(name = "balance_json_path", defaultValue = "''") val balanceJsonPath: String = "",
 )
 
 @Serializable
@@ -123,6 +125,8 @@ internal fun ProviderSetting.toEntity(): ProviderEntity =
             is AnthropicProviderSetting -> anthropicVersion
             else -> AnthropicProviderSetting.DEFAULT_ANTHROPIC_VERSION
         },
+        balanceUrl = balanceUrl,
+        balanceJsonPath = balanceJsonPath,
     )
 
 internal fun ProviderSetting.toModelEntities(): List<ProviderModelEntity> =
@@ -155,6 +159,8 @@ internal fun ProviderWithModels.toDomain(): ProviderSetting {
             anthropicVersion = provider.anthropicVersion.ifBlank {
                 AnthropicProviderSetting.DEFAULT_ANTHROPIC_VERSION
             },
+            balanceUrl = provider.balanceUrl,
+            balanceJsonPath = provider.balanceJsonPath,
         )
 
         ProviderTypes.CUSTOM -> CustomProviderSetting(
@@ -173,6 +179,8 @@ internal fun ProviderWithModels.toDomain(): ProviderSetting {
             createdAt = provider.createdAt,
             endpointMode = provider.endpointMode.ifBlank { OpenAiEndpointMode.CHAT_COMPLETIONS },
             hostedWebSearchEnabled = provider.hostedWebSearchEnabled,
+            balanceUrl = provider.balanceUrl,
+            balanceJsonPath = provider.balanceJsonPath,
         )
 
         else -> OpenAiCompatibleProviderSetting(
@@ -191,6 +199,8 @@ internal fun ProviderWithModels.toDomain(): ProviderSetting {
             createdAt = provider.createdAt,
             endpointMode = provider.endpointMode.ifBlank { OpenAiEndpointMode.CHAT_COMPLETIONS },
             hostedWebSearchEnabled = provider.hostedWebSearchEnabled,
+            balanceUrl = provider.balanceUrl,
+            balanceJsonPath = provider.balanceJsonPath,
         )
     }
 }

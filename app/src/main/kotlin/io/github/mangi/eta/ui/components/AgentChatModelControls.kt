@@ -20,6 +20,7 @@ import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,6 +42,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.data.repository.ProviderBalanceStore
+import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.ui.model.AgentContextUsageUi
 import io.github.mangi.eta.ui.model.AgentModelOptionUi
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
@@ -77,6 +80,13 @@ internal fun AgentModelPickerButton(
 ) {
     var showPopup by remember { mutableStateOf(false) }
     var expandedProviderIds by remember { mutableStateOf(emptySet<String>()) }
+    // Eta Mod：popout 展开时刷新余额缓存（TTL 5 分钟），失败静默不显示。
+    val providerBalances by ProviderBalanceStore.balances.collectAsState()
+    LaunchedEffect(showPopup) {
+        if (showPopup) {
+            runCatching { ProviderBalanceStore.refresh(ProviderRepository.allProviders()) }
+        }
+    }
     val selected = state.selectedModel
     val enabled = !isStreaming && !state.isChanging && state.providerGroups.isNotEmpty()
     LaunchedEffect(enabled) {
@@ -123,6 +133,7 @@ internal fun AgentModelPickerButton(
             ModelPickerPopupContent(
                 state = state,
                 expandedProviderIds = expandedProviderIds,
+                providerBalances = providerBalances,
                 onProviderExpandedChange = { providerId, expanded ->
                     expandedProviderIds = if (expanded) {
                         expandedProviderIds + providerId
@@ -143,6 +154,7 @@ internal fun AgentModelPickerButton(
 private fun ModelPickerPopupContent(
     state: AgentModelPickerUiState,
     expandedProviderIds: Set<String>,
+    providerBalances: Map<String, String>,
     onProviderExpandedChange: (String, Boolean) -> Unit,
     onModelSelected: (String) -> Unit,
 ) {
@@ -154,6 +166,7 @@ private fun ModelPickerPopupContent(
             val expanded = group.providerId in expandedProviderIds
             ModelProviderGroupHeader(
                 name = group.providerName,
+                balance = providerBalances[group.providerId]?.takeIf { it.isNotBlank() },
                 expanded = expanded,
                 onClick = {
                     onProviderExpandedChange(group.providerId, !expanded)
@@ -175,6 +188,7 @@ private fun ModelPickerPopupContent(
 @Composable
 private fun ModelProviderGroupHeader(
     name: String,
+    balance: String?,
     expanded: Boolean,
     onClick: () -> Unit,
 ) {
@@ -196,8 +210,18 @@ private fun ModelProviderGroupHeader(
             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f, fill = balance == null),
         )
+        // Eta Mod：余额紧随厂商名，间隔一个空格宽，使用主题强调色。
+        if (balance != null) {
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = balance,
+                style = MiuixTheme.textStyles.footnote1,
+                color = MiuixTheme.colorScheme.primary,
+                maxLines = 1,
+            )
+        }
         Spacer(modifier = Modifier.width(8.dp))
         Icon(
             imageVector = Icons.Rounded.ExpandMore,

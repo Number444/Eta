@@ -12,6 +12,13 @@
   <string name="settings_compact_model">Compaction model</string>
   <string name="settings_compact_model_summary">Use the selected model for context compaction with reasoning disabled; falls back to the main model if unavailable</string>
   <string name="settings_compact_follow_main">Follow main model</string>
+  <string name="provider_balance_section">Account balance</string>
+  <string name="provider_balance_state_unset">Not configured</string>
+  <string name="provider_balance_state_set">Configured; shown in the model picker</string>
+  <string name="provider_balance_summary">Fetch the account balance via the provider API and show it in the model picker.</string>
+  <string name="provider_balance_url_label">Balance API URL (full URL, or /path relative to Base URL)</string>
+  <string name="provider_balance_path_label">Balance JSON path (e.g. data.total_balance)</string>
+  <string name="provider_balance_hint">Sent as a GET request with Bearer auth and your custom headers.</string>
   <string name="xposed_description">A system-level AI agent that takes over Breeno and Super XiaoAI, enables Gemini and Circle to Search, and integrates browser, terminal, and device tools.</string>
   <string name="agent_accessibility_label">Eta Agent</string>
   <string name="agent_accessibility_description">Read screen content and perform taps, swipes, text input, and other actions to help the agent complete tasks.</string>

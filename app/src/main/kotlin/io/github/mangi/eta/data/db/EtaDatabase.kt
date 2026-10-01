@@ -26,7 +26,7 @@ import androidx.room.migration.Migration
         CharacterEntity::class,
         UserPersonaEntity::class,
     ],
-    version = 21,
+    version = 22,
     exportSchema = false,
 )
 internal abstract class EtaDatabase : RoomDatabase() {
@@ -64,6 +64,7 @@ internal abstract class EtaDatabase : RoomDatabase() {
                         MIGRATION_18_19,
                         MIGRATION_19_20,
                         MIGRATION_20_21,
+                        MIGRATION_21_22,
                     )
                     .addCallback(object : Callback() {
                         override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) { createTextChunkCleanup(db) }
@@ -82,6 +83,12 @@ internal abstract class EtaDatabase : RoomDatabase() {
             }
         }
 
+        // Eta Mod：账户余额查询配置（余额 API 地址 + JSON 点号路径）。
+        internal val MIGRATION_21_22 = Migration(21, 22) { database ->
+            database.execSQL("ALTER TABLE model_providers ADD COLUMN balance_url TEXT NOT NULL DEFAULT ''")
+            database.execSQL("ALTER TABLE model_providers ADD COLUMN balance_json_path TEXT NOT NULL DEFAULT ''")
+        }
+
         internal val MIGRATION_19_20 = Migration(19, 20) { database ->
             database.execSQL("ALTER TABLE conversation_context_checkpoints ADD COLUMN journal_json TEXT NOT NULL DEFAULT ''")
             database.execSQL("ALTER TABLE runtime_inflight_runs ADD COLUMN transcript_json TEXT NOT NULL DEFAULT '[]'")
@@ -95,6 +102,7 @@ internal abstract class EtaDatabase : RoomDatabase() {
         }
 
         internal val MIGRATION_20_21 = Migration(20, 21) { database ->
+
             database.execSQL("ALTER TABLE conversations ADD COLUMN roleplay_json TEXT NOT NULL DEFAULT ''")
             database.execSQL("ALTER TABLE conversations ADD COLUMN revisions_json TEXT NOT NULL DEFAULT ''")
             listOf("runtime_results", "runtime_archive_runs", "runtime_inflight_runs").forEach { table ->

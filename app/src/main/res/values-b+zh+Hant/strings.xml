@@ -12,6 +12,13 @@
   <string name="settings_compact_model">壓縮用模型</string>
   <string name="settings_compact_model_summary">壓縮上下文時改用所選模型，請求不攜帶思考參數；失效時自動回退主模型</string>
   <string name="settings_compact_follow_main">跟隨主模型</string>
+  <string name="provider_balance_section">餘額查詢</string>
+  <string name="provider_balance_state_unset">未設定</string>
+  <string name="provider_balance_state_set">已設定，顯示在模型選擇器中</string>
+  <string name="provider_balance_summary">透過廠商介面拉取帳戶餘額，顯示在模型選擇器廠商名右側。</string>
+  <string name="provider_balance_url_label">餘額 API 位址（完整 URL，或以 / 開頭相對 Base URL）</string>
+  <string name="provider_balance_path_label">餘額 JSON 路徑（如 data.total_balance）</string>
+  <string name="provider_balance_hint">使用 GET 請求，自動附帶 Bearer 認證與自訂請求標頭。</string>
   <string name="xposed_description">系統級 AI Agent，接管小布與超級小愛，解鎖 Gemini 與圈選搜尋，整合瀏覽器、終端機與裝置工具。</string>
   <string name="agent_accessibility_label">Eta Agent</string>
   <string name="agent_accessibility_description">讀取畫面內容並執行點按、滑動、文字輸入等操作，協助 Agent 完成任務。</string>

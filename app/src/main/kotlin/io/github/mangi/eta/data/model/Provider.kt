@@ -45,6 +45,14 @@ sealed interface ProviderSetting {
     val createdAt: Long
     val hostedWebSearchEnabled: Boolean
         get() = false
+
+    /** Eta Mod：账户余额查询地址（完整 URL 或以 / 开头相对 Base URL），空串=未配置。 */
+    val balanceUrl: String
+        get() = ""
+
+    /** Eta Mod：余额在响应 JSON 中的点号路径（如 data.total_balance）。 */
+    val balanceJsonPath: String
+        get() = ""
 }
 
 @Serializable
@@ -65,6 +73,8 @@ data class OpenAiCompatibleProviderSetting(
     override val createdAt: Long = System.currentTimeMillis(),
     val endpointMode: String = OpenAiEndpointMode.CHAT_COMPLETIONS,
     override val hostedWebSearchEnabled: Boolean = false,
+    override val balanceUrl: String = "",
+    override val balanceJsonPath: String = "",
 ) : ProviderSetting
 
 @Serializable
@@ -83,7 +93,9 @@ data class AnthropicProviderSetting(
     override val customHeaders: List<CustomHeader> = emptyList(),
     override val customBody: List<CustomBody> = emptyList(),
     override val createdAt: Long = System.currentTimeMillis(),
-    val anthropicVersion: String = DEFAULT_ANTHROPIC_VERSION
+    val anthropicVersion: String = DEFAULT_ANTHROPIC_VERSION,
+    override val balanceUrl: String = "",
+    override val balanceJsonPath: String = "",
 ) : ProviderSetting {
     companion object {
         const val DEFAULT_ANTHROPIC_VERSION = "2023-06-01"
@@ -108,6 +120,8 @@ data class CustomProviderSetting(
     override val createdAt: Long = System.currentTimeMillis(),
     val endpointMode: String = OpenAiEndpointMode.CHAT_COMPLETIONS,
     override val hostedWebSearchEnabled: Boolean = false,
+    override val balanceUrl: String = "",
+    override val balanceJsonPath: String = "",
 ) : ProviderSetting
 
 internal val ProviderSetting.runtimeProviderType: String

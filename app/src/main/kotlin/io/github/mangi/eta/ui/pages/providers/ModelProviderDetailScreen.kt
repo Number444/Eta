@@ -202,6 +202,7 @@ private fun ProviderConfigTab(
 ) {
     val context = LocalContext.current
     var headersExpanded by rememberSaveable { mutableStateOf(false) }
+    var balanceExpanded by rememberSaveable { mutableStateOf(false) }
     var apiKeyVisible by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<String?>(null) }
     var testStatus by remember { mutableStateOf<String?>(null) }
@@ -336,6 +337,8 @@ private fun ProviderConfigTab(
                                         hostedWebSearchEnabled = draft.hostedWebSearchEnabled,
                                         anthropicVersion = draft.anthropicVersion,
                                         customHeaders = draft.headers.map { it.header },
+                                        balanceUrl = draft.balanceUrl,
+                                        balanceJsonPath = draft.balanceJsonPath,
                                     )
                                 )
                             } finally {
@@ -352,6 +355,16 @@ private fun ProviderConfigTab(
             expanded = headersExpanded,
             onExpandedChange = { headersExpanded = it },
             onHeadersChange = { onDraftChange(draft.copy(headers = it)) },
+        )
+
+        // Eta Mod：余额查询配置，跟随厂商保存，显示在模型选择器厂商名右侧。
+        providerBalanceEditor(
+            balanceUrl = draft.balanceUrl,
+            balanceJsonPath = draft.balanceJsonPath,
+            onBalanceUrlChange = { onDraftChange(draft.copy(balanceUrl = it)) },
+            onBalanceJsonPathChange = { onDraftChange(draft.copy(balanceJsonPath = it)) },
+            expanded = balanceExpanded,
+            onExpandedChange = { balanceExpanded = it },
         )
 
         item(key = "preferences_and_prompt") {
@@ -420,6 +433,8 @@ private fun ProviderConfigTab(
                                 hostedWebSearchEnabled = draft.hostedWebSearchEnabled,
                                 anthropicVersion = draft.anthropicVersion,
                                 customHeaders = draft.headers.map { it.header },
+                                balanceUrl = draft.balanceUrl,
+                                balanceJsonPath = draft.balanceJsonPath,
                             )
                             try {
                                 if (isNew) {
