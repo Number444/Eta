@@ -40,7 +40,7 @@ App 在 eta_island 频道发带 miui.focus.param 的 ongoing 通知（+promoted/
 | T5 | 新建 DEFAULT 频道+焦点参数（缺 ongoing/promoted） | 无任何响应 | 模板已建但无 addDynamicIslandData；`focus notify not in list` | 上岛需 ongoing「活体」通知（生产三件套） |
 | T6 | 新建 HIGH 频道+无焦点参数 | 无任何响应（未拉通知栏确认） | FocusPlugin 不处理；无 heads-up 痕迹 | 无焦点参数不上岛；新建频道横幅疑似被 MIUI 默认压制 |
 | T7 | 新建 HIGH 频道+焦点参数（缺三件套） | 无任何响应 | 同 T5 | 同 T5 |
-| T8 | eta_island 删重建(DEFAULT) 后生产首发 | 自动展开「思考中」后收起 | 重建后频道旋即被 MIUI 再提升为 HIGH | 展开与代码设定的频道重要性无关 |
+| T8 | eta_island 删重建(DEFAULT) 后生产首发 | 自动展开「思考中」后收起 | 重建后频道立即恢复 imp=4（已删频道设置复活，非 MIUI 再提升） | 展开与代码设定的频道重要性无关 |
 | T9 | 重建后生产终态 | 「已完成」 | 同 T4 | — |
 | T10 | 清理 | 保活通知消失 | — | — |
 
@@ -81,5 +81,26 @@ App 在 eta_island 频道发带 miui.focus.param 的 ongoing 通知（+promoted/
 
 ## 六、环境备注
 
-- 早期实验遗留频道 `eta_island_done`（HIGH + 自定义铃声 Message3）仍在系统中，当前代码不发往该频道，待清理决策。
+- 早期实验遗留频道 `eta_island_done`（HIGH + 自定义铃声 Message3）仍在系统中，当前代码不发往该频道。
+  **处置决策（2026-10-02 Four 拍板）：保留**，仅设置页多一行，无害。
+- 测试频道 `eta_test_*` / `eta_test2_*` 共 6 个已被删除（Android 仅为「已删频道设置复活」留档，设置页不可见）。
+- 诊断日志已清理（三轮 logcat 留存文件用完已删）。
+
+## 八、第三轮：目标链路模拟与实装（2026-10-02 定稿，v3.0.6-013）
+
+**T20–T24 模拟（012 诊断包）**：LOW 安静频道胶囊「思考中→输出中→工具调用」（不展开）→ 完成瞬间
+eta_island 换 id 1208 首发「已完成」（岛展开）+ eta_completion 横幅（声+振）同时出现 → 8s 撤销。
+**真机全链路一次通过**，随后 013 实装、真实任务复验通过（含中途停止安静收尾）。
+
+**实装架构（AgentIslandNotifier 双通道）**：
+
+| 阶段 | 频道 | 通知 id | 行为 |
+|---|---|---|---|
+| 进行中（思考/输出/工具） | `eta_island_run`（LOW 安静） | 1207 | 胶囊跟手更新，不展开不发声，1.5s 节流 |
+| 已完成 | `eta_island`（用户悬浮通知设置在此） | 1208（新 id 首发→展开） | 岛展开「已完成」，8s 撤销 |
+| 失败/手动停止 | `eta_island_run` | 1207 | 安静收尾，不展开 |
+| 已完成（并行） | `eta_completion`（HIGH+声+振） | 3400+runId | 横幅：标题=会话名，正文=回复摘要（AgentCompletionNotifier） |
+
+**设计要点**：展开只能跟着「首发 alert」走（同 id 更新永不展开），所以完成态必须撤销胶囊换新 id；
+展开与否的最终开关在用户系统设置（eta_island 的悬浮通知），App 只能选择发到哪个频道。
 - 诊断日志留存：`D:\Agent Space\temp_inspect\eta-diag-live.log`（两轮完整 T1–T10）。
