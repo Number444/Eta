@@ -22,6 +22,8 @@
   <string name="provider_balance_test">Test</string>
   <string name="provider_balance_testing">Testing…</string>
   <string name="island_channel_name">Task island</string>
+  <string name="island_run_channel_name">Task island (running)</string>
+  <string name="completion_channel_name">Task completion</string>
   <string name="island_state_thinking">Thinking</string>
   <string name="island_state_output">Output</string>
   <string name="island_state_tool">Tools</string>
@@ -33,6 +35,10 @@
   <string name="settings_island_summary_no_permission">Supported, but focus notification permission is off. Tap to open system settings.</string>
   <string name="settings_island_summary_unsupported">Not supported on this system (requires Xiaomi HyperOS).</string>
   <string name="settings_island_summary_checking">Checking system support…</string>
+  <string name="settings_island_test_title">Island diagnostics</string>
+  <string name="settings_island_test_summary">Simulates the full target flow in background: quiet capsule → island expand + banner at completion</string>
+  <string name="settings_island_test_started">Starting in 5s: press Home (do not swipe away) and watch T20–T24</string>
+  <string name="settings_island_test_running">Diagnostics already running</string>
   <string name="xposed_description">A system-level AI agent that takes over Breeno and Super XiaoAI, enables Gemini and Circle to Search, and integrates browser, terminal, and device tools.</string>
   <string name="agent_accessibility_label">Eta Agent</string>
   <string name="agent_accessibility_description">Read screen content and perform taps, swipes, text input, and other actions to help the agent complete tasks.</string>

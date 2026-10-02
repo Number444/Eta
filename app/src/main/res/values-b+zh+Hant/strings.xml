@@ -22,6 +22,8 @@
   <string name="provider_balance_test">測試</string>
   <string name="provider_balance_testing">測試中…</string>
   <string name="island_channel_name">任務狀態島</string>
+  <string name="island_run_channel_name">任務狀態島（進行中）</string>
+  <string name="completion_channel_name">任務完成</string>
   <string name="island_state_thinking">思考中</string>
   <string name="island_state_output">輸出中</string>
   <string name="island_state_tool">工具調用</string>
@@ -29,6 +31,10 @@
   <string name="island_state_failed">已失敗</string>
   <string name="island_state_stopped">已停止</string>
   <string name="settings_island_title">小米超級島</string>
+  <string name="settings_island_test_title">島通知診斷測試</string>
+  <string name="settings_island_test_summary">後台完整模擬目標鏈路：安靜膠囊→完成時島展開+橫幅</string>
+  <string name="settings_island_test_started">5 秒後開始：請按 Home 鍵退出（勿滑掉卡片），觀察 T20–T24</string>
+  <string name="settings_island_test_running">診斷正在進行中</string>
   <string name="settings_island_summary_supported">支援，任務狀態將即時顯示在狀態列小島。</string>
   <string name="settings_island_summary_no_permission">支援，但焦點通知權限未開啟；點擊前往系統設定開啟。</string>
   <string name="settings_island_summary_unsupported">目前系統不支援小米焦點通知（需小米澎湃 OS）。</string>

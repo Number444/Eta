@@ -357,6 +357,28 @@ internal class AgentRuntimeRunExecutor(
                     },
                 )
             }
+            // Eta Mod：任务完成横幅通知（声音+振动，标题=会话名，正文=回复摘要）；
+            // 仅成功任务，内部压缩不通知。
+            response?.let { completed ->
+                if (request.operation != AgentRuntimeWire.OP_COMPACT) {
+                    runCatching {
+                        val completionConversationId = request.handoff
+                            ?.takeIf { it.source == AgentRuntimeWire.AGENT_UI_HANDOFF_SOURCE }
+                            ?.let { AgentUiHandoffPayload.from(it.payload) }
+                            ?.conversationId?.takeIf { it.isNotBlank() }
+                        AgentCompletionNotifier.onTaskCompleted(
+                            appContext,
+                            conversationId = completionConversationId,
+                            iconRes = modelOrProviderBrandLogoRes(
+                                request.config.model,
+                                request.config.providerSourceType,
+                            ) ?: R.drawable.ic_notification,
+                            replyText = completed.content,
+                            runId = request.runId,
+                        )
+                    }
+                }
+            }
         }
 
         if (cancelled && session.isTerminal) {

@@ -25,14 +25,23 @@ import org.json.JSONObject
  *
  * 模版 1：大岛 A 区图文组件 1（imageTextInfoLeft，type=1）= 厂商品牌图标 + 状态大字；
  * B 区留空；小岛 smallIslandArea 仅厂商图标。状态文案 ≤4 个中文字（官方规范）。
- * islandFirstFloat=false、enableFloat=false：安静胶囊，不自动展开。
+ *
+ * 双通道架构（2026-10-02 全链路调查定稿，见 docs/ISLAND-EXPANSION-INVESTIGATION.md）：
+ * - 进行中（思考/输出/工具）→ eta_island_run（LOW 安静频道）：胶囊跟手更新，不展开、不发声。
+ * - 已完成 → eta_island（用户系统设置所在频道，「悬浮通知」开关在此）：换新 id 首发，
+ *   首发 alert 被 HyperOS 渲染为岛展开（展开与否由该频道的系统设置决定，App 无法强制）。
+ * - 失败/手动停止 → eta_island_run 安静收尾，不展开。
+ * - 终态 8 秒后自动撤销。完成横幅（声音+振动）由 AgentCompletionNotifier 并行发出。
+ * - 注意：Android 会复活已删频道的用户设置，同 id 重建无法复位频道设置。
  *
  * 非小米澎湃 OS 或焦点通知权限未开时全程静默空操作，退化为不发送；
  * 所有调用方都已包 runCatching，本类内部也不再抛出。
  */
 internal object AgentIslandNotifier {
     private const val CHANNEL_ID = "eta_island"
+    private const val RUN_CHANNEL_ID = "eta_island_run"
     private const val NOTIFICATION_ID = 1207
+    private const val DONE_NOTIFICATION_ID = 1208
     private const val TAG = "EtaIsland"
     internal const val PIC_KEY = "miui.focus.pic_eta_island"
     private const val MIN_UPDATE_INTERVAL_MS = 1_500L
@@ -81,7 +90,8 @@ internal object AgentIslandNotifier {
         lastSubtitle = subtitle
         lastProviderName = providerName
         runStartedAtMs = System.currentTimeMillis()
-        post(appContext, stateText(appContext, State.THINKING), ongoing = true)
+        // 进行中：安静频道胶囊，不展开。
+        post(appContext, RUN_CHANNEL_ID, NOTIFICATION_ID, stateText(appContext, State.THINKING), ongoing = true)
         lastState = State.THINKING
     }
 
@@ -92,24 +102,45 @@ internal object AgentIslandNotifier {
         val now = SystemClock.uptimeMillis()
         if (!changed && now - lastPostedAt < MIN_UPDATE_INTERVAL_MS) return
         val appContext = context.applicationContext
-        post(appContext, stateText(appContext, state), ongoing = true)
+        post(appContext, RUN_CHANNEL_ID, NOTIFICATION_ID, stateText(appContext, state), ongoing = true)
         lastState = state
     }
 
-    /** 终态展示约 8 秒后自动撤销，避免岛屿残留；未上岛的运行（如内部压缩任务）直接忽略。 */
+    /** 完成：eta_island 新 id 首发展开；失败/停止：安静频道收尾。终态展示约 8 秒后自动撤销。 */
     fun onRunFinished(context: Context, terminal: Terminal) {
         val wasActive = runActive
         runActive = false
         if (!wasActive || !gateAllowed) return
         val appContext = context.applicationContext
-        // 终态：小岛原地更新为终态文本（同频道同 ID），8s 后撤销。
-        // 注：澎湃 OS 的「岛展开」动画仅由小米焦点通知协议触发（需开放平台白名单，onAuthFailed 已证实），
-        // LiveUpdate 通道无法主动展开；heads-up 方案实测只会产生第二个岛，已弃用。
-        post(appContext, terminalText(appContext, terminal), ongoing = true)
+        val manager = NotificationManagerCompat.from(appContext)
+        if (terminal == Terminal.COMPLETED) {
+            // 岛展开 = 焦点通知 × 频道「悬浮通知」开 × 首发 alert（同 id 更新永不展开），
+            // 因此完成态必须撤销胶囊后换新 id 首发。
+            runCatching { manager.cancel(NOTIFICATION_ID) }
+            post(
+                appContext,
+                CHANNEL_ID,
+                DONE_NOTIFICATION_ID,
+                terminalText(appContext, terminal),
+                ongoing = true,
+                terminal = true,
+            )
+        } else {
+            post(
+                appContext,
+                RUN_CHANNEL_ID,
+                NOTIFICATION_ID,
+                terminalText(appContext, terminal),
+                ongoing = true,
+                terminal = true,
+            )
+        }
         lastState = null
         cancelPendingDismiss()
-        val manager = NotificationManagerCompat.from(appContext)
-        val dismiss = Runnable { runCatching { manager.cancel(NOTIFICATION_ID) } }
+        val dismiss = Runnable {
+            runCatching { manager.cancel(NOTIFICATION_ID) }
+            runCatching { manager.cancel(DONE_NOTIFICATION_ID) }
+        }
         pendingDismiss = dismiss
         mainHandler.postDelayed(dismiss, FINAL_DISMISS_MS)
     }
@@ -153,30 +184,49 @@ internal object AgentIslandNotifier {
         result?.getBoolean("canShowFocus", false) == true
     }.getOrDefault(false)
 
-    private fun ensureChannel(context: Context) {
+    private fun ensureChannels(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
-        if (manager.getNotificationChannel(CHANNEL_ID) != null) return
-        manager.createNotificationChannel(
-            NotificationChannel(
-                CHANNEL_ID,
-                context.getString(R.string.island_channel_name),
-                NotificationManager.IMPORTANCE_DEFAULT,
-            ).apply {
-                setSound(null, null)
-                enableVibration(false)
-                setShowBadge(false)
-            },
-        )
+        if (manager.getNotificationChannel(CHANNEL_ID) == null) {
+            manager.createNotificationChannel(
+                NotificationChannel(
+                    CHANNEL_ID,
+                    context.getString(R.string.island_channel_name),
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply {
+                    setSound(null, null)
+                    enableVibration(false)
+                    setShowBadge(false)
+                },
+            )
+        }
+        if (manager.getNotificationChannel(RUN_CHANNEL_ID) == null) {
+            manager.createNotificationChannel(
+                NotificationChannel(
+                    RUN_CHANNEL_ID,
+                    context.getString(R.string.island_run_channel_name),
+                    NotificationManager.IMPORTANCE_LOW,
+                ).apply {
+                    setSound(null, null)
+                    enableVibration(false)
+                    setShowBadge(false)
+                },
+            )
+        }
     }
 
     /** 岛参数 JSON（官方 param_v2 模版 1）；抽成纯函数便于单元测试。字段值对齐真机工作样本（MiShare）。 */
-    internal fun buildFocusParam(text: String, appName: String, packageName: String): String =
+    internal fun buildFocusParam(
+        text: String,
+        appName: String,
+        packageName: String,
+        notificationId: Int = NOTIFICATION_ID,
+    ): String =
         JSONObject().apply {
             put("param_v2", JSONObject().apply {
                 put("protocol", 1)
                 put("business", "agent_task")
                 // updatable=true 时 notifyId 必填，缺了系统直接按普通通知处理
-                put("notifyId", packageName + NOTIFICATION_ID)
+                put("notifyId", packageName + notificationId)
                 put("islandFirstFloat", false)
                 put("enableFloat", false)
                 put("updatable", true)
@@ -227,9 +277,16 @@ internal object AgentIslandNotifier {
         }.toString()
 
     @SuppressLint("MissingPermission") // gate 已检查 areNotificationsEnabled
-    private fun post(context: Context, text: String, ongoing: Boolean) {
+    private fun post(
+        context: Context,
+        channelId: String,
+        notificationId: Int,
+        text: String,
+        ongoing: Boolean,
+        terminal: Boolean = false,
+    ) {
         runCatching {
-            ensureChannel(context)
+            ensureChannels(context)
             lastPostedAt = SystemClock.uptimeMillis()
             val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
                 ?: Intent()
@@ -241,11 +298,11 @@ internal object AgentIslandNotifier {
             )
             val iconRes = lastIconRes.takeIf { it != 0 } ?: R.drawable.ic_notification
             val appName = context.getString(R.string.app_name)
-            val focusParam = buildFocusParam(text, appName, context.packageName)
+            val focusParam = buildFocusParam(text, appName, context.packageName, notificationId)
             val pics = Bundle().apply {
                 putParcelable(PIC_KEY, Icon.createWithResource(context, iconRes))
             }
-            val builder = NotificationCompat.Builder(context, CHANNEL_ID)
+            val builder = NotificationCompat.Builder(context, channelId)
                 .setSmallIcon(R.drawable.ic_notification)
                 // 展开岛按「左图右文」排版：彩色大图 = 供应商品牌图标，标题 = 状态，正文 = 模型名。
                 .setLargeIcon(Icon.createWithResource(context, iconRes))
@@ -267,7 +324,7 @@ internal object AgentIslandNotifier {
                 })
             // 信息层级：subText = 供应商名；运行期间显示已用时。
             if (lastProviderName.isNotBlank()) builder.setSubText(lastProviderName)
-            if (ongoing && runStartedAtMs > 0L) {
+            if (!terminal && ongoing && runStartedAtMs > 0L) {
                 builder.setWhen(runStartedAtMs).setUsesChronometer(true)
                 // 展开岛渲染 action 按钮（澎湃对 B 站等媒体卡片已验证渲染），提供一键停止。
                 val stopIntent = PendingIntent.getService(
@@ -286,8 +343,8 @@ internal object AgentIslandNotifier {
                 )
             }
             val notification = builder.build()
-            Log.d(TAG, "post text=$text ongoing=$ongoing")
-            NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
+            if (terminal) Log.i(TAG, "post terminal text=$text channel=$channelId id=$notificationId")
+            NotificationManagerCompat.from(context).notify(notificationId, notification)
         }.onFailure { Log.w(TAG, "post failed: ${it.javaClass.simpleName}: ${it.message}") }
     }
 

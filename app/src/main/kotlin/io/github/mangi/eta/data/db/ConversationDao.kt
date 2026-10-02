@@ -39,6 +39,9 @@ internal interface ConversationDao : ChunkedTextDao {
     @Query("SELECT roleplay_json FROM conversations WHERE id = :conversationId")
     suspend fun roleplayJsonRow(conversationId: String): String?
 
+    @Query("SELECT title FROM conversations WHERE id = :conversationId")
+    suspend fun conversationTitle(conversationId: String): String?
+
     @Transaction
     suspend fun roleplayJson(conversationId: String): String? = roleplayJsonRow(conversationId)?.let {
         restoreText("conversations", conversationId, "roleplay", it)
