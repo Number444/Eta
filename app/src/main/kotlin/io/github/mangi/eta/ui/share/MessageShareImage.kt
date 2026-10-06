@@ -8,15 +8,20 @@ import android.view.ViewGroup
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.runtime.Composable
@@ -31,6 +36,9 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -155,7 +163,7 @@ internal object MessageShareImage {
     }
 
     /** 与聊天页同一套解析器，终态整体解析，在调用线程同步完成；失败的段退化为纯文本渲染。 */
-    private fun parseAllSegments(
+    internal fun parseAllSegments(
         turns: List<ShareTurn>,
         inlineStyle: MarkdownInlineStyle,
     ): Map<String, MarkdownDocument> {
@@ -209,9 +217,10 @@ internal object MessageShareImage {
 /**
  * 长图卡片：与聊天界面同主题。结构仿 dsh-share——无独立头部，
  * 轮与轮之间以间距分隔，页脚为分隔线 + 居中品牌字标。
+ * internal 供 Robolectric 渲染测试直接组合。
  */
 @Composable
-private fun ShareTurnsCard(
+internal fun ShareTurnsCard(
     turns: List<ShareTurn>,
     documents: Map<String, MarkdownDocument>,
     style: MarkdownStyle,
@@ -228,34 +237,46 @@ private fun ShareTurnsCard(
                 Spacer(modifier = Modifier.height(28.dp))
             }
             if (!turn.userPrompt.isNullOrBlank()) {
+                // 与聊天页一致：用户气泡右对齐、宽度包内容（封顶约 3/4 卡宽）。
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(MiuixTheme.colorScheme.surfaceContainer)
-                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.CenterEnd,
                 ) {
-                    Text(
-                        text = turn.userPrompt,
-                        style = MiuixTheme.textStyles.body2,
-                        color = MiuixTheme.colorScheme.onSurface,
-                    )
+                    Box(
+                        modifier = Modifier
+                            .widthIn(max = 300.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(MiuixTheme.colorScheme.surfaceContainer)
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                    ) {
+                        Text(
+                            text = turn.userPrompt,
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurface,
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.height(20.dp))
             }
-            turn.segments.forEachIndexed { index, segment ->
-                if (index > 0) {
-                    val previous = turn.segments[index - 1]
-                    // 连续工具行收紧为一张清单，其余段之间保持正文呼吸感。
-                    val gap = if (previous is ShareTurnSegment.ToolCall &&
-                        segment is ShareTurnSegment.ToolCall
+            // 连续工具调用合并成一条时间线渲染，其余段各自成块；块间统一 10dp 呼吸间距。
+            var index = 0
+            var firstUnit = true
+            while (index < turn.segments.size) {
+                if (!firstUnit) Spacer(modifier = Modifier.height(10.dp))
+                firstUnit = false
+                val segment = turn.segments[index]
+                if (segment is ShareTurnSegment.ToolCall) {
+                    val run = mutableListOf<ShareTurnSegment.ToolCall>()
+                    while (index < turn.segments.size &&
+                        turn.segments[index] is ShareTurnSegment.ToolCall
                     ) {
-                        2.dp
-                    } else {
-                        10.dp
+                        run.add(turn.segments[index] as ShareTurnSegment.ToolCall)
+                        index++
                     }
-                    Spacer(modifier = Modifier.height(gap))
+                    ShareToolTimeline(calls = run)
+                    continue
                 }
+                index++
                 when (segment) {
                     is ShareTurnSegment.Markdown -> {
                         val document = documents[segment.text]
@@ -279,7 +300,7 @@ private fun ShareTurnsCard(
                         style = MiuixTheme.textStyles.body1,
                         color = MiuixTheme.colorScheme.onSurface,
                     )
-                    is ShareTurnSegment.ToolCall -> ShareToolCallRow(segment = segment)
+                    is ShareTurnSegment.ToolCall -> Unit // 已在上方按时间线处理
                 }
             }
         }
@@ -304,31 +325,86 @@ private fun ShareTurnsCard(
     }
 }
 
+/** 时间线中该节点的位置：决定竖线从哪画到哪，保证跨行无缝衔接。 */
+private enum class TimelinePosition { Single, First, Middle, Last }
+
 /**
- * 工具调用段：聊天页 ToolActivityInline 的静态简化版——
- * 图标 + 参数摘要（缺省回退工具名）+ 状态标记，失败时附首行原因。
- * 不做展开、脉冲动画、命令与结果详情。
+ * 工具调用时间线：仿聊天页工作过程区的样式——
+ * 左侧竖线串联圆形节点图标，行间内边距代替间隔，竖线因此连续不断。
  */
 @Composable
-private fun ShareToolCallRow(segment: ShareTurnSegment.ToolCall) {
+private fun ShareToolTimeline(calls: List<ShareTurnSegment.ToolCall>) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        calls.forEachIndexed { i, call ->
+            val position = when {
+                calls.size == 1 -> TimelinePosition.Single
+                i == 0 -> TimelinePosition.First
+                i == calls.lastIndex -> TimelinePosition.Last
+                else -> TimelinePosition.Middle
+            }
+            ShareToolTimelineRow(segment = call, position = position)
+        }
+    }
+}
+
+/**
+ * 时间线中的一行：节点圆 + 图标在左（竖线从行中心穿过并与相邻行相接），
+ * 参数摘要居中，右侧为状态标记与 chevron（样式对齐聊天页，静态图中仅作装饰）。
+ */
+@Composable
+private fun ShareToolTimelineRow(segment: ShareTurnSegment.ToolCall, position: TimelinePosition) {
+    val failed = segment.status == ToolActivityStatusUi.Failed
+    val lineColor = MiuixTheme.colorScheme.outline.copy(alpha = 0.5f)
     Row(
-        verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 5.dp),
+            .height(IntrinsicSize.Min),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            imageVector = iconForTool(segment.toolName),
-            contentDescription = null,
-            modifier = Modifier.size(15.dp),
-            tint = if (segment.status == ToolActivityStatusUi.Failed) {
-                StatusError
-            } else {
-                MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.8f)
-            },
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Column(modifier = Modifier.weight(1f)) {
+        Box(
+            modifier = Modifier
+                .width(30.dp)
+                .fillMaxHeight()
+                .drawBehind {
+                    if (position == TimelinePosition.Single) return@drawBehind
+                    val lineWidth = 1.5.dp.toPx()
+                    val x = size.width / 2f
+                    val centerY = size.height / 2f
+                    val startY = if (position == TimelinePosition.First) centerY else 0f
+                    val endY = if (position == TimelinePosition.Last) centerY else size.height
+                    drawRect(
+                        color = lineColor,
+                        topLeft = Offset(x - lineWidth / 2f, startY),
+                        size = Size(lineWidth, endY - startY),
+                    )
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(26.dp)
+                    .clip(CircleShape)
+                    .background(MiuixTheme.colorScheme.surfaceContainer),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = iconForTool(segment.toolName),
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = if (failed) {
+                        StatusError
+                    } else {
+                        MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.8f)
+                    },
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(10.dp))
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(vertical = 8.dp),
+        ) {
             Text(
                 text = segment.summary.ifBlank { toolDisplayName(segment.toolName) },
                 style = MiuixTheme.textStyles.body2,
@@ -361,5 +437,12 @@ private fun ShareToolCallRow(segment: ShareTurnSegment.ToolCall) {
             )
             else -> Unit
         }
+        Spacer(modifier = Modifier.width(6.dp))
+        Icon(
+            imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
+            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.5f),
+        )
     }
 }

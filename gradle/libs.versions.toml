@@ -58,6 +58,8 @@ kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 json = { group = "org.json", name = "json", version.ref = "json" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+# Eta Mod：Robolectric + Compose UI 渲染测试（分享卡片本地出图验证），仅 test 使用。
+compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4", version = "1.12.0" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

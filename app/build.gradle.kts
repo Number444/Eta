@@ -184,4 +184,6 @@ dependencies {
     testImplementation(libs.json)
     testImplementation(libs.room.testing)
     testImplementation(libs.robolectric)
+    // Eta Mod：分享卡片 Robolectric 渲染验证
+    testImplementation(libs.compose.ui.test.junit4)
 }

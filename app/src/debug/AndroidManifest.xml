@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Eta Mod：Robolectric + Compose UI 渲染测试需要可启动的宿主 Activity（robolectric#4736）。
+     放在 debug 源集是因为 AGP 单元测试使用 debug 变体的合并 manifest；release 不受影响。 -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity
+            android:name="androidx.activity.ComponentActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Material.NoActionBar" />
+    </application>
+</manifest>
