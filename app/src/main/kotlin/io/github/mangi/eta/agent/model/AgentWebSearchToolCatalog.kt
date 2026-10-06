@@ -1,5 +1,6 @@
 package io.github.mangi.eta.agent.model
 
+import io.github.mangi.eta.config.Prefs
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -7,6 +8,11 @@ import org.json.JSONObject
 internal object AgentWebSearchToolCatalog {
 
     const val WEB_SEARCH = "web_search"
+
+    /** 当前是否以 Exa 作为 web_search 后端：设置为 Exa 且已配置 API Key。 */
+    fun exaSelected(): Boolean =
+        Prefs.getLocalString(Prefs.Keys.AGENT_WEB_SEARCH_ENGINE) == Prefs.Keys.WEB_SEARCH_ENGINE_EXA &&
+            Prefs.getLocalString(Prefs.Keys.AGENT_EXA_API_KEY).isNotBlank()
 
     fun appendTo(tools: JSONArray) {
         tools.put(

@@ -78,6 +78,7 @@ internal class AgentRuntimeRunExecutor(
         val timing = AgentRunTiming(AndroidAgentLogger)
 
         val result = try {
+            val contextWindow = request.config.requireContextWindow()
             // Eta Mod：小米超级岛上岛（压缩等内部任务不上岛）；任何异常都不影响主流程。
             if (request.operation != AgentRuntimeWire.OP_COMPACT) {
                 runCatching {
@@ -117,7 +118,7 @@ internal class AgentRuntimeRunExecutor(
             val conversationId = uiPayload?.conversationId
                 ?.takeIf { it.isNotBlank() }
             val roleplayContext = conversationId?.let { id ->
-                runBlocking { RoleplayRunContext.resolve(appContext, id, request.config.contextWindow, memoryEnabled) }
+                runBlocking { RoleplayRunContext.resolve(appContext, id, contextWindow, memoryEnabled) }
             }
             if (request.operation == AgentRuntimeWire.OP_REWRITE_REPLY) {
                 require(roleplayContext != null) { "只有角色会话可以改写角色回复" }

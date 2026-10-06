@@ -5,6 +5,7 @@ import io.github.mangi.eta.data.repository.SpeechSettingsRepository
 import io.github.mangi.eta.ui.voice.openSpeechSettings
 import io.github.mangi.eta.ui.voice.SpeechPlaybackErrors
 import io.github.mangi.eta.ui.voice.LocalSpeechPlayback
+import io.github.mangi.eta.ui.voice.LocalSpeechPlaybackEnabled
 import android.os.PowerManager
 import android.Manifest
 import android.app.ActivityOptions
@@ -34,6 +35,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
@@ -101,6 +103,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
     private var deltaFlushJob: Job? = null
     private var speechLevel by mutableFloatStateOf(0f)
     private var speechState by mutableStateOf(EtaSpeechState())
+    private var speechHeld = false
     private val speechForeground by lazy { AssistantSpeechForeground(this) }
     private val playback by lazy {
         SpeechPlaybackController(this, scope, beforePlayback = speechForeground::playback, afterPlayback = speechForeground::stop)
@@ -135,7 +138,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
     private var presentedEntryGeneration = -1L
     private var entryScreenContext: EtaAssistantScreenContext? = null
     private var hiddenForForegroundOperation = false
-    private var handoffInProgress = false
+    private var handoffInProgress by mutableStateOf(false)
     private var handoffExitRequested by mutableStateOf(false)
     private var inputText by mutableStateOf("")
     private var inputFocusRequestKey by mutableIntStateOf(-1)
@@ -158,10 +161,13 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
                 if (state.preview.isNotBlank()) inputText = state.preview
                 speechState = EtaSpeechState(
                     phase = state.phase,
-                    message = state.error ?: state.progress.takeIf { it.isNotBlank() && state.phase != EtaSpeechPhase.LISTENING },
+                    // 连接、聆听、识别中的阶段播报由语音条目与波形承担，反馈条只保留
+                    // 错误和空闲态的模型下载消息，避免与语音界面重复叙事。
+                    message = state.error ?: state.progress.takeIf { it.isNotBlank() && state.phase == EtaSpeechPhase.IDLE },
                     downloadAvailable = state.downloadAvailable,
                     configureAvailable = state.error != null && !state.downloadAvailable,
                     feedbackIsError = state.error != null,
+                    holdToTalk = speechHeld && state.active,
                 )
             }
         }
@@ -235,7 +241,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         }
     }
 
-    private fun startSpeech() {
+    private fun startSpeech(holdToTalk: Boolean = false) {
         if (activeRunId != null) return
         playback.stop()
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
@@ -257,8 +263,15 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
             view.clearFocus()
         }
         speechLevel = 0f
-        speechState = EtaSpeechState(phase = EtaSpeechPhase.STARTING)
-        speechInput.start()
+        speechHeld = holdToTalk
+        speechState = EtaSpeechState(phase = EtaSpeechPhase.STARTING, holdToTalk = holdToTalk)
+        speechInput.start(holdToTalk = holdToTalk)
+    }
+
+    private fun cancelSpeech() {
+        speechInput.cancel()
+        speechHeld = false
+        speechState = EtaSpeechState()
     }
 
     private fun switchToKeyboard() {
@@ -279,14 +292,18 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
             ) {
                 // ColorOS 在 Overlay 窗口切换期间可能短暂使用软件画布；RuntimeShader
                 // 无法在该画布绘制，因此浮窗统一使用 Miuix 的圆角回退路径。
+                val speechSettings by remember { SpeechSettingsRepository.settingsFlow() }
+                    .collectAsState(initial = null)
                 CompositionLocalProvider(LocalSquircleEnabled provides false,
-                    LocalSpeechPlayback provides playback) {
+                    LocalSpeechPlayback provides playback,
+                    LocalSpeechPlaybackEnabled provides (speechSettings?.let { it.tts != TtsProvider.NONE } == true)) {
                     SpeechPlaybackErrors(playback)
                     EtaVoicePanel(
                         state = uiState,
                         speech = speechState,
                         speechLevel = { speechLevel },
                         onMicrophone = ::startSpeech,
+                        onCancelSpeech = ::cancelSpeech,
                         onFinishSpeech = { speechInput.finish() },
                         onDownloadModel = { speechInput.downloadModel() },
                         onOpenSpeechSettings = {
@@ -305,6 +322,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
                             uiState.messages.any { message ->
                                 message is AgentMessageUi && message.content.isNotBlank()
                             },
+                        handoffRunning = handoffInProgress,
                         exitRequested = handoffExitRequested,
                         onOpenConversation = ::openConversation,
                     )
@@ -947,7 +965,11 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         val creatorOptions = ActivityOptions.makeBasic().apply {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
                 pendingIntentCreatorBackgroundActivityStartMode =
-                    ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+                    if (Build.VERSION.SDK_INT >= 36) {
+                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_IF_VISIBLE
+                    } else {
+                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+                    }
             }
         }
         val pendingIntent = PendingIntent.getActivity(
@@ -958,14 +980,16 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
             creatorOptions.toBundle(),
         )
         val senderOptions = ActivityOptions.makeBasic().apply {
-            pendingIntentBackgroundActivityStartMode =
-                if (Build.VERSION.SDK_INT >= 36) {
-                    ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_IF_VISIBLE
-                } else {
-                    ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
-                }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                pendingIntentBackgroundActivityStartMode =
+                    if (Build.VERSION.SDK_INT >= 36) {
+                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_IF_VISIBLE
+                    } else {
+                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+                    }
+            }
         }
-        runCatching { pendingIntent.send(senderOptions.toBundle()) }
+        runCatching { pendingIntent.send(this, 0, null, null, null, null, senderOptions.toBundle()) }
             .onFailure {
                 handoffInProgress = false
                 AndroidAgentLogger.warn("Eta assistant handoff activity launch failed")

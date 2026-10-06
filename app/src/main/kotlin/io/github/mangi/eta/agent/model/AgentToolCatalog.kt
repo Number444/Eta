@@ -17,6 +17,7 @@ internal object AgentToolCatalog {
         memoryTools: Boolean = false,
         memoryWritable: Boolean = true,
         capabilities: AgentToolCapabilities = AgentToolCapabilities(rootAvailable = true),
+        localWebSearch: Boolean = true,
     ): JSONArray =
         capabilities.project(JSONArray().also { tools ->
             AgentContextAppToolCatalog.appendTo(tools)
@@ -28,8 +29,14 @@ internal object AgentToolCatalog {
                 sensitiveReadTools = deviceSensitiveReadTools,
                 sensitiveActionTools = deviceSensitiveActionTools,
             )
-            if (browserTools) AgentBrowserToolCatalog.appendTo(tools)
-            if (webSearchTools) AgentWebSearchToolCatalog.appendTo(tools)
+            // Eta Mod：web_search 后端二选一——Exa（自建，需 Key）或上游官方免 Key 实现；
+            // fetch_url 始终由上游实现提供。
+            val exaSearch = webSearchTools && AgentWebSearchToolCatalog.exaSelected()
+            if (browserTools) {
+                AgentWebToolCatalog.appendTo(tools, includeSearch = localWebSearch && !exaSearch)
+                AgentBrowserToolCatalog.appendTo(tools)
+            }
+            if (exaSearch) AgentWebSearchToolCatalog.appendTo(tools)
             AgentSkillToolCatalog.appendTo(
                 tools,
                 githubDiscovery = skillGitHubDiscovery,
@@ -39,6 +46,7 @@ internal object AgentToolCatalog {
             if (terminalTools) {
                 AgentFileVisionToolCatalog.appendTo(tools)
                 AgentTerminalToolCatalog.appendTo(tools)
+                AgentFileToolCatalog.appendTo(tools)
             }
         })
 }

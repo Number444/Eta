@@ -20,10 +20,14 @@ class PrefsDefaultsTest {
                 Prefs.Keys.AGENT_REQUIRE_PREFIX to false,
                 Prefs.Keys.AGENT_TERMINAL_TOOLS to true,
                 Prefs.Keys.AGENT_BROWSER_TOOLS to true,
+                // Eta Mod：网页搜索与思考自动展开开关
+                Prefs.Keys.AGENT_WEB_SEARCH to false,
+                Prefs.Keys.AGENT_AUTO_EXPAND_THINKING to true,
                 Prefs.Keys.AGENT_DEVICE_DIRECT_TOOLS to true,
                 Prefs.Keys.AGENT_DEVICE_SENSITIVE_READ_TOOLS to true,
                 Prefs.Keys.AGENT_DEVICE_SENSITIVE_ACTION_TOOLS to true,
                 Prefs.Keys.AGENT_THINKING_ENABLED to true,
+                Prefs.Keys.AGENT_AUTO_COMPACTION_ENABLED to true,
             ),
             Prefs.Keys.BOOLEAN_DEFAULTS,
         )
@@ -38,10 +42,14 @@ class PrefsDefaultsTest {
             setOf(
                 Prefs.Keys.AGENT_TERMINAL_TOOLS,
                 Prefs.Keys.AGENT_BROWSER_TOOLS,
+                // Eta Mod：网页搜索与思考自动展开开关
+                Prefs.Keys.AGENT_WEB_SEARCH,
+                Prefs.Keys.AGENT_AUTO_EXPAND_THINKING,
                 Prefs.Keys.AGENT_DEVICE_DIRECT_TOOLS,
                 Prefs.Keys.AGENT_DEVICE_SENSITIVE_READ_TOOLS,
                 Prefs.Keys.AGENT_DEVICE_SENSITIVE_ACTION_TOOLS,
                 Prefs.Keys.AGENT_THINKING_ENABLED,
+                Prefs.Keys.AGENT_AUTO_COMPACTION_ENABLED,
             ),
             Prefs.Keys.LOCAL_AGENT_KEYS,
         )

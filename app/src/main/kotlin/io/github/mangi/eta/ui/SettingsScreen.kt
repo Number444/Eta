@@ -15,18 +15,21 @@ import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.AccessibilityNew
 import androidx.compose.material.icons.rounded.AccountTree
 import androidx.compose.material.icons.rounded.BugReport
+import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Dashboard
 import androidx.compose.material.icons.rounded.Description
-import androidx.compose.material.icons.rounded.Extension
+import androidx.compose.material.icons.rounded.FilterAlt
 import androidx.compose.material.icons.rounded.GppMaybe
 import androidx.compose.material.icons.rounded.Hearing
+import androidx.compose.material.icons.rounded.ImportContacts
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Inventory
 import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Layers
+import androidx.compose.material.icons.automirrored.rounded.ManageSearch
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Mic
@@ -36,12 +39,13 @@ import androidx.compose.material.icons.rounded.PowerSettingsNew
 import androidx.compose.material.icons.rounded.Psychology
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.SettingsVoice
 import androidx.compose.material.icons.rounded.Smartphone
+import androidx.compose.material.icons.rounded.SportsBar
 import androidx.compose.material.icons.rounded.SupportAgent
 import androidx.compose.material.icons.rounded.SwipeUp
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.Terminal
-import androidx.compose.material.icons.rounded.TheaterComedy
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.TravelExplore
 import androidx.compose.material.icons.rounded.UnfoldMore
@@ -318,7 +322,7 @@ private fun SettingsPageContent(
                         summary = providerSummary,
                         startAction = {
                             EtaPreferenceIcon(
-                                icon = Icons.Rounded.Memory,
+                                icon = Icons.Rounded.Cloud,
                                 tint = EtaPreferenceColors.Blue,
                             )
                         },
@@ -454,6 +458,16 @@ private fun SettingsPageContent(
             item(key = "section_context_extensions") {
                 EtaPreferenceGroupTitle(stringResource(R.string.settings_context_extensions))
                 EtaPreferenceGroup {
+                    SwitchPref(
+                        context = context,
+                        prefs = agentPrefs,
+                        title = stringResource(R.string.settings_auto_compaction),
+                        key = Prefs.Keys.AGENT_AUTO_COMPACTION_ENABLED,
+                        icon = Icons.Rounded.Layers,
+                        iconTint = EtaPreferenceColors.Blue,
+                    )
+
+                    EtaPreferenceDivider()
                     EtaArrowPreference(
                         title = stringResource(R.string.ui_memory_b55ff5),
                         startAction = {
@@ -470,7 +484,7 @@ private fun SettingsPageContent(
                         title = stringResource(R.string.route_skills),
                         startAction = {
                             EtaPreferenceIcon(
-                                icon = Icons.Rounded.Extension,
+                                icon = Icons.Rounded.ImportContacts,
                                 tint = EtaPreferenceColors.Green,
                             )
                         },
@@ -494,7 +508,7 @@ private fun SettingsPageContent(
                         title = "角色",
                         startAction = {
                             EtaPreferenceIcon(
-                                icon = Icons.Rounded.TheaterComedy,
+                                icon = Icons.Rounded.SportsBar,
                                 tint = EtaPreferenceColors.Orange,
                             )
                         },
@@ -532,6 +546,49 @@ private fun SettingsPageContent(
                         key = Prefs.Keys.AGENT_WEB_SEARCH,
                         icon = Icons.Rounded.TravelExplore,
                         iconTint = EtaPreferenceColors.Blue,
+                    )
+
+                    EtaPreferenceDivider()
+                    // Eta Mod：搜索引擎选择（官方免 Key / Exa）；Exa 需在下一条目配置 API Key。
+                    var webSearchEngine by remember(agentPrefs) {
+                        mutableStateOf(
+                            agentPrefs?.getString(Prefs.Keys.AGENT_WEB_SEARCH_ENGINE, "")
+                                .orEmpty().ifBlank { Prefs.Keys.WEB_SEARCH_ENGINE_OFFICIAL }
+                        )
+                    }
+                    EtaDropdownPreference(
+                        title = stringResource(R.string.settings_web_search_engine),
+                        summary = stringResource(R.string.settings_web_search_engine_summary),
+                        items = listOf(
+                            DropdownItem(text = stringResource(R.string.settings_web_search_engine_official)),
+                            DropdownItem(text = stringResource(R.string.settings_web_search_engine_exa)),
+                        ),
+                        selectedIndex = if (webSearchEngine == Prefs.Keys.WEB_SEARCH_ENGINE_EXA) 1 else 0,
+                        onSelectedIndexChange = { index ->
+                            val engine = if (index == 1) {
+                                Prefs.Keys.WEB_SEARCH_ENGINE_EXA
+                            } else {
+                                Prefs.Keys.WEB_SEARCH_ENGINE_OFFICIAL
+                            }
+                            val targetPrefs = agentPrefs ?: return@EtaDropdownPreference
+                            if (putStringSync(targetPrefs, Prefs.Keys.AGENT_WEB_SEARCH_ENGINE, engine)) {
+                                webSearchEngine = engine
+                            } else {
+                                Toast.makeText(
+                                    context.applicationContext,
+                                    context.getString(R.string.settings_write_failed),
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        },
+                        startAction = {
+                            EtaPreferenceIcon(
+                                icon = Icons.AutoMirrored.Rounded.ManageSearch,
+                                tint = EtaPreferenceColors.Blue,
+                                enabled = agentPrefs != null,
+                            )
+                        },
+                        enabled = agentPrefs != null,
                     )
 
                     EtaPreferenceDivider()
@@ -712,7 +769,7 @@ private fun SettingsPageContent(
                             prefs = prefs,
                             title = stringResource(R.string.ui_enable_vendor_assistant_custom_models_c8e465),
                             key = Prefs.Keys.AGENT_CUSTOM_MODEL,
-                            icon = Icons.Rounded.Memory,
+                            icon = Icons.Rounded.Cloud,
                             iconTint = EtaPreferenceColors.Blue,
                         )
 
@@ -722,7 +779,7 @@ private fun SettingsPageContent(
                             prefs = prefs,
                             title = stringResource(R.string.ui_only_take_over_with_agent_prefix_d17556),
                             key = Prefs.Keys.AGENT_REQUIRE_PREFIX,
-                            icon = Icons.Rounded.Code,
+                            icon = Icons.Rounded.FilterAlt,
                             iconTint = EtaPreferenceColors.Blue,
                         )
                     }
@@ -760,7 +817,7 @@ private fun SettingsPageContent(
                                 prefs = prefs,
                                 title = stringResource(R.string.ui_bright_screen_evokes_automatic_voice_input_4358fe),
                                 key = Prefs.Keys.SCREEN_ON_VOICE_COMMAND,
-                                icon = Icons.Rounded.Mic,
+                                icon = Icons.Rounded.SettingsVoice,
                                 iconTint = EtaPreferenceColors.Green,
                             )
 
@@ -929,7 +986,7 @@ private fun SettingsPageContent(
                             }
                         },
                     )
-                    if (prefs != null || hasConnectedFramework) {
+                    if (AccessibilityProtectionClient.isSupported() && (prefs != null || hasConnectedFramework)) {
                         EtaPreferenceDivider()
                         EtaSwitchPreference(
                             title = stringResource(R.string.ui_enforce_accessibility_55e838),
