@@ -2,7 +2,7 @@
 
 > 本 fork：`my-mods` 分支，applicationId `io.github.mangi.eta.mod`
 > 远端：`origin` = Number444/Eta（推送目标），`upstream` = Mangi-11/Eta（官方源）
-> 当前版本：3.2.0-001（versionCode 2026100701，merge 官方 v3.2.0 后）
+> 当前版本：3.2.0-002（versionCode 2026100702，merge 官方 v3.2.0 后第二个 Mod 修订）
 
 ## 1. 跟进官方版本：选择性 merge + 提升版本号
 
@@ -15,7 +15,7 @@
   - `ui/SettingsScreen.kt`（诊断入口）→ 自动合并 + 新增搜索引擎选择条目
   - `res/values*/strings.xml`（新增字符串）→ 自动合并（撞名 `tool_web_search` 已去重）
 - [x] 提升版本号：`versionCode 2026100701`、`versionName "3.2.0-001"`
-- [ ] 出包验证：`gradlew.bat :app:assembleRelease --no-configuration-cache --console=plain`，装真机回归岛-通知链路
+- [x] 出包验证：release 包构建/装机/真机回归均通过（Four 2026-10-07 确认"暂时没问题"）
 
 ## 2. 检查更新与外链指向自己的仓库
 
@@ -35,7 +35,7 @@
 
 - [x] 助手消息操作行放大到上游 1.4 倍：图标 15→21dp、触控 30→42dp（`ChatMessageItem.kt` 复制/编辑/重试/删除 + `SpeechControls.kt` 朗读同步 42/21dp，停止图标 18dp）
 - [x] 行偏移 `-8dp→-6dp` 保持图标中心线对齐
-- [ ] 真机截图对比确认间距/对齐（等 Four 过目）
+- [x] 真机确认间距/对齐（Four 2026-10-07 过目认可）
 
 ## 5. 重写分享成图功能（先调研再定方案）
 
@@ -47,7 +47,7 @@
   - 消息 UI 模型未变（`AgentMessageUi.renderMarkdown`、`ToolActivityMessageUi`、`ToolSummaryMessageUi` 都在），`ShareTurn.kt` 的组装逻辑可直接复活
   - 唯一要小改的：代码块右上角有复制按钮（`MarkdownContent.kt` CopyButton），分享图里应隐藏——加一个静态模式开关
 - [x] 实现（2026-10-07）：`ShareTurn.kt`/`eta_share_paths.xml`/manifest FileProvider/`share_as_image` 三语言原样复活；`MessageShareImage.kt` 换用新 markdown 层（`StreamingGfmParserSession` 同步预解析 + `MarkdownContent` 渲染 + `LocalMarkdownStaticExport` 隐藏复制按钮）；操作行加分享按钮（与放大后操作行同套 42/21dp），`AgentChatBody` 按轮组装
-- [ ] 真机验证出图效果（等 Four 过目）
+- [x] 真机验证出图效果（Four 2026-10-07 确认"效果很不错"）；同日风格化：用户气泡右对齐 + 连续工具调用合并为时间线（竖线串联圆形节点），新增 `ShareCardRenderTest`（Robolectric NATIVE 渲染出 PNG，本地可重复验证卡片布局）
 
 ## 备注
 
