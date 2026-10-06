@@ -46,7 +46,8 @@
   - 离屏依赖扫描干净：无 Coil/网络图/WindowInsets；块类型仅段落/标题/代码/引用/提示/列表/表格/分割线（无图片块）
   - 消息 UI 模型未变（`AgentMessageUi.renderMarkdown`、`ToolActivityMessageUi`、`ToolSummaryMessageUi` 都在），`ShareTurn.kt` 的组装逻辑可直接复活
   - 唯一要小改的：代码块右上角有复制按钮（`MarkdownContent.kt` CopyButton），分享图里应隐藏——加一个静态模式开关
-- [ ] 待 Four 拍板后动工：复活 `ui/share/`（ShareTurn 原样 + MessageShareImage 换渲染层）+ FileProvider/strings + 操作行分享按钮
+- [x] 实现（2026-10-07）：`ShareTurn.kt`/`eta_share_paths.xml`/manifest FileProvider/`share_as_image` 三语言原样复活；`MessageShareImage.kt` 换用新 markdown 层（`StreamingGfmParserSession` 同步预解析 + `MarkdownContent` 渲染 + `LocalMarkdownStaticExport` 隐藏复制按钮）；操作行加分享按钮（与放大后操作行同套 42/21dp），`AgentChatBody` 按轮组装
+- [ ] 真机验证出图效果（等 Four 过目）
 
 ## 备注
 

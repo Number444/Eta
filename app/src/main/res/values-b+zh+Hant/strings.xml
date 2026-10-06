@@ -517,6 +517,7 @@
   <string name="markdown_alert_caution">注意</string>
   <string name="copy_copied">已複製</string>
   <string name="copy_answer">複製回答</string>
+  <string name="share_as_image">分享為長圖</string>
   <string name="copy_code">複製程式碼</string>
   <string name="copy_command">複製指令</string>
   <string name="shell_command">Shell 指令</string>

@@ -547,6 +547,7 @@
   <string name="markdown_alert_caution">Caution</string>
   <string name="copy_copied">Copied</string>
   <string name="copy_answer">Copy answer</string>
+  <string name="share_as_image">Share as image</string>
   <string name="copy_code">Copy code</string>
   <string name="copy_command">Copy command</string>
   <string name="shell_command">Shell command</string>

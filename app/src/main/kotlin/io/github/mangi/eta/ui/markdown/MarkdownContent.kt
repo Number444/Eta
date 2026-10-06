@@ -99,6 +99,9 @@ private class MarkdownRenderScope(
 /** 嵌套列表的层级只影响 marker 字形，用 CompositionLocal 传递，块组件不必逐层转发。 */
 private val LocalListDepth = compositionLocalOf { 0 }
 
+/** Eta Mod：分享成图等静态导出场景为 true，隐藏复制按钮等交互件。 */
+internal val LocalMarkdownStaticExport = compositionLocalOf { false }
+
 @Composable
 private fun MarkdownBlockColumn(
     blocks: List<MarkdownBlock>,
@@ -215,6 +218,8 @@ private fun MarkdownCodeBlock(block: MarkdownCode, scope: MarkdownRenderScope) {
 
 @Composable
 private fun CopyButton(text: String, tint: Color) {
+    // 静态导出（分享成图）不渲染交互件。
+    if (LocalMarkdownStaticExport.current) return
     @Suppress("DEPRECATION")
     val clipboard = LocalClipboardManager.current
     var copied by remember { mutableStateOf(false) }

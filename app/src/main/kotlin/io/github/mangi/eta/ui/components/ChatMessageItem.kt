@@ -50,11 +50,13 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -69,6 +71,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -79,6 +82,7 @@ import androidx.compose.ui.unit.sp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.model.AgentFileReferencePromptCodec
 import io.github.mangi.eta.agent.overlay.toolDisplayName
+import io.github.mangi.eta.ui.app.LocalAppearanceSettings
 import io.github.mangi.eta.ui.markdown.MarkdownTone
 import io.github.mangi.eta.ui.markdown.StaticMarkdown
 import io.github.mangi.eta.ui.markdown.StreamingMarkdown
@@ -94,7 +98,10 @@ import io.github.mangi.eta.ui.model.ThinkingMessageUi
 import io.github.mangi.eta.ui.model.ToolActivityMessageUi
 import io.github.mangi.eta.ui.model.ToolSummaryMessageUi
 import io.github.mangi.eta.ui.model.UserMessageUi
+import io.github.mangi.eta.ui.share.MessageShareImage
+import io.github.mangi.eta.ui.share.ShareTurn
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.RichTooltip
@@ -195,6 +202,8 @@ internal fun ChatMessageItem(
     onDeleteMessage: (String) -> Unit = {},
     onRegenerateMessage: (String) -> Unit = {},
     onSelectReplyCandidate: (String, Int) -> Unit = { _, _ -> },
+    // Eta Mod：分享为长图——本轮的组装内容由列表层按轮边界提供。
+    shareTurn: ShareTurn? = null,
 ) {
     when (message) {
         is UserMessageUi -> UserMessageBubble(
@@ -218,6 +227,7 @@ internal fun ChatMessageItem(
             onRegenerate = { onRegenerateMessage(message.id) },
             onEdit = { onEditMessage(message.id) },
             onSelectCandidate = { onSelectReplyCandidate(message.id, it) },
+            shareTurn = shareTurn,
             modifier = modifier,
         )
         is SystemNoticeMessageUi -> if (message.code == SystemNoticeCode.ContextCompaction) {
@@ -529,11 +539,18 @@ private fun AgentMessageBlock(
     onRegenerate: () -> Unit,
     onEdit: () -> Unit = {},
     onSelectCandidate: (Int) -> Unit = {},
+    shareTurn: ShareTurn? = null,
     modifier: Modifier = Modifier,
 ) {
     @Suppress("DEPRECATION")
     val clipboardManager = LocalClipboardManager.current
     var copied by remember(message.id) { mutableStateOf(false) }
+    // Eta Mod：分享为长图所需的环境——锚点 View、协程域、当前外观与品牌字标。
+    var shareRendering by remember(message.id) { mutableStateOf(false) }
+    val shareView = LocalView.current
+    val shareScope = rememberCoroutineScope()
+    val shareAppearance = LocalAppearanceSettings.current
+    val shareBrand = stringResource(R.string.app_name)
     val keepStreamingMarkdown = remember(message.id) { message.isStreaming }
     var streamingRevealComplete by remember(message.id) {
         mutableStateOf(!keepStreamingMarkdown)
@@ -642,6 +659,37 @@ private fun AgentMessageBlock(
                     )
                 }
                 if (allowSpeech) SpeechReadAloudButton(message.id, message.content)
+                // Eta Mod：分享为长图——把本轮问答离屏渲染成卡片 PNG 后走系统分享。
+                // 分享的最小单位是一轮：组装好的 ShareTurn 由列表层按轮边界提供。
+                if (shareTurn != null) {
+                    IconButton(
+                        onClick = {
+                            if (shareRendering) return@IconButton
+                            shareRendering = true
+                            shareScope.launch {
+                                runCatching {
+                                    MessageShareImage.shareTurnAsImage(
+                                        anchor = shareView,
+                                        appearance = shareAppearance,
+                                        turns = listOf(shareTurn),
+                                        brand = shareBrand,
+                                    )
+                                }
+                                shareRendering = false
+                            }
+                        },
+                        enabled = !shareRendering,
+                        minWidth = 42.dp,
+                        minHeight = 42.dp,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Share,
+                            contentDescription = stringResource(R.string.share_as_image),
+                            modifier = Modifier.size(21.dp),
+                            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
+                        )
+                    }
+                }
                 if (showMessageActions) {
                     if (message.characterEditable) {
                         IconButton(onClick = onEdit, enabled = messageActionsEnabled, minWidth = 42.dp, minHeight = 42.dp) {

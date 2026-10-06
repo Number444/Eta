@@ -1,4 +1,4 @@
-﻿package io.github.mangi.eta.ui.components
+package io.github.mangi.eta.ui.components
 
 import io.github.mangi.eta.ui.voice.SpeechPlaybackHost
 import androidx.compose.animation.AnimatedVisibility
@@ -97,6 +97,7 @@ import io.github.mangi.eta.ui.model.ToolActivityMessageUi
 import io.github.mangi.eta.ui.model.ToolSummaryMessageUi
 import io.github.mangi.eta.ui.model.UserMessageUi
 import io.github.mangi.eta.ui.model.latestContextUsage
+import io.github.mangi.eta.ui.share.buildShareTurns
 import kotlin.math.exp
 import kotlin.math.min
 import kotlinx.coroutines.CancellationException
@@ -442,6 +443,9 @@ internal fun AgentConversationMessages(
         visibleMessages.toTimelineEntries(previous = previousTimelineEntries[0])
     }
     SideEffect { previousTimelineEntries[0] = timelineEntries }
+    // Eta Mod：分享为长图——分享的最小单位是一轮，按轮边界组装好正文/工具段，
+    // 键为每轮最后一条助手消息（即分享按钮所在消息）的 id。
+    val shareTurns = remember(visibleMessages) { buildShareTurns(visibleMessages) }
     val activeWorkProcessKey = if (isStreaming) {
         (timelineEntries.lastOrNull() as? AgentTimelineEntry.WorkProcess)?.key
     } else {
@@ -696,6 +700,7 @@ internal fun AgentConversationMessages(
                             onDeleteMessage = onDeleteMessage,
                             onRegenerateMessage = onRegenerateMessage,
                             onSelectReplyCandidate = onSelectReplyCandidate,
+                            shareTurn = (message as? AgentMessageUi)?.let { shareTurns[it.id] },
                             modifier = itemModifier,
                         )
                     }
