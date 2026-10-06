@@ -1,6 +1,7 @@
 package io.github.mangi.eta.agent.terminal
 
 import java.io.File
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -295,7 +296,13 @@ class ShellFileToolBackendTest {
 
     private fun runShell(command: String, input: ByteArray? = null): OneShotShellResult {
         val process = ProcessBuilder("sh", "-c", command).directory(temporaryFolder.root).start()
-        process.outputStream.use { if (input != null) it.write(input) }
+        process.outputStream.use {
+            // 脚本可能不读 stdin 就退出（如哈希校验失败时跳过 cat >），断管属预期，不应判测试失败
+            try {
+                if (input != null) it.write(input)
+            } catch (_: IOException) {
+            }
+        }
         val output = process.inputStream.readBytes()
         val error = process.errorStream.readBytes()
         assertTrue("测试 Shell 没有正常结束", process.waitFor(5, TimeUnit.SECONDS))

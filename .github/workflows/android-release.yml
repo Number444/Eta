@@ -62,6 +62,7 @@ jobs:
         uses: ./.github/actions/setup-build
 
       - name: 还原发布证书
+        id: signing
         env:
           ETA_RELEASE_KEYSTORE_BASE64: ${{ secrets.ETA_RELEASE_KEYSTORE_BASE64 }}
           ETA_RELEASE_STORE_PASSWORD: ${{ secrets.ETA_RELEASE_STORE_PASSWORD }}
@@ -72,14 +73,18 @@ jobs:
                 -z "$ETA_RELEASE_STORE_PASSWORD" ||
                 -z "$ETA_RELEASE_KEY_ALIAS" ||
                 -z "$ETA_RELEASE_KEY_PASSWORD" ]]; then
-            echo "::error::缺少 Release 签名 Secrets，请检查仓库的 Actions Secrets。"
-            exit 1
+            # Fork 本地签名发布、不配 Secrets：跳过 Release 构建而不是失败刷屏
+            echo "::warning::未配置 Release 签名 Secrets，跳过 Release APK 构建与上传。"
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          echo "available=true" >> "$GITHUB_OUTPUT"
           printf '%s' "$ETA_RELEASE_KEYSTORE_BASE64" \
             | base64 --decode \
             > "$RUNNER_TEMP/eta-release.jks"
 
       - name: 构建 Debug 与 Release APK
+        if: steps.signing.outputs.available == 'true'
         env:
           ETA_RELEASE_STORE_FILE: ${{ runner.temp }}/eta-release.jks
           ETA_RELEASE_STORE_PASSWORD: ${{ secrets.ETA_RELEASE_STORE_PASSWORD }}
@@ -95,6 +100,7 @@ jobs:
             :app:assembleDebug :app:assembleRelease
 
       - name: 验证并整理 APK
+        if: steps.signing.outputs.available == 'true'
         id: apk
         run: |
           # 文件名由 Gradle 按 versionName 生成，例如 Eta-vX.Y.Z.apk、Eta-vX.Y.Z-debug+<sha>.apk
@@ -133,6 +139,7 @@ jobs:
           echo "release_name=$(basename "${release_apks[0]}")" >> "$GITHUB_OUTPUT"
 
       - name: 上传 Debug APK
+        if: steps.signing.outputs.available == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           path: ${{ steps.apk.outputs.debug_path }}
@@ -141,6 +148,7 @@ jobs:
           retention-days: 14
 
       - name: 上传 Release APK
+        if: steps.signing.outputs.available == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           path: ${{ steps.apk.outputs.release_path }}
@@ -152,7 +160,8 @@ jobs:
   draft-release:
     name: 创建 Release 草稿
     needs: [verify, build-apks]
-    if: github.ref_type == 'tag'
+    # 未配置签名 Secrets 时 build-apks 跳过构建，此时没有 APK 可上传，连带跳过草稿创建
+    if: github.ref_type == 'tag' && needs.build-apks.outputs.release_apk_name != ''
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
