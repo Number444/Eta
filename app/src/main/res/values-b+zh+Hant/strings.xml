@@ -944,11 +944,7 @@
   <string name="settings_write_failed">無法儲存設定</string>
   <string name="tool_web_search">網頁搜尋</string>
   <string name="settings_web_search_title">網頁搜尋</string>
-  <string name="settings_web_search_summary">允許模型連線搜尋，引擎可在下方選擇</string>
-  <string name="settings_web_search_engine">搜尋引擎</string>
-  <string name="settings_web_search_engine_summary">官方免 Key 搜尋，或自備 API Key 的 Exa</string>
-  <string name="settings_web_search_engine_official">官方（無需 API Key）</string>
-  <string name="settings_web_search_engine_exa">Exa（自備 API Key）</string>
+  <string name="settings_web_search_summary">允許模型透過 Exa 連線搜尋</string>
   <string name="settings_exa_api_key_summary">網頁搜尋工具使用，僅儲存在本機</string>
   <string name="settings_exa_api_key_not_set">未填寫</string>
   <string name="status_processing">處理中…</string>

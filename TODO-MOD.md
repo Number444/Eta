@@ -19,53 +19,43 @@
 
 ## 2. 检查更新与外链指向自己的仓库
 
-- [ ] `app/src/main/kotlin/io/github/mangi/eta/data/update/AppUpdateChecker.kt:67`
-      `LATEST_RELEASE_URL` 改为 `https://api.github.com/repos/Number444/Eta/releases/latest`
-- [ ] **版本比较注意（v3.2.0 新行为）**：`AppUpdateChecker` 现在比较"当前版本"前会剥掉 `-`/`+` 后缀（`3.2.0-001` → `3.2.0`），但"最新版本"一侧不剥。改指向自己仓库后，我们的 release tag（如 `3.2.0-001`）作为 latest 传入比较时要确认语义：理想是 latest 侧也剥后缀或按我们的版本号规则单独处理，改前读该文件全文。
-- [ ] 设置页「关于」里的**源代码仓库**与**问题反馈**链接一并指向 Number444/Eta（`SettingsScreen.kt` 搜 `github.com/Mangi-11`）
+- [x] `AppUpdateChecker.kt` 的 `LATEST_RELEASE_URL` 改为 `https://api.github.com/repos/Number444/Eta/releases/latest`（2026-10-08 完成）
+- [x] **版本比较**：`isNewer` 重写——两侧统一剥 v 前缀/`+`元数据/`-`后缀，基础版本按段比较，相同再比 Mod 修订号（`-NNN`，缺省 0）；`AppUpdateCheckerTest` 新增 7 条修订号用例
+- [x] 设置页「关于」的源代码仓库与问题反馈链接指向 Number444/Eta（`SettingsScreen.kt` 两处 `openUrl`）
 
 ## 3. 删除官方 search，只留 Exa
 
-- [ ] 背景：官方免 Key 搜索在本机网络正常的情况下 `web_search` 连续三次超时（WEB_TIMEOUT）——设备联网没问题，是官方搜索服务这一环连不上（大概率墙/路由问题）
-- [ ] 移除 D1 加的「搜索引擎」选择条目与 `AGENT_WEB_SEARCH_ENGINE` 相关代码（`Prefs.kt`、`AgentWebSearchToolCatalog.exaSelected()`、`AgentToolCatalog`、`AgentLocalTools` 分发、SettingsScreen UI、三语言字符串）
-- [ ] 恢复为纯 Exa 通道（合并前 mod 的行为）：`web_search` 仅在 Exa key 已配置时注册
-- [ ] 上游 `agent/web/`（PublicWebSearch 等）与 `fetch_url` 是否一并裁掉再评估：fetch_url 读网页正文不依赖搜索服务，可保留
-- [ ] 注意：上游以后继续动这块时，merge 冲突高发区就是这些文件
+- [x] 背景：官方免 Key 搜索在本机网络正常的情况下 `web_search` 连续三次超时（WEB_TIMEOUT）——设备联网没问题，是官方搜索服务这一环连不上（大概率墙/路由问题）
+- [x] 移除「搜索引擎」选择条目与 `AGENT_WEB_SEARCH_ENGINE` 相关代码（`Prefs.kt` 3 个 key、`exaSelected()`→`exaConfigured()`、`AgentToolCatalog`、`AgentLocalTools` 分发、SettingsScreen UI、三语言字符串）
+- [x] 恢复为纯 Exa 通道：`web_search` 仅在「网页搜索开关开 + Exa key 已配置 + 非托管搜索」时注册；prompt 里的本地 web_search 提示同样按此门控（`AgentPromptBuilder`）
+- [x] `fetch_url` 与上游 `agent/web/` 保留（读网页正文不依赖搜索服务）；官方搜索仅不注册，代码未删
+- [x] 注意：上游以后继续动这块时，merge 冲突高发区就是这些文件（已改测试：`AgentModelClientLoopTest`/`AgentToolCatalogTest` 断言）
 
 ## 4. 恢复对话输出下方按钮大小
 
-- [ ] 助手消息下方的操作按钮（复制/重试/朗读等）恢复为当前直径的约 **1.4 倍**（上游 3.2.0 缩小了，找回 mod 之前的大小）
-- [ ] 位置：`ui/components/ChatMessageItem.kt`（或消息操作行所在组件），先定位上游把尺寸写在哪，改回 mod 值
-- [ ] 顺手确认间距/对齐不被放大撑坏（Four 对视觉敏感，改完截图对比）
+- [x] 助手消息操作行放大到上游 1.4 倍：图标 15→21dp、触控 30→42dp（`ChatMessageItem.kt` 复制/编辑/重试/删除 + `SpeechControls.kt` 朗读同步 42/21dp，停止图标 18dp）
+- [x] 行偏移 `-8dp→-6dp` 保持图标中心线对齐
+- [ ] 真机截图对比确认间距/对齐（等 Four 过目）
 
 ## 5. 重写分享成图功能（先调研再定方案）
 
-- [ ] 背景：旧实现（`ui/share/MessageShareImage.kt` + `ShareTurn.kt` + FileProvider）已随 v3.2.0 merge 删除
-- [ ] 调研方向：
-  - 新 UI 结构下从哪拿渲染数据（上游自建 `ui/markdown/` 渲染层，不再有 mikepenz）
-  - 方案 A：Compose 离屏渲染（ComposeView + software bitmap），保真度最高
-  - 方案 B：WebView/Canvas 自绘，灵活但维护重
-  - 长图分页、深色模式、代码块/表格渲染一致性
-- [ ] 与 Four 一起定方案后再动工，不抢跑
-
-## 6. 无 root 下的 Eta 系统级唤醒方案调研
-
-- [ ] 背景：本机未 root，无法替换小爱作为系统默认助手（电源键/手势唤醒默认助理这条路过不去）
-- [ ] 调研候选：
-  - 快捷设置磁贴（Quick Settings Tile，下拉控制中心一键唤起）
-  - 桌面快捷方式 / App Shortcuts（长按图标直达语音面板）
-  - 小米/澎湃 OS 侧：背部轻敲、悬浮球、自由窗口等系统手势能否绑定第三方 App 动作
-  - `android.app.role.ASSISTANT` / `VoiceInteractionService` 在无 root 下能成为默认数字助理到什么程度（长按 Home/手势导航下的助理按钮）
-  - 辅助功能/音量键长按等（评估合规与稳定性）
-- [ ] 产出结论：哪条路在 HyperOS 上可行、体验最接近"电源键唤小爱"，再实现
+- [x] 调研结论（2026-10-07）：**老路子依然是最简方案**，且新自建 markdown 层让它更顺——详见下方要点
+- 调研要点：
+  - 老实现 = 离屏 ComposeView（INVISIBLE 挂 decorView）→ 预解析 markdown → UNSPECIFIED 测量 → `draw(Canvas(bitmap))` → FileProvider 分享；与 UI 层解耦，merge 只删除了文件，技术本身没失效
+  - 新 markdown 层完全适配：`StreamingGfmParserSession().parse(content, isComplete=true)` 同步解析（同 module internal 可直接调），`MarkdownContent(document, style)` 纯 Compose 渲染；替代 mikepenz 的 `State.Success` 预解析即可
+  - 离屏依赖扫描干净：无 Coil/网络图/WindowInsets；块类型仅段落/标题/代码/引用/提示/列表/表格/分割线（无图片块）
+  - 消息 UI 模型未变（`AgentMessageUi.renderMarkdown`、`ToolActivityMessageUi`、`ToolSummaryMessageUi` 都在），`ShareTurn.kt` 的组装逻辑可直接复活
+  - 唯一要小改的：代码块右上角有复制按钮（`MarkdownContent.kt` CopyButton），分享图里应隐藏——加一个静态模式开关
+- [ ] 待 Four 拍板后动工：复活 `ui/share/`（ShareTurn 原样 + MessageShareImage 换渲染层）+ FileProvider/strings + 操作行分享按钮
 
 ## 备注
 
 - 发布流程由 Four 手动执行（GitHub Releases 页面），艾薇只负责出包与提交
+- ~~无 root 系统级唤醒调研~~：Four 调研结论为基本不可行，待办已删（2026-10-07）
 - 岛-通知机制结论见 `docs/ISLAND-EXPANSION-INVESTIGATION.md`，动通知相关代码前必读
 - 真机：小米 14 Ultra，adb serial `dcc44b47`
 - v3.2.0 merge 裁决记录（D1-D5）：
-  - D1 搜索：保留 Exa，设置页新增「搜索引擎」选择（官方免 Key / Exa）→ **已被事项 3 推翻**：官方搜索在本机超时不可用，将回退为纯 Exa
+  - D1 搜索：保留 Exa，设置页新增「搜索引擎」选择（官方免 Key / Exa）→ **已被事项 3 推翻并执行**：官方搜索在本机超时不可用，已回退为纯 Exa（仅不注册官方搜索，上游 `agent/web/` 代码保留）
   - D2 分享图片：本次砍除（`ui/share/` 已删），后续按新 UI 重写
   - D3 思考折叠：开关合并进上游结构（`rememberAutoExpandThinking()` 挂上游 ThinkingRow 与 AgentWorkProcess）
   - D4 侧栏：保留我们的精简版（未引入上游 PaneDock；Skills 仍可从设置页进入）

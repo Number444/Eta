@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <resources>
   <string name="permission_local_network_title">Local network access</string>
   <string name="permission_local_network_summary">Allow models, MCP, the built-in browser and terminals to access your local network when needed. Internet access remains available without this permission.</string>
@@ -969,11 +969,7 @@
   <string name="accessibility_protection_rejected">The system rejected the accessibility protection request</string>
   <string name="settings_write_failed">Couldn\'t save settings</string>
   <string name="settings_web_search_title">Web search</string>
-  <string name="settings_web_search_summary">Let the model search the web; engine selectable below</string>
-  <string name="settings_web_search_engine">Search engine</string>
-  <string name="settings_web_search_engine_summary">Official keyless search, or Exa with your own API key</string>
-  <string name="settings_web_search_engine_official">Official (no API key)</string>
-  <string name="settings_web_search_engine_exa">Exa (own API key)</string>
+  <string name="settings_web_search_summary">Let the model search the web with Exa</string>
   <string name="settings_exa_api_key_summary">Used by the web search tool, stored on this device only</string>
   <string name="settings_exa_api_key_not_set">Not set</string>
   <string name="status_processing">Processing…</string>

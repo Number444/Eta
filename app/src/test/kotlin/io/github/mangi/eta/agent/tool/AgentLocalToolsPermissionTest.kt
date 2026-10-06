@@ -90,10 +90,9 @@ class AgentLocalToolsPermissionTest {
         )
 
         assertEquals("BROWSER_TOOLS_DISABLED", JSONObject(result.content).getString("code"))
-        listOf("web_search", "fetch_url").forEach { name ->
-            val webResult = tools.execute(AgentModelClient.ToolCall("disabled-$name", name, "{}"))
-            assertEquals(name, "BROWSER_TOOLS_DISABLED", JSONObject(webResult.content).getString("code"))
-        }
+        // Eta Mod：web_search 走 Exa 直连，不再受浏览器开关门控；fetch_url 仍跟随浏览器权限。
+        val webResult = tools.execute(AgentModelClient.ToolCall("disabled-fetch_url", "fetch_url", "{}"))
+        assertEquals("fetch_url", "BROWSER_TOOLS_DISABLED", JSONObject(webResult.content).getString("code"))
         tools.close()
     }
 

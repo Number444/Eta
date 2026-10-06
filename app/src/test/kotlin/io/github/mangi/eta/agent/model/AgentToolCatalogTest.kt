@@ -233,7 +233,8 @@ class AgentToolCatalogTest {
     )
 
     private companion object {
-        val BROWSER_TOOLS = setOf("browser_use", "web_search", "fetch_url")
+        // Eta Mod：官方免 Key 搜索已移除，browserTools 不再附带 web_search（web_search 仅 Exa 通道注册）。
+        val BROWSER_TOOLS = setOf("browser_use", "fetch_url")
         val TERMINAL_TOOLS = setOf(
             "read_image",
             "terminal",

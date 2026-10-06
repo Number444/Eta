@@ -43,9 +43,12 @@ internal object AppUpdateChecker {
     }
 
     fun isNewer(latest: String, current: String): Boolean {
-        val latestParts = latest.removePrefix("v").split('.')
-        val currentParts =
-            current.removePrefix("v").substringBefore('+').substringBefore('-').split('.')
+        // Eta Mod：两侧都先剥掉 v 前缀、+构建元数据与 -后缀（-debug / Mod 修订号 -NNN），
+        // 基础版本号按段比较；相同时再比 Mod 修订号（缺省视为 0）。
+        val latestNorm = latest.removePrefix("v").substringBefore('+')
+        val currentNorm = current.removePrefix("v").substringBefore('+')
+        val latestParts = latestNorm.substringBefore('-').split('.')
+        val currentParts = currentNorm.substringBefore('-').split('.')
         for (index in 0 until maxOf(latestParts.size, currentParts.size)) {
             val latestPart = latestParts.getOrNull(index) ?: "0"
             val currentPart = currentParts.getOrNull(index) ?: "0"
@@ -58,7 +61,9 @@ internal object AppUpdateChecker {
                 if (compared != 0) return compared > 0
             }
         }
-        return false
+        val latestRevision = latestNorm.substringAfter('-', "").takeWhile { it.isDigit() }.toIntOrNull() ?: 0
+        val currentRevision = currentNorm.substringAfter('-', "").takeWhile { it.isDigit() }.toIntOrNull() ?: 0
+        return latestRevision > currentRevision
     }
 
     private val client = OkHttpClient.Builder()
@@ -66,6 +71,7 @@ internal object AppUpdateChecker {
         .readTimeout(8, TimeUnit.SECONDS)
         .build()
 
-    private const val LATEST_RELEASE_URL = "https://api.github.com/repos/Mangi-11/Eta/releases/latest"
+    // Eta Mod：更新检查指向本 fork 的仓库。
+    private const val LATEST_RELEASE_URL = "https://api.github.com/repos/Number444/Eta/releases/latest"
     private const val USER_AGENT = "Eta-Update-Checker"
 }

@@ -45,4 +45,16 @@ class AppUpdateCheckerTest {
         assertFalse(AppUpdateChecker.isNewer("3.0.6", "3.0.6-debug+a1b2c3d"))
         assertTrue(AppUpdateChecker.isNewer("3.0.7", "3.0.6+a1b2c3d"))
     }
+
+    // Eta Mod：本 fork 的 release tag 带 -NNN 修订号，基础版本相同时按修订号比较。
+    @Test
+    fun modRevisionIsComparedWhenBaseVersionsMatch() {
+        assertTrue(AppUpdateChecker.isNewer("3.2.0-002", "3.2.0-001"))
+        assertFalse(AppUpdateChecker.isNewer("3.2.0-001", "3.2.0-001"))
+        assertFalse(AppUpdateChecker.isNewer("3.2.0-001", "3.2.0-002"))
+        assertFalse(AppUpdateChecker.isNewer("3.2.0-001", "3.2.0-001-debug"))
+        assertTrue(AppUpdateChecker.isNewer("v3.3.0-001", "3.2.0-009"))
+        assertTrue(AppUpdateChecker.isNewer("3.2.0-001", "3.2.0"))
+        assertFalse(AppUpdateChecker.isNewer("3.2.0", "3.2.0-001"))
+    }
 }

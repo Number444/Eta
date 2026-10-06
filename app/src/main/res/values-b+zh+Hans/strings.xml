@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <resources>
   <string name="permission_local_network_title">局域网访问</string>
   <string name="permission_local_network_summary">用于模型、MCP、内置浏览器和终端访问局域网，请按需授权；不授权仍可访问公网。</string>
@@ -955,11 +955,7 @@
   <string name="accessibility_protection_rejected">无障碍保护请求被系统拒绝</string>
   <string name="settings_write_failed">配置写入失败</string>
   <string name="settings_web_search_title">网页搜索</string>
-  <string name="settings_web_search_summary">允许模型联网搜索，引擎可在下方选择</string>
-  <string name="settings_web_search_engine">搜索引擎</string>
-  <string name="settings_web_search_engine_summary">官方免 Key 搜索，或自配 API Key 的 Exa</string>
-  <string name="settings_web_search_engine_official">官方（无需 API Key）</string>
-  <string name="settings_web_search_engine_exa">Exa（自配 API Key）</string>
+  <string name="settings_web_search_summary">允许模型通过 Exa 联网搜索</string>
   <string name="settings_exa_api_key_summary">网页搜索工具使用，仅保存在本机</string>
   <string name="settings_exa_api_key_not_set">未填写</string>
   <string name="status_processing">处理中…</string>

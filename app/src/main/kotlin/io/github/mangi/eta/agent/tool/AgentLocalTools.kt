@@ -114,7 +114,7 @@ internal class AgentLocalTools(
         localNetworkAccess = { LocalNetworkPermission.accessState(context).name.lowercase(Locale.ROOT) },
     )
 
-    /** Eta Mod：搜索引擎判定逻辑统一在 AgentWebSearchToolCatalog.exaSelected()。 */
+    /** Eta Mod：web_search 只走 Exa，注册条件在 AgentWebSearchToolCatalog.exaConfigured()。 */
     private val terminalController = RootShellTerminalController(
         logger = logger,
         rootAvailable = rootAvailable,
@@ -185,14 +185,8 @@ internal class AgentLocalTools(
             when (toolCall.name) {
                 "get_current_context" -> textResult(DeviceContextTool.current(context))
                 AgentWebSearchToolCatalog.WEB_SEARCH -> textResult(
-                    // Eta Mod：搜索引擎可选——Exa 走自建实现；官方免 Key 搜索受浏览器工具开关约束。
-                    if (AgentWebSearchToolCatalog.exaSelected()) {
-                        AgentWebSearchTool.execute(args)
-                    } else if (!browserToolsEnabled()) {
-                        errorResult("BROWSER_TOOLS_DISABLED", "请先启用网页搜索、读取与浏览器工具")
-                    } else {
-                        webTools.execute(toolCall.name, args)
-                    }
+                    // Eta Mod：web_search 只走 Exa（官方免 Key 搜索在本机不可用，已移除）。
+                    AgentWebSearchTool.execute(args)
                 )
                 "search_apps" -> textResult(searchApps(args))
                 "launch_app" -> textResult(launchApp(args))

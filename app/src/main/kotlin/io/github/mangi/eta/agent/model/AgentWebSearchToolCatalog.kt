@@ -4,15 +4,14 @@ import io.github.mangi.eta.config.Prefs
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** 网页搜索工具 schema（Eta Mod，先支持 Exa）。 */
+/** 网页搜索工具 schema（Eta Mod，Exa 通道）。 */
 internal object AgentWebSearchToolCatalog {
 
     const val WEB_SEARCH = "web_search"
 
-    /** 当前是否以 Exa 作为 web_search 后端：设置为 Exa 且已配置 API Key。 */
-    fun exaSelected(): Boolean =
-        Prefs.getLocalString(Prefs.Keys.AGENT_WEB_SEARCH_ENGINE) == Prefs.Keys.WEB_SEARCH_ENGINE_EXA &&
-            Prefs.getLocalString(Prefs.Keys.AGENT_EXA_API_KEY).isNotBlank()
+    /** web_search 仅在 Exa API Key 已配置时注册（官方免 Key 搜索在本机不可用，已移除）。 */
+    fun exaConfigured(): Boolean =
+        Prefs.getLocalString(Prefs.Keys.AGENT_EXA_API_KEY).isNotBlank()
 
     fun appendTo(tools: JSONArray) {
         tools.put(

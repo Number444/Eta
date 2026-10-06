@@ -14,7 +14,8 @@ class AgentToolRequirementsTest {
     @Test
     fun everyRegisteredToolHasExactlyOneRequirement() {
         val tools = catalog(root = true).also { CharacterMemoryTools.appendSchemas(it) }
-        assertEquals(AgentToolRequirements.toolNames - setOf("run_command"), tools.names())
+        // Eta Mod：web_search 仅在 Exa key 已配置时注册（测试环境无 key），从恒等式期望集中排除。
+        assertEquals(AgentToolRequirements.toolNames - setOf("run_command", "web_search"), tools.names())
         assertFalse("旧命令名仅保留执行兼容，不再向模型暴露", "run_command" in tools.names())
         assertEquals(tools.length(), tools.names().size)
         assertFalse(tools.toString().contains("rootRequirement"))

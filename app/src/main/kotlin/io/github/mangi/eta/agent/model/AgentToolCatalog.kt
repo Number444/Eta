@@ -29,14 +29,13 @@ internal object AgentToolCatalog {
                 sensitiveReadTools = deviceSensitiveReadTools,
                 sensitiveActionTools = deviceSensitiveActionTools,
             )
-            // Eta Mod：web_search 后端二选一——Exa（自建，需 Key）或上游官方免 Key 实现；
-            // fetch_url 始终由上游实现提供。
-            val exaSearch = webSearchTools && AgentWebSearchToolCatalog.exaSelected()
+            // Eta Mod：官方免 Key 搜索在本机不可用（连续超时），web_search 只走 Exa（需已配置 API Key）；
+            // 上游 AgentWebToolCatalog 不再注册官方 web_search，仅保留 fetch_url。
             if (browserTools) {
-                AgentWebToolCatalog.appendTo(tools, includeSearch = localWebSearch && !exaSearch)
+                AgentWebToolCatalog.appendTo(tools, includeSearch = false)
                 AgentBrowserToolCatalog.appendTo(tools)
             }
-            if (exaSearch) AgentWebSearchToolCatalog.appendTo(tools)
+            if (webSearchTools && localWebSearch && AgentWebSearchToolCatalog.exaConfigured()) AgentWebSearchToolCatalog.appendTo(tools)
             AgentSkillToolCatalog.appendTo(
                 tools,
                 githubDiscovery = skillGitHubDiscovery,

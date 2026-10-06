@@ -29,7 +29,6 @@ import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Layers
-import androidx.compose.material.icons.automirrored.rounded.ManageSearch
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Mic
@@ -546,49 +545,6 @@ private fun SettingsPageContent(
                         key = Prefs.Keys.AGENT_WEB_SEARCH,
                         icon = Icons.Rounded.TravelExplore,
                         iconTint = EtaPreferenceColors.Blue,
-                    )
-
-                    EtaPreferenceDivider()
-                    // Eta Mod：搜索引擎选择（官方免 Key / Exa）；Exa 需在下一条目配置 API Key。
-                    var webSearchEngine by remember(agentPrefs) {
-                        mutableStateOf(
-                            agentPrefs?.getString(Prefs.Keys.AGENT_WEB_SEARCH_ENGINE, "")
-                                .orEmpty().ifBlank { Prefs.Keys.WEB_SEARCH_ENGINE_OFFICIAL }
-                        )
-                    }
-                    EtaDropdownPreference(
-                        title = stringResource(R.string.settings_web_search_engine),
-                        summary = stringResource(R.string.settings_web_search_engine_summary),
-                        items = listOf(
-                            DropdownItem(text = stringResource(R.string.settings_web_search_engine_official)),
-                            DropdownItem(text = stringResource(R.string.settings_web_search_engine_exa)),
-                        ),
-                        selectedIndex = if (webSearchEngine == Prefs.Keys.WEB_SEARCH_ENGINE_EXA) 1 else 0,
-                        onSelectedIndexChange = { index ->
-                            val engine = if (index == 1) {
-                                Prefs.Keys.WEB_SEARCH_ENGINE_EXA
-                            } else {
-                                Prefs.Keys.WEB_SEARCH_ENGINE_OFFICIAL
-                            }
-                            val targetPrefs = agentPrefs ?: return@EtaDropdownPreference
-                            if (putStringSync(targetPrefs, Prefs.Keys.AGENT_WEB_SEARCH_ENGINE, engine)) {
-                                webSearchEngine = engine
-                            } else {
-                                Toast.makeText(
-                                    context.applicationContext,
-                                    context.getString(R.string.settings_write_failed),
-                                    Toast.LENGTH_SHORT,
-                                ).show()
-                            }
-                        },
-                        startAction = {
-                            EtaPreferenceIcon(
-                                icon = Icons.AutoMirrored.Rounded.ManageSearch,
-                                tint = EtaPreferenceColors.Blue,
-                                enabled = agentPrefs != null,
-                            )
-                        },
-                        enabled = agentPrefs != null,
                     )
 
                     EtaPreferenceDivider()
@@ -1155,7 +1111,7 @@ private fun SettingsPageContent(
                                 tint = EtaPreferenceColors.Orange,
                             )
                         },
-                        onClick = { openUrl("https://github.com/Mangi-11/Eta/issues") },
+                        onClick = { openUrl("https://github.com/Number444/Eta/issues") },
                     )
 
                     EtaPreferenceDivider()
@@ -1168,7 +1124,7 @@ private fun SettingsPageContent(
                                 tint = EtaPreferenceColors.Blue,
                             )
                         },
-                        onClick = { openUrl("https://github.com/Mangi-11/Eta") },
+                        onClick = { openUrl("https://github.com/Number444/Eta") },
                     )
                 }
             }

@@ -308,15 +308,16 @@ internal fun SpeechReadAloudButton(messageId: String, text: String) {
     val active = state.messageId == messageId
     IconButton(
         onClick = { if (active) controller.stop() else controller.speak(messageId, text) },
-        minWidth = 40.dp,
-        minHeight = 40.dp,
+        // Eta Mod：与消息操作行同套尺寸（上游 1.4 倍：42dp 触控 / 21dp 图标）。
+        minWidth = 42.dp,
+        minHeight = 42.dp,
     ) {
         Icon(
             imageVector = if (active) Icons.Rounded.Stop else Icons.AutoMirrored.Rounded.VolumeUp,
             contentDescription = stringResource(
                 if (active) R.string.speech_read_stop else R.string.speech_read_aloud,
             ),
-            modifier = Modifier.size(if (active) 17.dp else 20.dp),
+            modifier = Modifier.size(if (active) 18.dp else 21.dp),
             tint = if (active) {
                 MiuixTheme.colorScheme.primary
             } else {

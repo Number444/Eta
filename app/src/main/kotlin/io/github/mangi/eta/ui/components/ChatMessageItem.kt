@@ -613,8 +613,8 @@ private fun AgentMessageBlock(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    // 抵消按钮的居中留白，与工作过程标题图标共用左侧中心线。
-                    .offset(x = -8.dp)
+                    // Eta Mod：操作按钮放大到上游 1.4 倍（图标 21dp/触控 42dp），抵消居中留白与工作过程标题对齐。
+                    .offset(x = -6.dp)
                     .padding(top = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -624,8 +624,8 @@ private fun AgentMessageBlock(
                         clipboardManager.setText(AnnotatedString(message.content))
                         copied = true
                     },
-                    minWidth = 30.dp,
-                    minHeight = 30.dp,
+                    minWidth = 42.dp,
+                    minHeight = 42.dp,
                 ) {
                     Icon(
                         imageVector = if (copied) Icons.Rounded.Check
@@ -633,7 +633,7 @@ private fun AgentMessageBlock(
                         contentDescription = stringResource(
                             if (copied) R.string.copy_copied else R.string.copy_answer,
                         ),
-                        modifier = Modifier.size(15.dp),
+                        modifier = Modifier.size(21.dp),
                         tint = if (copied) {
                             MiuixTheme.colorScheme.primary
                         } else {
@@ -644,11 +644,11 @@ private fun AgentMessageBlock(
                 if (allowSpeech) SpeechReadAloudButton(message.id, message.content)
                 if (showMessageActions) {
                     if (message.characterEditable) {
-                        IconButton(onClick = onEdit, enabled = messageActionsEnabled, minWidth = 30.dp, minHeight = 30.dp) {
+                        IconButton(onClick = onEdit, enabled = messageActionsEnabled, minWidth = 42.dp, minHeight = 42.dp) {
                             Icon(
                                 imageVector = Icons.Rounded.Edit,
                                 contentDescription = "编辑角色回复",
-                                modifier = Modifier.size(15.dp),
+                                modifier = Modifier.size(21.dp),
                                 tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
                             )
                         }
@@ -657,13 +657,13 @@ private fun AgentMessageBlock(
                         IconButton(
                             onClick = onRegenerate,
                             enabled = messageActionsEnabled,
-                            minWidth = 30.dp,
-                            minHeight = 30.dp,
+                            minWidth = 42.dp,
+                            minHeight = 42.dp,
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.Refresh,
                                 contentDescription = stringResource(R.string.ui_regenerate_reply_84a7d9),
-                                modifier = Modifier.size(15.dp),
+                                modifier = Modifier.size(21.dp),
                                 tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
                             )
                         }
@@ -672,13 +672,13 @@ private fun AgentMessageBlock(
                         IconButton(
                             onClick = onDelete,
                             enabled = messageActionsEnabled,
-                            minWidth = 30.dp,
-                            minHeight = 30.dp,
+                            minWidth = 42.dp,
+                            minHeight = 42.dp,
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.Delete,
                                 contentDescription = stringResource(R.string.ui_delete_this_conversation_3f351b),
-                                modifier = Modifier.size(15.dp),
+                                modifier = Modifier.size(21.dp),
                                 tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
                             )
                         }

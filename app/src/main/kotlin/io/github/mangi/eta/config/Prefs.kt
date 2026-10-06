@@ -50,10 +50,6 @@ internal object Prefs {
         const val AGENT_COMPACT_PROVIDER_ID = "agent_compact_provider_id"
         const val AGENT_COMPACT_MODEL_ID = "agent_compact_model_id"
         const val AGENT_AUTO_COMPACTION_ENABLED = "agent_auto_compaction_enabled"
-        /** 网页搜索引擎选择（Eta Mod）：official=上游免 Key 搜索；exa=Exa（需 API Key）。 */
-        const val AGENT_WEB_SEARCH_ENGINE = "agent_web_search_engine"
-        const val WEB_SEARCH_ENGINE_OFFICIAL = "official"
-        const val WEB_SEARCH_ENGINE_EXA = "exa"
         const val AGENT_RUNTIME_CONFIG_JSON = "agent_runtime_config_json"
 
         /** 全部布尔开关及其默认值。 */

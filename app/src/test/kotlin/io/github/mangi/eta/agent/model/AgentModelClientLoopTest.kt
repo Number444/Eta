@@ -30,11 +30,13 @@ class AgentModelClientLoopTest {
                         val names = (0 until request.tools.length()).map {
                             request.tools.getJSONObject(it).getJSONObject("function").getString("name")
                         }
-                        assertEquals(browser && !effectiveHosted, "web_search" in names)
+                        // Eta Mod：本地 web_search 只走 Exa（测试环境未配置 Key，恒不注册）；
+                        // 官方免 Key 搜索已移除，prompt 也不再提及本地 web_search。
+                        assertFalse("web_search" in names)
                         assertEquals(browser, "fetch_url" in names)
                         assertEquals(browser, "browser_use" in names)
                         assertEquals(effectiveHosted, request.messages.toString().contains("Provider 托管的 web_search"))
-                        assertEquals(browser && !effectiveHosted, request.messages.toString().contains("使用本地 web_search"))
+                        assertFalse(request.messages.toString().contains("使用本地 web_search"))
                         if (effectiveHosted) {
                             val outgoing = ResponsesRequestBuilder.build(config, request.messages, request.tools).getJSONArray("tools")
                             assertEquals(1, (0 until outgoing.length()).count { outgoing.getJSONObject(it).optString("type") == "web_search" })
