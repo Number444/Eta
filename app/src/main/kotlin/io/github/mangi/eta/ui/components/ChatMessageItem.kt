@@ -3,13 +3,16 @@ package io.github.mangi.eta.ui.components
 import io.github.mangi.eta.ui.voice.SpeechReadAloudButton
 import android.graphics.BitmapFactory
 import android.util.Base64
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -44,6 +47,7 @@ import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Compress
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
@@ -62,9 +66,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -547,6 +555,8 @@ private fun AgentMessageBlock(
     var copied by remember(message.id) { mutableStateOf(false) }
     // Eta Mod：分享为长图所需的环境——锚点 View、协程域、当前外观与品牌字标。
     var shareRendering by remember(message.id) { mutableStateOf(false) }
+    // 触反馈：成功勾/失败叉短暂显示后自动还原，时长对齐复制按钮。
+    var shareFeedback by remember(message.id) { mutableStateOf<ShareFeedback?>(null) }
     val shareView = LocalView.current
     val shareScope = rememberCoroutineScope()
     val shareAppearance = LocalAppearanceSettings.current
@@ -573,6 +583,12 @@ private fun AgentMessageBlock(
         if (copied) {
             kotlinx.coroutines.delay(1_400)
             copied = false
+        }
+    }
+    LaunchedEffect(shareFeedback) {
+        if (shareFeedback != null) {
+            delay(1_400)
+            shareFeedback = null
         }
     }
 
@@ -666,6 +682,7 @@ private fun AgentMessageBlock(
                         onClick = {
                             if (shareRendering) return@IconButton
                             shareRendering = true
+                            shareFeedback = null
                             shareScope.launch {
                                 runCatching {
                                     MessageShareImage.shareTurnAsImage(
@@ -674,6 +691,11 @@ private fun AgentMessageBlock(
                                         turns = listOf(shareTurn),
                                         brand = shareBrand,
                                     )
+                                }.onSuccess {
+                                    shareFeedback = ShareFeedback.Success
+                                }.onFailure {
+                                    Log.w(TAG, "分享成图失败", it)
+                                    shareFeedback = ShareFeedback.Failure
                                 }
                                 shareRendering = false
                             }
@@ -682,12 +704,30 @@ private fun AgentMessageBlock(
                         minWidth = 42.dp,
                         minHeight = 42.dp,
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Share,
-                            contentDescription = stringResource(R.string.share_as_image),
-                            modifier = Modifier.size(21.dp),
-                            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
-                        )
+                        when {
+                            shareRendering -> ShareProgressSpinner(
+                                modifier = Modifier.size(18.dp),
+                            )
+                            shareFeedback == ShareFeedback.Success -> Icon(
+                                imageVector = Icons.Rounded.Check,
+                                contentDescription = stringResource(R.string.share_as_image),
+                                modifier = Modifier.size(21.dp),
+                                // 成功勾跟主体色，与复制成功态一致。
+                                tint = MiuixTheme.colorScheme.primary,
+                            )
+                            shareFeedback == ShareFeedback.Failure -> Icon(
+                                imageVector = Icons.Rounded.Close,
+                                contentDescription = stringResource(R.string.share_as_image),
+                                modifier = Modifier.size(21.dp),
+                                tint = StatusError,
+                            )
+                            else -> Icon(
+                                imageVector = Icons.Rounded.Share,
+                                contentDescription = stringResource(R.string.share_as_image),
+                                modifier = Modifier.size(21.dp),
+                                tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
+                            )
+                        }
                     }
                 }
                 if (showMessageActions) {
@@ -1121,5 +1161,41 @@ private fun SuggestionChipsRow(
                 )
             }
         }
+    }
+}
+
+private const val TAG = "ChatMessageItem"
+
+/** Eta Mod：分享按钮的触反馈结果，短暂显示后自动还原。 */
+private enum class ShareFeedback { Success, Failure }
+
+/**
+ * Eta Mod：分享成图进行中的自绘转圈指示器。
+ * 主色 270° 圆弧持续旋转，尺寸比图标略小，避免 42dp 触控区内视觉拥挤。
+ */
+@Composable
+private fun ShareProgressSpinner(modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "shareSpinner")
+    val rotation by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = LinearEasing),
+        ),
+        label = "rotation",
+    )
+    val color = MiuixTheme.colorScheme.primary
+    Canvas(modifier = modifier) {
+        val strokeWidth = 2.dp.toPx()
+        val inset = strokeWidth / 2f
+        drawArc(
+            color = color,
+            startAngle = rotation,
+            sweepAngle = 270f,
+            useCenter = false,
+            topLeft = Offset(inset, inset),
+            size = Size(size.width - strokeWidth, size.height - strokeWidth),
+            style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
+        )
     }
 }

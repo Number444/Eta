@@ -26,6 +26,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import top.yukonga.miuix.kmp.squircle.LocalSquircleEnabled
 
 /**
  * Eta Mod：分享卡片本地渲染验证。
@@ -103,8 +104,12 @@ class ShareCardRenderTest {
         composeRule.setContent {
             AgentAppTheme(appearance = AppearanceSettings(), applyInterfaceScale = false) {
                 val style = rememberMarkdownStyle(MarkdownTone.Answer)
-                // 与 MessageShareImage 出图路径一致：静态导出模式隐藏交互件。
-                CompositionLocalProvider(LocalMarkdownStaticExport provides true) {
+                // 与 MessageShareImage 出图路径一致：静态导出模式隐藏交互件，
+                // squircle 关闭回退普通圆角（软件画布不支持 RuntimeShader）。
+                CompositionLocalProvider(
+                    LocalMarkdownStaticExport provides true,
+                    LocalSquircleEnabled provides false,
+                ) {
                     Box(modifier = Modifier.width(420.dp)) {
                         ShareTurnsCard(
                             turns = turns,

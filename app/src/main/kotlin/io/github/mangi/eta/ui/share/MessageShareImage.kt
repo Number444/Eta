@@ -66,6 +66,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.squircle.LocalSquircleEnabled
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
@@ -119,7 +120,13 @@ internal object MessageShareImage {
                         value = withContext(Dispatchers.Default) { parseAllSegments(turns, style.inline) }
                     }.value
                     if (documents != null) {
-                        CompositionLocalProvider(LocalMarkdownStaticExport provides true) {
+                        // 静态导出模式隐藏复制按钮等交互件；软件画布不支持 RuntimeShader，
+                        // 强制 squircle 回退为普通圆角，否则表格/代码块绘制即抛
+                        // IllegalArgumentException: Software rendering doesn't support RuntimeShader。
+                        CompositionLocalProvider(
+                            LocalMarkdownStaticExport provides true,
+                            LocalSquircleEnabled provides false,
+                        ) {
                             ShareTurnsCard(
                                 turns = turns,
                                 documents = documents,

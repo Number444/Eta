@@ -40,8 +40,8 @@ android {
         targetSdk = 37
         // versionCode 规则：yyyyMMdd + 两位当日序号（01 起），发版时随 versionName 一起手动递增。
         // versionName 规则（Eta Mod）：官方版本号-三位 Mod 版本号，如 3.2.0-001；跟随上游时左段升级、右段归零重排。
-        versionCode = 2026100702
-        versionName = "3.2.0-002"
+        versionCode = 2026100703
+        versionName = "3.2.0-003"
     }
 
     signingConfigs {
