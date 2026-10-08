@@ -7,8 +7,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -38,7 +36,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DocumentScanner
@@ -52,6 +49,8 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -67,7 +66,9 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
@@ -94,6 +95,7 @@ import io.github.mangi.eta.ui.model.ToolSummaryMessageUi
 import io.github.mangi.eta.ui.model.UserMessageUi
 import io.github.mangi.eta.ui.model.latestContextUsage
 import io.github.mangi.eta.ui.share.buildShareTurns
+import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.min
 import kotlinx.coroutines.CancellationException
@@ -336,6 +338,56 @@ private fun AgentChatScaffold(
         drawContent()
     }
 
+    // Eta Mod：会话轮次刻度条——并入输入框浮层 dock（输入框正上方，与输入框同宽），
+    // 轮数 < 3 不显示。标尺式中心锁定：蓝条（选中轮）居中，刻度带随列表滚动整体滑动；
+    // 末轮吸收原"回到底部"按钮的功能。
+    val tickTimelineEntries = remember(visibleMessages) { visibleMessages.toTimelineEntries() }
+    val turnTicks = remember(tickTimelineEntries) { buildTurnTicks(tickTimelineEntries) }
+    val tickRailScope = rememberCoroutineScope()
+    val latestTurnTimelineIndex = turnTicks.lastOrNull()?.timelineIndex
+    // 列表视口同步来的浮点当前轮；刻度条刮擦期间由刻度条接管，松手后回到这里。
+    val visibleTurn = remember { mutableFloatStateOf(-1f) }
+    // 刮擦气泡目标轮；气泡渲染在底部栏模糊层之外（磨砂带会裁剪子内容溢出）。
+    var tickBubbleTick by remember { mutableStateOf<TurnTick?>(null) }
+    val tickRail: (@Composable () -> Unit)? = if (turnTicks.size >= MIN_TURN_TICKS) {
+        {
+            TurnTickRail(
+                ticks = turnTicks,
+                currentTurn = visibleTurn,
+                onTap = { tick ->
+                    if (tick.timelineIndex == latestTurnTimelineIndex) {
+                        onBottomAnchorChanged(true)
+                        tickRailScope.launch {
+                            scrollState.animateScrollToItem(tickTimelineEntries.size)
+                        }
+                    } else {
+                        onBottomAnchorChanged(false)
+                        tickRailScope.launch {
+                            scrollState.animateScrollToItem(tick.timelineIndex)
+                        }
+                    }
+                },
+                onScrubStart = { onBottomAnchorChanged(false) },
+                onScrubTick = { tick ->
+                    tickRailScope.launch {
+                        scrollState.requestScrollToItem(tick.timelineIndex)
+                    }
+                },
+                onScrubEnd = { atLatest ->
+                    if (atLatest) {
+                        onBottomAnchorChanged(true)
+                        tickRailScope.launch {
+                            scrollState.requestScrollToItem(tickTimelineEntries.size)
+                        }
+                    }
+                },
+                onBubbleChanged = { tickBubbleTick = it },
+            )
+        }
+    } else {
+        null
+    }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = Color.Transparent,
@@ -348,6 +400,8 @@ private fun AgentChatScaffold(
         bottomBar = {
             AgentChatBottomBar(
                 messageBackdrop = messageBackdrop.takeIf { frostEnabled },
+                tickRail = tickRail.takeIf { hasMessages },
+                tickBubble = tickBubbleTick,
                 input = input,
                 modelPickerState = modelPickerState,
                 isCompacting = isCompacting,
@@ -398,8 +452,10 @@ private fun AgentChatScaffold(
                 isStreaming = isStreaming,
                 bottomInset = bottomPadding,
                 topPadding = topPadding,
+                tickRailVisible = tickRail != null,
                 keepBottomAnchored = keepBottomAnchored,
                 onBottomAnchorChanged = onBottomAnchorChanged,
+                onVisibleTurnChanged = { visibleTurn.floatValue = it },
                 onSuggestionClick = onSuggestionClick,
                 onRunTraceClick = onRunTraceClick,
                 onOpenBrowser = onOpenBrowser,
@@ -426,8 +482,10 @@ internal fun AgentConversationMessages(
     isStreaming: Boolean,
     bottomInset: Dp,
     topPadding: Dp = 0.dp,
+    tickRailVisible: Boolean = false,
     keepBottomAnchored: Boolean,
     onBottomAnchorChanged: (Boolean) -> Unit,
+    onVisibleTurnChanged: (Float) -> Unit = {},
     assistantOverlay: Boolean = false,
     onSuggestionClick: (String) -> Unit = {},
     onRunTraceClick: () -> Unit = {},
@@ -469,7 +527,6 @@ internal fun AgentConversationMessages(
         derivedStateOf { !scrollState.canScrollForward }
     }
     val densityScale = LocalDensity.current.density
-    val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(
         isUserDragging,
@@ -484,6 +541,33 @@ internal fun AgentConversationMessages(
         if (next != keepBottomAnchored) {
             onBottomAnchorChanged(next)
         }
+    }
+
+    // Eta Mod：刻度条跟随——把列表视口位置换算成浮点轮次，驱动底部刻度带随屏幕内容整体滑动。
+    val turnBoundaries = remember(timelineEntries) {
+        timelineEntries.mapIndexedNotNull { index, entry ->
+            if ((entry as? AgentTimelineEntry.Message)?.message is UserMessageUi) index else null
+        }
+    }
+    val currentOnVisibleTurnChanged by rememberUpdatedState(onVisibleTurnChanged)
+    LaunchedEffect(turnBoundaries, scrollState) {
+        if (turnBoundaries.size < MIN_TURN_TICKS) return@LaunchedEffect
+        snapshotFlow {
+            val info = scrollState.layoutInfo
+            val first = info.visibleItemsInfo.firstOrNull() ?: return@snapshotFlow -1f
+            val fraction = if (first.size > 0) {
+                (-first.offset.toFloat() / first.size).coerceIn(0f, 1f)
+            } else {
+                0f
+            }
+            resolveVisibleTurn(
+                itemPosition = first.index + fraction,
+                turnBoundaries = turnBoundaries,
+                totalItems = info.totalItemsCount,
+            )
+        }
+            .distinctUntilChanged { old, new -> abs(old - new) < 0.002f }
+            .collect { if (it >= 0f) currentOnVisibleTurnChanged(it) }
     }
 
     val tailMessage = visibleMessages.lastOrNull() as? AgentMessageUi
@@ -660,7 +744,8 @@ internal fun AgentConversationMessages(
             contentPadding = PaddingValues(
                 // Eta Mod：顶栏高度进 contentPadding，消息可滚入顶栏下方被模糊采样。
                 top = topPadding + 14.dp,
-                bottom = bottomInset + 14.dp,
+                // Eta Mod：刻度条显示时底部额外 +20dp，末轮正文不被刻度区视觉压住。
+                bottom = bottomInset + if (tickRailVisible) 34.dp else 14.dp,
             ),
             overscrollEffect = null,
         ) {
@@ -736,34 +821,6 @@ internal fun AgentConversationMessages(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(1.dp),
-                )
-            }
-        }
-
-        AnimatedVisibility(
-            visible = !keepBottomAnchored && !isAtBottom,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = bottomInset + 12.dp),
-            enter = fadeIn(tween(160)) + scaleIn(tween(180), initialScale = 0.82f),
-            exit = fadeOut(tween(100)) + scaleOut(tween(120), targetScale = 0.86f),
-        ) {
-            IconButton(
-                onClick = hapticClick {
-                    onBottomAnchorChanged(true)
-                    coroutineScope.launch {
-                        scrollState.animateScrollToItem(bottomItemIndex)
-                    }
-                },
-                backgroundColor = MiuixTheme.colorScheme.surfaceContainerHigh,
-                minWidth = 40.dp,
-                minHeight = 40.dp,
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.ArrowDownward,
-                    contentDescription = stringResource(R.string.ui_back_to_bottom_32282e),
-                    modifier = Modifier.size(17.dp),
-                    tint = MiuixTheme.colorScheme.onSurface,
                 )
             }
         }
@@ -902,6 +959,8 @@ internal fun resolveFinalResultMessageIds(
 @Composable
 private fun AgentChatBottomBar(
     messageBackdrop: LayerBackdrop?,
+    tickRail: (@Composable () -> Unit)? = null,
+    tickBubble: TurnTick? = null,
     input: String,
     modelPickerState: AgentModelPickerUiState,
     isCompacting: Boolean,
@@ -932,11 +991,15 @@ private fun AgentChatBottomBar(
     onRemoveFileReference: (String) -> Unit,
     onCancelMessageEdit: () -> Unit,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .imePadding(),
-    ) {
+    // 底部栏实测高度：刻度气泡用它定位（浮层不参与布局，纯位移）。
+    var dockHeightPx by remember { mutableIntStateOf(0) }
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .onSizeChanged { dockHeightPx = it.height }
+                .imePadding(),
+        ) {
         // Eta Mod：磨砂带与输入区共用同一份 blend，模糊关/无消息/不支持时整体回退纯色。
         val frostColors = BlurDefaults.blurColors(
             blendColors = listOf(
@@ -946,10 +1009,11 @@ private fun AgentChatBottomBar(
         if (messageBackdrop != null) {
             // Eta Mod：原生渐进模糊（底部渐实）替代离屏遮罩——graphicsLayer(Offscreen)+DstIn
             // 会让内部 RuntimeShader 静默失效（2026-10-08 实锤），且半径与输入区一致避免接缝。
+            // 刻度条并入时渐变遮罩向上延展（50dp 带 > 刻度 28dp 的一半），刻度绘在模糊层之上。
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(ChatBottomFrostHeight)
+                    .height(if (tickRail != null) ChatBottomFrostWithRailHeight else ChatBottomFrostHeight)
                     .progressiveTextureBlur(
                         backdrop = messageBackdrop,
                         shape = RectangleShape,
@@ -957,7 +1021,42 @@ private fun AgentChatBottomBar(
                         blurRadius = 20f,
                         colors = frostColors,
                     ),
-            )
+            ) {
+                if (tickRail != null) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .padding(start = 14.dp, end = 14.dp, bottom = 2.dp),
+                    ) {
+                        tickRail()
+                    }
+                }
+            }
+        } else if (tickRail != null) {
+            // 模糊不可用但刻度条在：渐变遮罩同样向上延展包住刻度区。
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(ChatBottomFrostWithRailHeight)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                MiuixTheme.colorScheme.surface,
+                            ),
+                        )
+                    ),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(start = 14.dp, end = 14.dp, bottom = 2.dp),
+                ) {
+                    tickRail()
+                }
+            }
         } else {
             // 空白主页沿用原来的轻微渐隐，不改变主页视觉。
             Box(
@@ -1037,9 +1136,27 @@ private fun AgentChatBottomBar(
             )
         }
     }
+    // Eta Mod：刻度刮擦气泡——渲染在模糊层 Box 之外（磨砂带会裁剪子内容溢出）、
+    // 底部栏浮层内；底部对齐 dock 底后整体上移（dock 高 - 12dp），即刻度条上方 8dp、水平居中。
+    tickBubble?.let { bubble ->
+        val density = LocalDensity.current
+        val liftPx = with(density) { 12.dp.toPx() } - dockHeightPx
+        TurnTickBubble(
+            tick = bubble,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .graphicsLayer { translationY = liftPx },
+        )
+    }
+    }
 }
 
 private val ChatBottomFrostHeight = 36.dp
+
+/** Eta Mod：刻度条并入时的磨砂带高度——刻度 28dp + 上方延展 22dp（超过刻度区高度的一半）。 */
+private val ChatBottomFrostWithRailHeight = 50.dp
+
+private const val MIN_TURN_TICKS = 3
 
 /**
  * Eta Mod：排队消息面板——输入框上方的悬浮卡片，与输入框同风格（圆角 20dp、surfaceContainer），
