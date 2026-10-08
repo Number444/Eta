@@ -14,7 +14,6 @@ data class AppearanceSettings(
     val accentColor: AppearanceAccentColor = AppearanceAccentColor.SYSTEM,
     val pureBlackEnabled: Boolean = false,
     val blurEnabled: Boolean = true,
-    val topBarBlurStyle: AppearanceTopBarBlurStyle = AppearanceTopBarBlurStyle.GAUSSIAN,
     val swipeDismissEnabled: Boolean = true,
     val predictiveBackEnabled: Boolean = true,
     val interfaceScale: Float = DEFAULT_INTERFACE_SCALE,
@@ -69,17 +68,6 @@ enum class AppearanceAccentColor(val persistedValue: String) {
     companion object {
         fun fromPersistedValue(value: String?): AppearanceAccentColor =
             entries.firstOrNull { it.persistedValue == value } ?: SYSTEM
-    }
-}
-
-@Serializable
-enum class AppearanceTopBarBlurStyle(val persistedValue: String) {
-    GAUSSIAN("gaussian"),
-    PROGRESSIVE("progressive");
-
-    companion object {
-        fun fromPersistedValue(value: String?): AppearanceTopBarBlurStyle =
-            entries.firstOrNull { it.persistedValue == value } ?: GAUSSIAN
     }
 }
 

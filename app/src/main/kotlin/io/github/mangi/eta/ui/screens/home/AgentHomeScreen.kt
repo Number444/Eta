@@ -3,6 +3,8 @@ package io.github.mangi.eta.ui.screens.home
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.ui.components.AgentChatBody
 import io.github.mangi.eta.ui.components.chatConversationCompositionKey
 import io.github.mangi.eta.ui.model.AgentChatHomeUiState
@@ -22,10 +24,12 @@ internal fun AgentHomeScreen(
     conversationKey: String?,
     onAction: (AgentHomeAction) -> Unit,
     isDrawerOpen: Boolean = false,
+    topPadding: Dp = 0.dp,
     modifier: Modifier = Modifier,
 ) {
     key(chatConversationCompositionKey(conversationKey)) {
         AgentChatBody(
+            topPadding = topPadding,
             messages = state.messages,
             modelPickerState = modelPickerState,
             isCompacting = state.isCompacting,

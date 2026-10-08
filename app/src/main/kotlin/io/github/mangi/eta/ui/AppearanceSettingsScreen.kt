@@ -26,7 +26,6 @@ import io.github.mangi.eta.data.model.AppearanceAccentColor
 import io.github.mangi.eta.data.model.AppearancePaletteStyle
 import io.github.mangi.eta.data.model.AppearanceSettings
 import io.github.mangi.eta.data.model.AppearanceThemeMode
-import io.github.mangi.eta.data.model.AppearanceTopBarBlurStyle
 import io.github.mangi.eta.data.model.MAX_INTERFACE_SCALE
 import io.github.mangi.eta.data.model.MIN_INTERFACE_SCALE
 import io.github.mangi.eta.data.model.normalizeInterfaceScale
@@ -103,15 +102,6 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
         stringResource(R.string.appearance_accent_yellow),
         stringResource(R.string.appearance_accent_green),
         stringResource(R.string.appearance_accent_teal),
-    )
-    val blurStyles = AppearanceTopBarBlurStyle.entries
-    val blurStyleLabels = listOf(
-        stringResource(R.string.appearance_blur_style_gaussian),
-        stringResource(R.string.appearance_blur_style_progressive),
-    )
-    val blurStyleSummaries = listOf(
-        stringResource(R.string.appearance_blur_style_gaussian_summary),
-        stringResource(R.string.appearance_blur_style_progressive_summary),
     )
 
     MiuixScaffoldPage(
@@ -201,24 +191,6 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                     },
                     enabled = blurSupported,
                 )
-                AnimatedVisibility(
-                    visible = appearance.blurEnabled && blurSupported,
-                    enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
-                    exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut(),
-                ) {
-                    EtaPreferenceDivider(hasLeading = false)
-                    EtaOverlayDropdownPreference(
-                        title = stringResource(R.string.appearance_blur_style),
-                        summary = blurStyleSummaries[appearance.topBarBlurStyle.ordinal],
-                        items = blurStyleLabels,
-                        selectedIndex = appearance.topBarBlurStyle.ordinal,
-                        onSelectedIndexChange = { index ->
-                            blurStyles.getOrNull(index)?.let { style ->
-                                update { current -> current.copy(topBarBlurStyle = style) }
-                            }
-                        },
-                    )
-                }
                 EtaPreferenceDivider(hasLeading = false)
                 EtaSwitchPreference(
                     title = stringResource(R.string.appearance_swipe_dismiss),

@@ -15,6 +15,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -229,7 +230,7 @@ fun AgentAppRoot(
     @Composable
     fun RoutedShell(
         route: AppRoute,
-        content: @Composable () -> Unit,
+        content: @Composable (PaddingValues) -> Unit,
     ) {
         AgentAppShell(
             currentRoute = route,
@@ -281,13 +282,9 @@ fun AgentAppRoot(
             },
             onOpenSettings = { pushRoute(AppRoute.Settings) },
         ) { padding ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-            ) {
-                content()
-            }
+            // Eta Mod：顶栏 inset 透传给各路由自行消化——会话页把它作为消息列表的
+            // contentPadding，让消息滚入顶栏下方参与高斯模糊采样；终端/浏览器仍整体下移。
+            content(padding)
         }
     }
 
@@ -308,8 +305,9 @@ fun AgentAppRoot(
             ),
         ) {
             entry<AppRoute.Home>(swipeDismiss = swipeDismiss) {
-                RoutedShell(route = AppRoute.Home) {
+                RoutedShell(route = AppRoute.Home) { padding ->
                     AgentHomeScreen(
+                        topPadding = padding.calculateTopPadding(),
                         state = agentState.homeState,
                         modelPickerState = agentState.modelPickerState,
                         conversationKey = agentState.conversationPaneState.selectedConversationId,
@@ -362,18 +360,22 @@ fun AgentAppRoot(
                 }
             }
             entry<AppRoute.Browser>(swipeDismiss = swipeDismiss) {
-                RoutedShell(route = AppRoute.Browser) {
-                    AgentBrowserScreen()
+                RoutedShell(route = AppRoute.Browser) { padding ->
+                    Box(Modifier.fillMaxSize().padding(padding)) {
+                        AgentBrowserScreen()
+                    }
                 }
             }
             entry<AppRoute.Terminal>(swipeDismiss = swipeDismiss) {
                 LaunchedEffect(Unit) { requestExecutionNotifications() }
-                RoutedShell(route = AppRoute.Terminal) {
-                    TerminalEntryScreen(
-                        terminalStore = appViewModel.terminalStore,
-                        consoleStore = appViewModel.consoleStore,
-                        onOpenEnvironment = { pushRoute(AppRoute.LinuxEnvironment) },
-                    )
+                RoutedShell(route = AppRoute.Terminal) { padding ->
+                    Box(Modifier.fillMaxSize().padding(padding)) {
+                        TerminalEntryScreen(
+                            terminalStore = appViewModel.terminalStore,
+                            consoleStore = appViewModel.consoleStore,
+                            onOpenEnvironment = { pushRoute(AppRoute.LinuxEnvironment) },
+                        )
+                    }
                 }
             }
             entry<AppRoute.Tools>(swipeDismiss = swipeDismiss) {

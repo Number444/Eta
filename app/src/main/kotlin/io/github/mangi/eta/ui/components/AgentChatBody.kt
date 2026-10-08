@@ -64,13 +64,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -114,8 +110,10 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurDefaults
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.ProgressiveBlur
 import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.progressiveTextureBlur
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -168,6 +166,7 @@ internal fun AgentChatBody(
     onOpenBrowser: () -> Unit,
     characterName: String? = null,
     isDrawerOpen: Boolean = false,
+    topPadding: Dp = 0.dp,
     modifier: Modifier = Modifier,
 ) {
     val scrollState = rememberLazyListState()
@@ -228,6 +227,7 @@ internal fun AgentChatBody(
             visibleMessages = visibleMessages,
             hasMessages = visibleMessages.isNotEmpty(),
             scrollState = scrollState,
+            topPadding = topPadding,
             input = input,
             modelPickerState = modelPickerState,
             isCompacting = isCompacting,
@@ -285,6 +285,7 @@ private fun AgentChatScaffold(
     visibleMessages: List<AgentChatMessageUi>,
     hasMessages: Boolean,
     scrollState: LazyListState,
+    topPadding: Dp = 0.dp,
     input: String,
     modelPickerState: AgentModelPickerUiState,
     isCompacting: Boolean,
@@ -387,7 +388,8 @@ private fun AgentChatScaffold(
                 onSuggestionClick = onSuggestionClick,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(bottom = bottomPadding),
+                    // 空状态不进顶栏模糊采样区，整体保持在顶栏下方。
+                    .padding(top = topPadding, bottom = bottomPadding),
             )
         } else {
             AgentConversationMessages(
@@ -395,6 +397,7 @@ private fun AgentChatScaffold(
                 scrollState = scrollState,
                 isStreaming = isStreaming,
                 bottomInset = bottomPadding,
+                topPadding = topPadding,
                 keepBottomAnchored = keepBottomAnchored,
                 onBottomAnchorChanged = onBottomAnchorChanged,
                 onSuggestionClick = onSuggestionClick,
@@ -422,6 +425,7 @@ internal fun AgentConversationMessages(
     scrollState: LazyListState,
     isStreaming: Boolean,
     bottomInset: Dp,
+    topPadding: Dp = 0.dp,
     keepBottomAnchored: Boolean,
     onBottomAnchorChanged: (Boolean) -> Unit,
     assistantOverlay: Boolean = false,
@@ -654,7 +658,8 @@ internal fun AgentConversationMessages(
                 .scrollEndHaptic()
                 .overScrollVertical(),
             contentPadding = PaddingValues(
-                top = 14.dp,
+                // Eta Mod：顶栏高度进 contentPadding，消息可滚入顶栏下方被模糊采样。
+                top = topPadding + 14.dp,
                 bottom = bottomInset + 14.dp,
             ),
             overscrollEffect = null,
@@ -932,34 +937,25 @@ private fun AgentChatBottomBar(
             .fillMaxWidth()
             .imePadding(),
     ) {
+        // Eta Mod：磨砂带与输入区共用同一份 blend，模糊关/无消息/不支持时整体回退纯色。
+        val frostColors = BlurDefaults.blurColors(
+            blendColors = listOf(
+                BlendColorEntry(MiuixTheme.colorScheme.surface.copy(alpha = 0.62f))
+            ),
+        )
         if (messageBackdrop != null) {
-            val blurColors = BlurDefaults.blurColors(
-                blendColors = listOf(
-                    BlendColorEntry(MiuixTheme.colorScheme.surface.copy(alpha = 0.72f))
-                ),
-            )
+            // Eta Mod：原生渐进模糊（底部渐实）替代离屏遮罩——graphicsLayer(Offscreen)+DstIn
+            // 会让内部 RuntimeShader 静默失效（2026-10-08 实锤），且半径与输入区一致避免接缝。
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(ChatBottomFrostHeight)
-                    // DstIn 让真实磨砂在顶部透明、靠近输入框时逐渐变实，消除硬裁切线。
-                    .graphicsLayer {
-                        compositingStrategy = CompositingStrategy.Offscreen
-                    }
-                    .drawWithContent {
-                        drawContent()
-                        drawRect(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(Color.Transparent, Color.Black),
-                            ),
-                            blendMode = BlendMode.DstIn,
-                        )
-                    }
-                    .textureBlur(
+                    .progressiveTextureBlur(
                         backdrop = messageBackdrop,
                         shape = RectangleShape,
+                        gradient = ProgressiveBlur.Bottom.copy(curve = 2.2f),
                         blurRadius = 20f,
-                        colors = blurColors,
+                        colors = frostColors,
                     ),
             )
         } else {
@@ -981,7 +977,20 @@ private fun AgentChatBottomBar(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(MiuixTheme.colorScheme.surface)
+                // Eta Mod：输入区整体磨砂——消息本就绘制在输入区下方，直接对同一
+                // backdrop 采样；模糊不可用时回退纯色表面。
+                .then(
+                    if (messageBackdrop != null) {
+                        Modifier.textureBlur(
+                            backdrop = messageBackdrop,
+                            shape = RectangleShape,
+                            blurRadius = 20f,
+                            colors = frostColors,
+                        )
+                    } else {
+                        Modifier.background(MiuixTheme.colorScheme.surface)
+                    }
+                )
                 .navigationBarsPadding()
                 .padding(start = 14.dp, end = 14.dp, bottom = 12.dp),
         ) {
@@ -998,6 +1007,7 @@ private fun AgentChatBottomBar(
             AgentChatInputBar(
                 input = input,
                 modelPickerState = modelPickerState,
+                frosted = messageBackdrop != null,
                 isCompacting = isCompacting,
                 contextUsage = contextUsage,
                 showContextUsage = showContextUsage,
@@ -1029,7 +1039,7 @@ private fun AgentChatBottomBar(
     }
 }
 
-private val ChatBottomFrostHeight = 24.dp
+private val ChatBottomFrostHeight = 36.dp
 
 /**
  * Eta Mod：排队消息面板——输入框上方的悬浮卡片，与输入框同风格（圆角 20dp、surfaceContainer），

@@ -192,11 +192,6 @@
   <string name="appearance_pure_black_summary">Use a pure black background in dark mode</string>
   <string name="appearance_blur">Blur effects</string>
   <string name="appearance_blur_summary">Enable blur on top bars, the chat input surface, and similar areas</string>
-  <string name="appearance_blur_style">Top bar blur style</string>
-  <string name="appearance_blur_style_gaussian">Gaussian</string>
-  <string name="appearance_blur_style_progressive">Progressive</string>
-  <string name="appearance_blur_style_gaussian_summary">Apply uniform blur across the top bar</string>
-  <string name="appearance_blur_style_progressive_summary">Increase blur progressively toward the top</string>
   <string name="appearance_swipe_dismiss">Swipe back gesture</string>
   <string name="appearance_swipe_dismiss_summary">Swipe horizontally anywhere on a page to return</string>
   <string name="appearance_predictive_back">Predictive back gesture</string>

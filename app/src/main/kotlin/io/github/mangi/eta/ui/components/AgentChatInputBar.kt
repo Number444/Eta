@@ -135,6 +135,7 @@ internal fun AgentChatInputBar(
     onAttachFilePath: (String) -> Unit,
     onRemoveFileReference: (String) -> Unit,
     onCancelMessageEdit: () -> Unit,
+    frosted: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
@@ -257,7 +258,9 @@ internal fun AgentChatInputBar(
                         ),
                     )
                     .squircleSurface(
-                        color = MiuixTheme.colorScheme.surfaceContainer,
+                        // Eta Mod：磨砂模式下卡片底色改半透明，让底下经模糊的消息透进来。
+                        color = MiuixTheme.colorScheme.surfaceContainer
+                            .copy(alpha = if (frosted) 0.55f else 1f),
                         cornerRadius = 20.dp,
                     )
                     .squircleBorder(

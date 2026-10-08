@@ -190,11 +190,6 @@
   <string name="appearance_pure_black_summary">深色模式下使用纯黑背景</string>
   <string name="appearance_blur">模糊效果</string>
   <string name="appearance_blur_summary">启用顶栏、聊天输入区等表面的模糊效果</string>
-  <string name="appearance_blur_style">顶栏模糊样式</string>
-  <string name="appearance_blur_style_gaussian">高斯</string>
-  <string name="appearance_blur_style_progressive">渐进</string>
-  <string name="appearance_blur_style_gaussian_summary">顶栏整体均匀模糊</string>
-  <string name="appearance_blur_style_progressive_summary">顶部渐强模糊</string>
   <string name="appearance_swipe_dismiss">横移返回手势</string>
   <string name="appearance_swipe_dismiss_summary">在页面任意位置横移即可返回上一页</string>
   <string name="appearance_predictive_back">预测性返回手势</string>

@@ -15,7 +15,6 @@ import io.github.mangi.eta.data.model.AppearanceAccentColor
 import io.github.mangi.eta.data.model.AppearancePaletteStyle
 import io.github.mangi.eta.data.model.AppearanceSettings
 import io.github.mangi.eta.data.model.AppearanceThemeMode
-import io.github.mangi.eta.data.model.AppearanceTopBarBlurStyle
 import io.github.mangi.eta.data.model.SpeechSettings
 import kotlinx.serialization.json.Json
 import io.github.mangi.eta.data.model.Settings
@@ -57,7 +56,6 @@ internal object SettingsDataStore {
     private val APPEARANCE_ACCENT_COLOR = stringPreferencesKey("appearance_accent_color")
     private val APPEARANCE_PURE_BLACK_ENABLED = booleanPreferencesKey("appearance_pure_black_enabled")
     private val APPEARANCE_BLUR_ENABLED = booleanPreferencesKey("appearance_blur_enabled")
-    private val APPEARANCE_TOP_BAR_BLUR_STYLE = stringPreferencesKey("appearance_top_bar_blur_style")
     private val APPEARANCE_SWIPE_DISMISS_ENABLED =
         booleanPreferencesKey("appearance_swipe_dismiss_enabled")
     private val APPEARANCE_PREDICTIVE_BACK_ENABLED =
@@ -244,9 +242,6 @@ internal object SettingsDataStore {
             accentColor = AppearanceAccentColor.fromPersistedValue(this[APPEARANCE_ACCENT_COLOR]),
             pureBlackEnabled = this[APPEARANCE_PURE_BLACK_ENABLED] ?: false,
             blurEnabled = this[APPEARANCE_BLUR_ENABLED] ?: true,
-            topBarBlurStyle = AppearanceTopBarBlurStyle.fromPersistedValue(
-                this[APPEARANCE_TOP_BAR_BLUR_STYLE],
-            ),
             swipeDismissEnabled = this[APPEARANCE_SWIPE_DISMISS_ENABLED] ?: true,
             predictiveBackEnabled = this[APPEARANCE_PREDICTIVE_BACK_ENABLED] ?: true,
             interfaceScale = this[APPEARANCE_INTERFACE_SCALE] ?: 1f,
@@ -260,7 +255,6 @@ internal object SettingsDataStore {
         this[APPEARANCE_ACCENT_COLOR] = settings.accentColor.persistedValue
         this[APPEARANCE_PURE_BLACK_ENABLED] = settings.pureBlackEnabled
         this[APPEARANCE_BLUR_ENABLED] = settings.blurEnabled
-        this[APPEARANCE_TOP_BAR_BLUR_STYLE] = settings.topBarBlurStyle.persistedValue
         this[APPEARANCE_SWIPE_DISMISS_ENABLED] = settings.swipeDismissEnabled
         this[APPEARANCE_PREDICTIVE_BACK_ENABLED] = settings.predictiveBackEnabled
         this[APPEARANCE_INTERFACE_SCALE] = settings.interfaceScale

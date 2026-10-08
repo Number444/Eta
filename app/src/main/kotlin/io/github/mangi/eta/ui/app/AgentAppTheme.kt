@@ -90,7 +90,6 @@ fun AgentAppTheme(
         CompositionLocalProvider(
             LocalAppearanceSettings provides appearance,
             LocalBlurEnabled provides appearance.blurEnabled,
-            LocalTopBarBlurStyle provides appearance.topBarBlurStyle,
             LocalPlatformDensity provides platformDensity,
             LocalDensity provides appDensity,
         ) {
