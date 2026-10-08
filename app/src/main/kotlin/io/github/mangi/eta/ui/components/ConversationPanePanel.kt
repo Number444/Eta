@@ -360,7 +360,10 @@ private fun ConversationTextRow(
                     },
                 )
                 .combinedClickable(
-                    onClick = onClick,
+                    onClick = {
+                        hapticFeedback.performHapticFeedback(HapticFeedbackType.KeyboardTap)
+                        onClick()
+                    },
                     onLongClick = {
                         hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                         showActionMenu = true

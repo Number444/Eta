@@ -17,7 +17,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -42,13 +44,14 @@ internal fun EtaArrowPreference(
     titleColor: BasicComponentColors = BasicComponentDefaults.titleColor(),
     enabled: Boolean = true,
     holdDownState: Boolean = false,
+    hapticType: HapticFeedbackType? = HapticFeedbackType.KeyboardTap,
     onClick: (() -> Unit)? = null,
 ) {
     EtaPreference(
         title = title, summary = summary, modifier = modifier,
         startAction = startAction, bottomAction = bottomAction,
         titleColor = titleColor, enabled = enabled,
-        holdDownState = holdDownState, onClick = onClick,
+        holdDownState = holdDownState, hapticType = hapticType, onClick = onClick,
         endActions = {
             Row(Modifier.weight(1f, fill = false), content = endActions)
             Spacer(Modifier.width(8.dp))
@@ -81,15 +84,21 @@ internal fun EtaPreference(
     onClick: (() -> Unit)? = null,
     onClickLabel: String? = null,
     role: Role? = null,
+    hapticType: HapticFeedbackType? = HapticFeedbackType.KeyboardTap,
     content: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
+    // 轻点档：可点击设置行统一补触感（默认 KeyboardTap，完成档调用方传 GestureEnd，传 null 关闭）
+    val haptics = LocalHapticFeedback.current
     EtaPreferenceRow(
         title = title, summary = summary, modifier = modifier,
         startAction = startAction, endActions = endActions, bottomAction = bottomAction,
         titleColor = titleColor, summaryColor = summaryColor, titleContent = content,
         enabled = enabled, holdDownState = holdDownState,
         interaction = if (onClick != null) {
-            Modifier.clickable(enabled = enabled, onClickLabel = onClickLabel, role = role, onClick = onClick)
+            Modifier.clickable(enabled = enabled, onClickLabel = onClickLabel, role = role) {
+                hapticType?.let { haptics.performHapticFeedback(it) }
+                onClick()
+            }
         } else Modifier,
     )
 }

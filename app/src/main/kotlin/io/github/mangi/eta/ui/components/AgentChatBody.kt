@@ -749,7 +749,7 @@ internal fun AgentConversationMessages(
             exit = fadeOut(tween(100)) + scaleOut(tween(120), targetScale = 0.86f),
         ) {
             IconButton(
-                onClick = {
+                onClick = hapticClick {
                     onBottomAnchorChanged(true)
                     coroutineScope.launch {
                         scrollState.animateScrollToItem(bottomItemIndex)
@@ -1077,7 +1077,7 @@ private fun QueuedMessagesPanel(
                 )
                 if (canInsert) {
                     IconButton(
-                        onClick = { onInsert(item.id) },
+                        onClick = hapticClick { onInsert(item.id) },
                         minWidth = 32.dp,
                         minHeight = 32.dp,
                     ) {
@@ -1090,7 +1090,7 @@ private fun QueuedMessagesPanel(
                     }
                 }
                 IconButton(
-                    onClick = { onEdit(item.id) },
+                    onClick = hapticClick { onEdit(item.id) },
                     minWidth = 32.dp,
                     minHeight = 32.dp,
                 ) {
@@ -1102,7 +1102,7 @@ private fun QueuedMessagesPanel(
                     )
                 }
                 IconButton(
-                    onClick = { onDelete(item.id) },
+                    onClick = hapticClick { onDelete(item.id) },
                     minWidth = 32.dp,
                     minHeight = 32.dp,
                 ) {

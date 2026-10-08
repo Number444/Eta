@@ -19,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.agent.roleplay.CharacterCardFormat
@@ -193,6 +194,7 @@ internal fun CharacterDetailScreen(
                         disabledColor = MiuixTheme.colorScheme.disabledOnSurface,
                     ),
                     enabled = !store.busy,
+                    hapticType = HapticFeedbackType.GestureEnd,
                     onClick = { showDeleteConfirm = true },
                 )
                 Row(

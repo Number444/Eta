@@ -64,6 +64,7 @@ import io.github.mangi.eta.data.repository.SpeechSettingsRepository
 import io.github.mangi.eta.ui.MainActivity
 import io.github.mangi.eta.ui.components.ChatInputActionIconSize
 import io.github.mangi.eta.ui.components.ChatInputActionSize
+import io.github.mangi.eta.ui.components.hapticClick
 import io.github.mangi.eta.ui.components.EtaTextButton
 import io.github.mangi.eta.ui.components.StatusError
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
@@ -130,7 +131,7 @@ internal fun SpeechDictationButton(
     val state by controller.state.collectAsState()
     val request = rememberSpeechPermission { if (enabled) controller.start() }
     IconButton(
-        onClick = { if (state.active) controller.finish() else request() },
+        onClick = hapticClick { if (state.active) controller.finish() else request() },
         enabled = enabled && state.phase != EtaSpeechPhase.RECOGNIZING,
         minWidth = ChatInputActionSize,
         minHeight = ChatInputActionSize,

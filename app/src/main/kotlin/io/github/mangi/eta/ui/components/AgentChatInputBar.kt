@@ -95,9 +95,10 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.window.WindowListPopup
 
 private val SendButtonVisualSize = ChatInputActionIconSize
-private val SendIconSize = 16.dp
-private val StopIconSize = 10.dp
-private val ThinkingIconSize = 21.dp
+// Eta Mod：输入栏控件整体 ×1.2（触控 40→48、图标 24→28.8），私有图标按比例跟随。
+private val SendIconSize = 19.2.dp
+private val StopIconSize = 12.dp
+private val ThinkingIconSize = 25.2.dp
 private val InputContainerShape = RoundedCornerShape(20.dp)
 
 /** Eta Mod：右下角按钮三态——普通发送 / 运行中停止 / 运行中有文本时排队。 */
@@ -309,7 +310,7 @@ internal fun AgentChatInputBar(
                 ) {
                         if (isEditingMessage) {
                             IconButton(
-                                onClick = onCancelMessageEdit,
+                                onClick = hapticClick(onClick = onCancelMessageEdit),
                                 minWidth = ChatInputActionSize,
                                 minHeight = ChatInputActionSize,
                             ) {
@@ -365,27 +366,29 @@ internal fun AgentChatInputBar(
                         )
 
                         IconButton(
-                            onClick = when {
-                                queueMode -> {
-                                    {
-                                        dictation.cancel()
-                                        val queuedText = textFieldState.text.toString()
-                                        textFieldState.clearText()
-                                        onQueueMessage(queuedText)
-                                    }
-                                }
-                                isStreaming -> onStop
-                                else -> {
-                                    {
-                                        if (canSend) {
+                            onClick = hapticClick(
+                                onClick = when {
+                                    queueMode -> {
+                                        {
                                             dictation.cancel()
-                                            val submittedText = textFieldState.text.toString()
+                                            val queuedText = textFieldState.text.toString()
                                             textFieldState.clearText()
-                                            onSubmit(submittedText)
+                                            onQueueMessage(queuedText)
                                         }
                                     }
-                                }
-                            },
+                                    isStreaming -> onStop
+                                    else -> {
+                                        {
+                                            if (canSend) {
+                                                dictation.cancel()
+                                                val submittedText = textFieldState.text.toString()
+                                                textFieldState.clearText()
+                                                onSubmit(submittedText)
+                                            }
+                                        }
+                                    }
+                                },
+                            ),
                             enabled = isStreaming || canSend,
                             minWidth = ChatInputActionSize,
                             minHeight = ChatInputActionSize,
@@ -490,7 +493,7 @@ private fun ThinkingEffortChip(
     )
     Box(modifier = modifier) {
         IconButton(
-            onClick = { showPopup = true },
+            onClick = hapticClick { showPopup = true },
             enabled = menuEnabled,
             minWidth = ChatInputActionSize,
             minHeight = ChatInputActionSize,

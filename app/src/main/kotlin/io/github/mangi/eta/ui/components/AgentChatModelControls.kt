@@ -107,7 +107,7 @@ internal fun AgentModelPickerButton(
     val switchModelDescription = stringResource(R.string.model_switch_current, currentModel)
     Box(modifier = modifier) {
         IconButton(
-            onClick = {
+            onClick = hapticClick {
                 expandedProviderIds = defaultExpandedModelProviderIds(state.selectedModel)
                 showPopup = true
             },
@@ -359,7 +359,7 @@ internal fun AgentContextUsageButton(
         modifier = modifier,
     ) {
         IconButton(
-            onClick = { scope.launch { tooltipState.show() } },
+            onClick = hapticClick { scope.launch { tooltipState.show() } },
             minWidth = ChatInputActionSize,
             minHeight = ChatInputActionSize,
         ) {

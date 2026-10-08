@@ -32,6 +32,7 @@ import io.github.mangi.eta.ui.components.ConversationSidePaneScaffold
 import io.github.mangi.eta.ui.components.MiuixBackButton
 import io.github.mangi.eta.ui.components.TopBarBackdrop
 import io.github.mangi.eta.ui.components.captureForTopBar
+import io.github.mangi.eta.ui.components.hapticClick
 import io.github.mangi.eta.ui.components.rememberTopBarBackdrop
 import io.github.mangi.eta.ui.components.topBarContainerColor
 import io.github.mangi.eta.ui.model.ConversationPaneUiState
@@ -167,7 +168,7 @@ private fun AgentTopBar(
     val isHome = route is AppRoute.Home
     val navigationIcon: @Composable () -> Unit = {
         if (isHome) {
-            IconButton(onClick = onOpenConversationPane) {
+            IconButton(onClick = hapticClick(onClick = onOpenConversationPane)) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Outlined.ShortText,
                     modifier = Modifier.size(24.dp),
@@ -232,7 +233,7 @@ private fun TopBarOverflowMenu(
 ) {
     var showMenu by remember { mutableStateOf(false) }
     Box {
-        IconButton(onClick = { onRefreshKimiWeb(); showMenu = true }) {
+        IconButton(onClick = hapticClick { onRefreshKimiWeb(); showMenu = true }) {
             Icon(
                 imageVector = Icons.Outlined.MoreHoriz,
                 modifier = Modifier.size(24.dp),

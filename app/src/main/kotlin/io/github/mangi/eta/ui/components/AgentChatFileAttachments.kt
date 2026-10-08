@@ -64,8 +64,9 @@ import top.yukonga.miuix.kmp.window.WindowDialog
 import top.yukonga.miuix.kmp.window.WindowListPopup
 
 internal val ChatInputPopupMargin = 8.dp
-internal val ChatInputActionSize = 40.dp
-internal val ChatInputActionIconSize = 24.dp
+// Eta Mod：输入栏控件尺寸 ×1.2（原 40/24）。
+internal val ChatInputActionSize = 48.dp
+internal val ChatInputActionIconSize = 28.8.dp
 
 @Composable
 internal fun AgentAttachmentPickerButton(
@@ -107,7 +108,7 @@ internal fun AgentAttachmentPickerButton(
 
     Box(modifier = modifier) {
         IconButton(
-            onClick = { showPopup = true },
+            onClick = hapticClick { showPopup = true },
             minWidth = ChatInputActionSize,
             minHeight = ChatInputActionSize,
         ) {
