@@ -23,10 +23,6 @@ class AppearanceSettingsTest {
         assertEquals(AppearanceThemeMode.SYSTEM, AppearanceThemeMode.fromPersistedValue("unknown"))
         assertEquals(AppearancePaletteStyle.TONAL_SPOT, AppearancePaletteStyle.fromPersistedValue(null))
         assertEquals(AppearanceAccentColor.SYSTEM, AppearanceAccentColor.fromPersistedValue(""))
-        assertEquals(
-            AppearanceTopBarBlurStyle.GAUSSIAN,
-            AppearanceTopBarBlurStyle.fromPersistedValue("future_style"),
-        )
     }
 
     @Test

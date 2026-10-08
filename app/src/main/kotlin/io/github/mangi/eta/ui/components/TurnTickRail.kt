@@ -129,7 +129,7 @@ private const val TOUCH_SCALE = 1.65f
 /** 虚刻度（延伸占位）：真实刻度带两端之外的延伸刻度，仅按住期间淡入，不可选中、纯视觉。 */
 private val GhostTickWidth = 1.5.dp
 private val GhostTickHeight = 5.dp
-private const val GHOST_TICK_ALPHA = 0.3f
+private const val GHOST_TICK_ALPHA = 0.25f
 
 /**
  * 把列表视口位置（首可见条目的浮点下标）换算成浮点轮次，用于刻度带跟随屏幕内容整体滑动。
@@ -303,9 +303,7 @@ internal fun TurnTickRail(
             val ghostWidth = ghostTickWidthPx * scale
             val ghostHeight = ghostTickHeightPx * scale
             val bandStart = center + (0f - turn) * slotPx
-            val bandEnd = center + (count - 1f - turn) * slotPx
             val leftSlots = ((bandStart - slotPx) / slotPx).toInt().coerceIn(0, 12)
-            val rightSlots = ((size.width - bandEnd - slotPx) / slotPx).toInt().coerceIn(0, 12)
             fun drawGhost(x: Float) {
                 var alpha = GHOST_TICK_ALPHA * touchAnim
                 if (windowed) {
@@ -322,7 +320,6 @@ internal fun TurnTickRail(
                 )
             }
             for (k in 1..leftSlots) drawGhost(bandStart - k * slotPx)
-            for (k in 1..rightSlots) drawGhost(bandEnd + k * slotPx)
         }
 
         for (i in 0 until count) {
@@ -335,8 +332,8 @@ internal fun TurnTickRail(
             }
             var alpha = when (tier) {
                 1 -> 1f
-                2 -> 0.85f
-                else -> 0.15f + 0.35f * (i.toFloat() / (count - 1).coerceAtLeast(1))
+                2 -> 0.75f
+                else -> 0.5f
             }
             // 两端 28dp alpha 渐隐（窗口化时）。
             if (windowed) {
