@@ -45,6 +45,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -129,7 +130,20 @@ internal fun ConversationPanePanel(
 ) {
     // state.conversations 已由 AgentAppState 按标题、预览与消息内容过滤。
     val query = state.searchQuery.trim()
-    val groups = remember(state.conversations) { state.conversations.groupForDrawer() }
+    // Eta Mod：超 7 天的旧会话默认收起（搜索时豁免——结果可能落在旧会话里）；
+    // 数据层本就全量加载，「更多」只做 UI 层展开，无额外查询。
+    val searching = query.isNotBlank()
+    val (recentConversations, olderConversations) = remember(state.conversations, searching) {
+        if (searching) {
+            state.conversations to emptyList()
+        } else {
+            val now = System.currentTimeMillis()
+            state.conversations.partition { !it.isOlderConversation(now) }
+        }
+    }
+    val groups = remember(recentConversations) { recentConversations.groupForDrawer() }
+    val olderGroups = remember(olderConversations) { olderConversations.groupForDrawer() }
+    var showOlderConversations by rememberSaveable { mutableStateOf(false) }
 
     Surface(
         modifier = modifier
@@ -194,6 +208,35 @@ internal fun ConversationPanePanel(
                                 onExport = { onConversationExport(conversation) },
                                 onDelete = { onConversationDelete(conversation) },
                             )
+                        }
+                    }
+                    if (olderGroups.isNotEmpty()) {
+                        if (!showOlderConversations) {
+                            item(key = "older-more-capsule") {
+                                OlderConversationsCapsule(
+                                    count = olderConversations.size,
+                                    onClick = { showOlderConversations = true },
+                                )
+                            }
+                        } else {
+                            olderGroups.forEach { group ->
+                                item(key = "old-section-${group.section}") {
+                                    ConversationSectionHeader(group = group)
+                                }
+                                items(
+                                    items = group.items,
+                                    key = { "old-${it.id}" },
+                                ) { conversation ->
+                                    ConversationTextRow(
+                                        conversation = conversation,
+                                        selected = conversation.id == state.selectedConversationId,
+                                        onClick = { onConversationSelected(conversation.id) },
+                                        onRename = { onConversationRename(conversation) },
+                                        onExport = { onConversationExport(conversation) },
+                                        onDelete = { onConversationDelete(conversation) },
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -555,4 +598,41 @@ private fun isUpdatedToday(timestampMillis: Long): Boolean {
     return now.get(java.util.Calendar.ERA) == target.get(java.util.Calendar.ERA) &&
         now.get(java.util.Calendar.YEAR) == target.get(java.util.Calendar.YEAR) &&
         now.get(java.util.Calendar.DAY_OF_YEAR) == target.get(java.util.Calendar.DAY_OF_YEAR)
+}
+
+/** Eta Mod：收起阈值——超过 7 天且非置顶、非进行中的会话进「更多」。时间戳缺失视为新会话不收起。 */
+private val OlderConversationThresholdMillis = 7L * 24 * 60 * 60 * 1000
+
+private fun ConversationSummaryUi.isOlderConversation(nowMillis: Long): Boolean =
+    !isPinned && !isActiveRun && updatedAtMillis > 0L &&
+        nowMillis - updatedAtMillis > OlderConversationThresholdMillis
+
+/** 「更多」胶囊：列表尾部居中，点击展开旧会话段。 */
+@Composable
+private fun OlderConversationsCapsule(
+    count: Int,
+    onClick: () -> Unit,
+) {
+    val hapticFeedback = LocalHapticFeedback.current
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = stringResource(R.string.action_more) + " · " + count,
+            style = MiuixTheme.textStyles.footnote1,
+            fontWeight = FontWeight.Medium,
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            modifier = Modifier
+                .clip(CircleShape)
+                .background(MiuixTheme.colorScheme.surfaceContainerHighest)
+                .clickable {
+                    hapticFeedback.performHapticFeedback(HapticFeedbackType.KeyboardTap)
+                    onClick()
+                }
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+    }
 }
