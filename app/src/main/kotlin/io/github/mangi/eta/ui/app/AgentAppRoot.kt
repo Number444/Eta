@@ -51,7 +51,13 @@ import io.github.mangi.eta.agent.device.RootAccess
 import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import io.github.mangi.eta.ui.AppearanceSettingsScreen
+import io.github.mangi.eta.ui.SettingsAssistantTakeoverScreen
+import io.github.mangi.eta.ui.SettingsExtensionsScreen
+import io.github.mangi.eta.ui.SettingsGeneralScreen
+import io.github.mangi.eta.ui.SettingsModelScreen
+import io.github.mangi.eta.ui.SettingsPermissionsScreen
 import io.github.mangi.eta.ui.SettingsScreen
+import io.github.mangi.eta.ui.SettingsToolsScreen
 import io.github.mangi.eta.ui.components.MiuixDialogActions
 import io.github.mangi.eta.ui.model.AgentHomeAction
 import io.github.mangi.eta.ui.model.AgentMemoryAction
@@ -581,6 +587,46 @@ fun AgentAppRoot(
                     context = context,
                     onNavigate = { route -> pushRoute(route) },
                     onBack = ::popRoute
+                )
+            }
+            entry<AppRoute.SettingsModel>(swipeDismiss = swipeDismiss) {
+                SettingsModelScreen(
+                    context = context,
+                    onNavigate = { route -> pushRoute(route) },
+                    onBack = ::popRoute,
+                )
+            }
+            entry<AppRoute.SettingsExtensions>(swipeDismiss = swipeDismiss) {
+                SettingsExtensionsScreen(
+                    onNavigate = { route -> pushRoute(route) },
+                    onBack = ::popRoute,
+                )
+            }
+            entry<AppRoute.SettingsTools>(swipeDismiss = swipeDismiss) {
+                SettingsToolsScreen(
+                    context = context,
+                    onNavigate = { route -> pushRoute(route) },
+                    onBack = ::popRoute,
+                )
+            }
+            entry<AppRoute.SettingsGeneral>(swipeDismiss = swipeDismiss) {
+                SettingsGeneralScreen(
+                    context = context,
+                    onNavigate = { route -> pushRoute(route) },
+                    onBack = ::popRoute,
+                )
+            }
+            entry<AppRoute.SettingsPermissions>(swipeDismiss = swipeDismiss) {
+                SettingsPermissionsScreen(
+                    context = context,
+                    onBack = ::popRoute,
+                )
+            }
+            entry<AppRoute.SettingsAssistantTakeover>(swipeDismiss = swipeDismiss) {
+                SettingsAssistantTakeoverScreen(
+                    context = context,
+                    onNavigate = { route -> pushRoute(route) },
+                    onBack = ::popRoute,
                 )
             }
             entry<AppRoute.SpeechSettings>(swipeDismiss = swipeDismiss) {

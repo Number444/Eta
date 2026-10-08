@@ -156,6 +156,10 @@
   <string name="route_provider_details">Provider 詳細資料</string>
   <string name="route_new_provider">新增供應商</string>
   <string name="settings_general">一般</string>
+  <string name="settings_category_model_conversation">模型與對話</string>
+  <string name="settings_category_extensions">擴充與角色</string>
+  <string name="settings_category_permissions_notifications">權限與通知</string>
+  <string name="settings_permissions_unauthorized_count">%1$d 項未授權</string>
   <string name="appearance_title">外觀與主題</string>
   <string name="appearance_group_color">顏色與主題</string>
   <string name="appearance_group_interface">介面與效果</string>
