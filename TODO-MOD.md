@@ -2,17 +2,9 @@
 
 > 本 fork：`my-mods` 分支，applicationId `io.github.mangi.eta.mod`
 > 远端：`origin` = Number444/Eta（推送目标），`upstream` = Mangi-11/Eta（官方源）
-> 当前版本：3.2.0-002（versionCode 2026100702，merge 官方 v3.2.0 后第二个 Mod 修订）
+> 当前版本：3.3.0-001（versionCode 2026101301，merge 官方 v3.3.0 后第一个 Mod 修订）
 
-> 已完成归档（2026-10-08 精简）：1. merge 上游 v3.2.0（30 commits，16 冲突手工裁决，出包真机回归通过）；2. 更新检查/关于页链接指向 Number444/Eta（`isNewer` 支持 `-NNN` 修订号）；3. 删官方搜索只留 Exa（官方服务本机超时不可用）；4. 消息操作行按钮放大 1.4 倍；5. 分享成图按新 markdown 层重写（含 `ShareCardRenderTest` 渲染基线）。详细过程见 git 历史。
-
-## 6. merge 上游 v3.3.0（执行中，2026-10-08 开工）
-
-- [x] 评估结论（2026-10-08 第二次实测，`git merge-tree` 干跑）：上游领先 21 个提交（最新 release v3.3.0，2026-10-07 发布；main 在其后 2 个提交：CI 修复 + `3b21d9f` 工具简化/持久后台命令）
-  - 冲突共 7 个文件，6 处琐碎：`app/build.gradle.kts`（版本号，升左段归零 → 3.3.0-001/2026100802）、`AndroidManifest.xml`（+2 行）、`AgentModelClient.kt`（上游 `promptRootState` vs 我们 compactConfig validate，两边保留）、`AgentRuntimeRunExecutor.kt`（`requireContextWindow`→`knownContextWindow` 改名 + 保留岛上岛块）、`AgentLocalTools.kt`（上游 `terminalExecutionContext` vs 我们 Exa 注释块，两边保留）、`AgentToolRequirementsTest.kt`（上游 executionOnly 新断言 + 保留 web_search 排除）
-  - 唯一真活：`AgentAppState.kt`——上游 `0da0056` 重构拆出 `AgentMemoryStore`/`AgentSkillsStore`/`PermissionHealthStore`/`AgentToolsCatalogUi`，本文件瘦身至 1898 行；我们的 126 行增量 = 4 个功能块（默认思考深度/专用压缩模型/排队插入消息/import 并集），移植到新结构，消化钩子挂上游新 `applyRunResult`
-  - 自动合并零冲突：`AgentRuntimeClient.kt`（sendSupplement 为 Mod 私有增量）、`AgentContextSession`/`AgentLoop`、三语言 `strings.xml`、岛-通知区、`EtaAssistantOverlayService`
-- [ ] 执行：merge → 裁决 → 移植 → 双过 + 基线对撞 → 出包冒烟（备份分支 `backup/pre-v3.3.0-merge`）
+> 已完成归档（2026-10-08 精简）：1. merge 上游 v3.2.0（30 commits，16 冲突手工裁决，出包真机回归通过）；2. 更新检查/关于页链接指向 Number444/Eta（`isNewer` 支持 `-NNN` 修订号）；3. 删官方搜索只留 Exa（官方服务本机超时不可用）；4. 消息操作行按钮放大 1.4 倍；5. 分享成图按新 markdown 层重写（含 `ShareCardRenderTest` 渲染基线）；6. merge 上游 v3.3.0（2026-10-13 完成：21 commits，7 冲突裁决 + `AgentAppState` 四功能块移植；暗礁=双方 `MIGRATION_21_22` 撞车，上游 `model_id` 迁移顺延 22_23、DB 升 v23；48 个单测失败对撞全为 Windows 环境基线零回归，出包真机冒烟通过）。详细过程见 git 历史。
 
 ## 7.【暂不考虑实现】分享图片进 Eta → 模型识别 → 自主生成「岛」卡片（取餐码/取件码等）
 
@@ -28,6 +20,23 @@
   - `show_island_card` 工具（声明 + 执行两端）
   - 卡片 UI：大字码 + 点击复制 + 收起/关闭；数据持久化（进程重启恢复）
   - 坑位备忘：MIUI 悬浮窗权限与「后台弹出界面」两个开关；Android 12+ overlay 保持 `alpha=1` 否则触摸被拦截；保活靠 FGS
+
+## 8. GUI run 胶囊吞点击 → 运行控制三键移交超级岛（方案已定，待实施）
+
+- 问题（2026-10-13 v3.3.0-001 冒烟发现）：上游 v3.3.0 新运行胶囊窗口**可触摸**（有展开/暂停/停止按钮，窗口固定宽 × 分档高、顶部居中），agent 注入的坐标点按落在胶囊区域即被吞，点不到下层应用内容；上游自己在 `AgentRuntimeService.kt:1007` 注释里承认会吞但未真解决。边缘流光（全屏 `FLAG_NOT_TOUCHABLE`）与 `GestureIndicator` 均清白；`ui_nodes` 走 `rootInActiveWindow`，胶囊不可获焦不进节点树，故仅坐标点按受影响
+- 方案（Four 拍板）：GUI run 期间胶囊 + 结果卡片切 `FLAG_NOT_TOUCHABLE` 纯展示，控制职能移交超级岛；岛 action 按钮渲染已经 Four 真机验证可行（`dispatchGesture` 无目标窗口概念，「点到下层」只能让胶囊穿透实现）
+- 实施要点：
+  - `AgentIslandNotifier` 运行中通知加三个 action：暂停/继续（随暂停态翻转）+ 插入 + 停止——复用现有停止 action 模式（`AgentIslandNotifier.kt:330-343`）
+  - 岛按钮 PendingIntent 须打到 `AgentRuntimeService`（GUI run 会话所在，`requestPause/requestResume/requestSupplement` 现成于 `:768/:776/:784`）；现有岛停止 action 只打 `AgentExecutionService`（App 侧 run），需统一广播或双服务分发
+  - 「插入」键收不了文本，唤起浮层直进 supplement 输入模式（`enterSupplementMode` 现成）
+  - run 结束恢复窗口可触摸（结果卡片弹出需要交互，时机衔接）
+  - 兜底：即便岛不渲染，通知栏通知的 action 按钮是标准 Android 能力必可用
+- 备忘：属上游设计缺陷，找时机给上游提 issue
+
+## 9. 侧栏设置圆形按钮无点击震动（Four 标：先不修）
+
+- 现象（2026-10-13 冒烟发现）：侧栏搜索行右侧设置按钮点击大概率无震动。非 merge 回归——`ConversationPanePanel.kt:324` 裸 `Modifier.clickable` 从未挂显式震动（同文件会话行 `:406` 有 `KeyboardTap`），merge 前后逐字节相同
+- 修法（一行）：`onClick` 里补 `performHapticFeedback(HapticFeedbackType.KeyboardTap)` 与会话行对齐
 
 ## 备注
 
