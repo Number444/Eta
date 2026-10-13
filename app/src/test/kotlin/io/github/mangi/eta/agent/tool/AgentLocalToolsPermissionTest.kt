@@ -1,6 +1,8 @@
 package io.github.mangi.eta.agent.tool
 
 import android.content.Context
+import android.content.ClipData
+import android.content.ClipboardManager
 import io.github.mangi.eta.agent.device.RootShellDeviceController
 import io.github.mangi.eta.agent.model.AgentModelClient
 import io.github.mangi.eta.agent.model.AgentScreenObservationContract
@@ -24,7 +26,7 @@ class AgentLocalToolsPermissionTest {
         val root = AtomicBoolean(true)
         val tools = tools(
             rootAvailable = root::get,
-            beforeToolExecution = { error("缺少 Root 的旧调用不应进入执行阶段") },
+            terminalEnabled = { true },
         )
         root.set(false)
         listOf(
@@ -62,13 +64,13 @@ class AgentLocalToolsPermissionTest {
         val result = tools.execute(
             AgentModelClient.ToolCall(
                 id = "call-1",
-                name = "run_command",
+                name = "terminal",
                 argumentsJson = "{\"command\":\"id\"}",
             )
         )
 
         assertEquals("TERMINAL_TOOLS_DISABLED", JSONObject(result.content).getString("code"))
-        listOf("read_file", "edit_file", "glob_files", "grep_files", "stat_file").forEach { name ->
+        listOf("terminal_job", "terminal_daemon", "read_file", "edit_file", "glob_files", "grep_files", "stat_file").forEach { name ->
             val fileResult = tools.execute(AgentModelClient.ToolCall("disabled-$name", name, "{}"))
             assertEquals(name, "TERMINAL_TOOLS_DISABLED", JSONObject(fileResult.content).getString("code"))
         }
@@ -188,6 +190,72 @@ class AgentLocalToolsPermissionTest {
         )
 
         assertEquals("INVALID_ARGUMENT", JSONObject(result.content).getString("code"))
+        tools.close()
+    }
+
+    @Test
+    fun missingActionArgumentsDoNotBecomeZeroCoordinatesOrEmptyText() {
+        val tools = tools()
+        try {
+            listOf(
+                "tap" to """{"coordinate_space":"screen","y":10}""",
+                "swipe" to """{"coordinate_space":"screen","y1":10,"x2":20,"y2":20}""",
+                "type_text" to "{}",
+                "set_clipboard" to "{}",
+            ).forEach { (name, arguments) ->
+                val result = tools.execute(AgentModelClient.ToolCall("missing", name, arguments))
+                assertEquals(name, "INVALID_ARGUMENT", JSONObject(result.content).getString("code"))
+            }
+        } finally { tools.close() }
+    }
+
+    @Test
+    fun missingAndNonTextInputDoNotChangeClipboardOrReachDeviceActions() {
+        val context = RuntimeEnvironment.getApplication() as Context
+        val clipboard = context.getSystemService(ClipboardManager::class.java)
+        clipboard.setPrimaryClip(ClipData.newPlainText("test", "existing text"))
+        tools().use { tools ->
+            listOf("type_text", "input_text", "replace_text", "set_clipboard", "paste_text", "wait_for_text").forEach { name ->
+                listOf("{}", """{"text":null}""", """{"text":{"value":"replacement"}}""").forEach { args ->
+                    val result = JSONObject(tools.execute(AgentModelClient.ToolCall("invalid-$name", name, args)).content)
+                    assertEquals(result.toString(), "INVALID_ARGUMENT", result.getString("code"))
+                    assertEquals("existing text", clipboard.primaryClip!!.getItemAt(0).text.toString())
+                }
+            }
+            val cleared = JSONObject(tools.execute(AgentModelClient.ToolCall("clear", "set_clipboard", """{"text":""}""")).content)
+            assertTrue(cleared.toString(), cleared.getBoolean("ok"))
+            assertEquals("", clipboard.primaryClip!!.getItemAt(0).text.toString())
+        }
+    }
+
+    @Test
+    fun coordinateToolsRequireExplicitCoordinateSpace() {
+        val tools = tools()
+        listOf(
+            "{\"x\":100,\"y\":200}",
+            "{\"x\":100,\"y\":200,\"coordinate_space\":\"pixel\"}",
+            "{\"x\":1000,\"y\":200,\"coordinate_space\":\"normalized\"}",
+        ).forEach { arguments ->
+            val result = tools.execute(AgentModelClient.ToolCall(id = "call-1", name = "tap", argumentsJson = arguments))
+            assertEquals(arguments, "INVALID_ARGUMENT", JSONObject(result.content).getString("code"))
+        }
+        tools.close()
+    }
+
+    @Test
+    fun typeTextRejectsInvalidModesBeforeTouchingTheScreen() {
+        val tools = tools()
+        listOf(
+            "{\"text\":\"hi\",\"mode\":\"paste\"}",
+            "{\"text\":\"\",\"mode\":\"append\"}",
+            "{\"text\":\"hi\",\"mode\":\"append\",\"index\":1}",
+        ).forEach { arguments ->
+            val result = tools.execute(AgentModelClient.ToolCall(id = "call-1", name = "type_text", argumentsJson = arguments))
+            assertEquals(arguments, "INVALID_ARGUMENT", JSONObject(result.content).getString("code"))
+        }
+        // 无障碍未连接时 replace 明确失败，不会退回到盲发按键。
+        val replace = tools.execute(AgentModelClient.ToolCall(id = "call-2", name = "type_text", argumentsJson = "{\"text\":\"hi\"}"))
+        assertEquals("ACCESSIBILITY_UNAVAILABLE", JSONObject(replace.content).getString("code"))
         tools.close()
     }
 

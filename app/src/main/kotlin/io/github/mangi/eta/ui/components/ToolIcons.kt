@@ -66,7 +66,7 @@ internal fun iconForTool(toolId: String): ImageVector = when (toolId) {
     "scroll", "scroll_element" -> Icons.Rounded.SwapVert
     "clipboard", "paste_text" -> Icons.Rounded.ContentPasteGo
     "get_clipboard", "set_clipboard" -> Icons.Rounded.ContentPaste
-    "input_text" -> Icons.Rounded.Keyboard
+    "type_text", "input_text" -> Icons.Rounded.Keyboard
     "replace_text" -> Icons.Rounded.FindReplace
     "clear_text" -> Icons.AutoMirrored.Rounded.Backspace
     "wait", "wait_text", "wait_for_text", "wait_for_package" -> Icons.Rounded.Schedule
@@ -124,7 +124,7 @@ internal fun iconForTool(toolId: String): ImageVector = when (toolId) {
     "search_notes", "search_coloros_notes" -> Icons.AutoMirrored.Rounded.StickyNote2
     "search_system_memories", "search_coloros_memories" -> Icons.Rounded.Psychology
     "search_personal_orders" -> Icons.Rounded.ShoppingBag
-    "terminal", "terminal_job", "run_command" -> Icons.Rounded.Terminal
+    "terminal", "terminal_job", "terminal_daemon", "run_command" -> Icons.Rounded.Terminal
     "read_file", "stat_file" -> Icons.Rounded.Description
     "write_file", "edit_file" -> Icons.Rounded.EditNote
     "list_directory", "glob_files", "grep_files" -> Icons.Rounded.FolderOpen

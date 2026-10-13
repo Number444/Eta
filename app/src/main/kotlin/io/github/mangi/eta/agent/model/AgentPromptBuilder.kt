@@ -3,6 +3,9 @@ package io.github.mangi.eta.agent.model
 import io.github.mangi.eta.agent.memory.AgentMemoryContext
 import io.github.mangi.eta.agent.skill.SkillContext
 import io.github.mangi.eta.agent.roleplay.RoleplayRunContext
+import io.github.mangi.eta.agent.terminal.TerminalExecutionContext
+import io.github.mangi.eta.agent.device.RootAccessState
+import io.github.mangi.eta.agent.device.RootAccessStatus
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -17,8 +20,10 @@ internal object AgentPromptBuilder {
         memoryContext: AgentMemoryContext = AgentMemoryContext.DISABLED,
         rootAvailable: Boolean = false,
         roleplayContext: RoleplayRunContext? = null,
+        executionContext: TerminalExecutionContext? = null,
+        rootState: RootAccessState? = null,
     ): JSONArray {
-        val messages = buildSystemMessages(config, skillContext, memoryContext, rootAvailable, roleplayContext)
+        val messages = buildSystemMessages(config, skillContext, memoryContext, rootAvailable, roleplayContext, executionContext, rootState)
         history.forEach { item ->
             runCatching { AgentConversationCodec.toJsonObject(item) }.getOrNull()?.let(messages::put)
         }
@@ -32,6 +37,8 @@ internal object AgentPromptBuilder {
         memoryContext: AgentMemoryContext,
         rootAvailable: Boolean,
         roleplayContext: RoleplayRunContext? = null,
+        executionContext: TerminalExecutionContext? = null,
+        rootState: RootAccessState? = null,
     ): JSONArray {
         val messages = JSONArray()
         if (roleplayContext == null && config.systemPrompt.isNotBlank()) {
@@ -61,7 +68,7 @@ internal object AgentPromptBuilder {
                     (if (rootAvailable) {
                         "专用读取工具不存在或数据不足时，只要 Root Shell、文件或终端工具当前已公开，可以主动使用它们定位并只读检查相关应用私有文件与数据库；先识别路径、格式和 schema，再执行有界查询，不修改源数据。"
                     } else {
-                        "当前没有设备 Root 权限，只能使用本轮公开的工具与已授权的数据来源；不要尝试 su、特权 Shell 或其他应用私有数据。"
+                        "当前尚未确认可用的设备 Root 授权，只能使用本轮公开的工具与已确认授权的数据来源；这不代表设备不支持 Root。"
                     }) +
                     "结论必须说明实际证据与不确定性，不得编造未取得的数据。" +
                     "分析用户习惯或近况时，区分观察到的事实与推测，不根据零散记录断言用户的性格、动机或心理状态。" +
@@ -85,56 +92,36 @@ internal object AgentPromptBuilder {
                     "节点为空、目标无法唯一识别、界面以 Canvas、地图、图片或二维码等视觉内容为主，或任务依赖颜色、图像、空间布局时，" +
                     "再显式设置 include_screenshot=true；补截图时保持 include_ui_tree=true，让截图、节点与新的 observation_id 来自同一次观察，" +
                     "禁止把新截图与旧节点混用；树被截断但节点语义仍有效时，优先提高 max_nodes，不要仅因截断请求截图；" +
-                    "点击可见控件优先用 tap_element/tap_area，" +
+                    "点击可见控件优先用 tap_element/tap_area；坐标工具必须写明 coordinate_space：看截图定位用 normalized（0–999），坐标来自 ui_nodes 用 screen，" +
                     "调用节点工具时必须把该节点与同一次观察的 observation_id 一起传回，过期就重新观察；" +
                     "scroll 的方向表示要显示的内容方向，例如 down 显示下方内容；" +
                     "任何工具返回 ACTION_OUTCOME_UNKNOWN 或 DIRECTION_MISMATCH 时，必须先重新观察，禁止直接重放动作；" +
-                    "输入精确文本优先用 replace_text 或 paste_text，长文本/中文/特殊字符优先用 paste_text；" +
+                    "输入文本用 type_text：指定 index 可直接写入输入框，不必先点击；要搜索或发送时设 submit=true；中文、长文本直接传入，不要借助剪贴板；" +
                     "用户明确要求发送消息时，直接使用通用 GUI 工具完成输入和点击发送，不让用户手动完成，也不追加二次确认；" +
-                    "成功的点击、输入或打开应用后，不要例行调用 observe_screen、wait、wait_for_text 或 wait_for_package；" +
-                    "只有任务需要读取或汇总屏幕信息、后续目标或界面状态未知、工具报告节点过期或结果不确定，" +
-                    "以及任务结束前确实需要确认最终结果时，才观察屏幕；仅当后续操作依赖特定文本或应用出现时使用 wait_for_text/wait_for_package。" +
+                    "成功的点击、滑动、type_text 与按键会在结果的 after 字段附带动作后的新界面（observation_id 与精简节点），" +
+                    "先读 after 判断是否生效：screen_changed=false 说明动作可能没起作用，应换目标或方式，不要原样重复；" +
+                    "after 足够时直接用其中的 observation_id 继续操作，不要例行调用 observe_screen、wait、wait_for_text 或 wait_for_package；" +
+                    "只有任务需要读取或汇总屏幕信息而 after 不够、需要截图、工具报告节点过期或结果不确定，" +
+                    "以及任务结束前确实需要确认最终结果时，才重新观察；仅当后续操作依赖特定文本或应用出现时使用 wait_for_text/wait_for_package。" +
                     "屏幕观察与 GUI 操作前会确认 Eta 无障碍服务；只有系统保护后端可用时才会请求有限重绑。" +
                     "若工具返回 ACCESSIBILITY_UNAVAILABLE、ACCESSIBILITY_PROTECTION_UNAVAILABLE 或 ACCESSIBILITY_REPAIR_TIMEOUT，说明动作未执行，" +
                     "不要改用坐标或 Shell 重放 GUI 动作。"
             )
         )
         if (config.terminalTools) {
-            messages.put(
-                systemMessage(
-                    "任务需要在手机上执行命令、查看 Linux/Android 系统信息、读取/写入文件、查询包名或使用 shell 时，" +
-                        "命令执行使用 terminal；文件操作优先使用 read_file/write_file/edit_file/stat_file/list_directory/glob_files/grep_files。" +
-                        "文件工具的 environment 与终端相同；Android 文件工具默认 identity=user，只有明确需要且授权可用时才显式指定 root。" +
-                        "普通 Shell 是 Eta App UID，不等同于 adb shell；以工具返回的实际运行环境为准，不假设 Bash、GNU 参数或 rg 已安装。" +
-                        "读取后用 next_offset_bytes 与 expected_revision 续读；修改已有文本优先 edit_file，匹配失败先重新读取，不猜测旧内容。" +
-                        "目录、搜索或日志返回不完整标记时，只能针对实际采集范围下结论；文档导入路径表示副本，修改副本不等于写回原文件。" +
-                        "Android 系统命令使用 terminal 的 environment=android；" +
-                        "用户选择的 Alpine 或 Debian 工具环境统一使用 environment=linux；不要自行改用另一发行版。" +
-                        "如果返回 LINUX_ENVIRONMENT_NOT_READY，" +
-                        "准确告知用户先到设置安装对应的 Linux 工具环境，不要把 Android 缺少命令误报成设备不支持。" +
-                        "若 Linux 基础命令不存在，准确告知用户先在 Linux 工具环境页面完成“安装基础工具”；Python/uv、Node.js、SSH 与 APK 分析都在当前选中的发行版中分别按需安装。不要在 Android 环境冒充或自行下载工具。" +
-                        "Linux 环境默认在 /workspace 工作；它映射到当前环境的宿主工作区，实际路径以终端返回为准；" +
-                        "只有已经获得文件访问权限的共享目录才可读写，不要假定 /sdcard 或其他 Android 路径一定可访问。" +
-                        "用户配置的共享文件夹挂载在 Linux 环境 /workspace/mounts/ 下，每个子目录对应一个 Android 目录；" +
-                        "用户提到共享文件、手机目录或要处理设备上的文件时，先 ls /workspace/mounts/ 确认已有共享，再读写对应子目录。" +
-                        "分析 APK 时优先在 linux 环境使用 jadx、apktool、smali 或 baksmali；若命令不存在，" +
-                        "准确告知用户在 Linux 工具环境页面安装“APK 分析”，不要自行下载不受校验的工具。" +
-                        "当前 Apktool 只支持解码与检查，不支持 build/回编译；不要绕过该限制或宣称已经生成可安装 APK。" +
-                        (if (rootAvailable) {
-                            "用户说‘执行命令 xxx’且未指定环境时，首轮调用 terminal，action=exec，environment=android，command=xxx；Android 可使用 root 身份，Linux 身份由已选择的后端决定；"
-                        } else {
-                            "当前终端只支持 identity=user，以 Eta 的 App UID 执行；Linux 内模拟 root 不授予 Android 特权。用户未指定环境的命令使用 terminal 的 environment=android、action=exec；"
-                        }) +
-                        "连续多步 shell 工作先 action=open 获取 session_id，再 action=exec 复用会话；使用 session_id 时不要同时传 cwd、identity 或 environment，要切换目录就在会话内执行 cd；" +
-                        "长时间命令使用 async=true 启动后用 read_async_result 轮询，完成后 close；" +
-                        "需要长期驻留的后台服务（监听端口、Web 面板等）用 action=daemon_start 启动，daemon_list 查看状态、daemon_logs 读日志、daemon_stop 停止；" +
-                        "守护任务不随 run 或会话结束主动回收，但仍可能被 Android 或 ROM 终止；不要保证永久存活，也不要用 nohup 或 & 手工后台化；" +
-                        "async 后台命令是独立 shell，不要和 session_id 混用。不要调用 search_apps 查询“终端”或“Termux”。" +
-                        "Eta 已内置终端，不要回答‘没有终端应用’或要求另装终端 App。" +
-                        "读取图片内容必须调用 read_image。同一轮模型回复最多调用一次 read_image；需要查看多张图片时，" +
-                        "必须等待当前图片返回并观察内容，再在下一轮调用下一张，禁止在同一轮并行或批量调用多个 read_image。"
-                )
-            )
+            messages.put(systemMessage(
+                "Eta 内置文件与终端工具。文件和命令共用本次运行的默认身份与工作区；已知路径可直接读取或写入，不必先查目录。" +
+                    rootInstructions(rootAvailable, rootState) +
+                    "普通命令调用 terminal，只需 command；持续 Shell 工作可 action=open 后用 session_id 复用，目录变化用会话内的 cd。" +
+                    "希望回复后继续运行的命令使用 terminal_job：start 提交任务，完成时会通知用户；list/read 查看进度，确实依赖结果时再 wait，stop 终止。日志路径可用于分页读取完整输出。跨任务服务使用 terminal_daemon。" +
+                    "后台服务仍可能退出、被系统回收或随设备重启结束，以实际状态为准。" +
+                    "environment=android 操作 Android；environment=linux 使用设置中选定的 Linux 发行版。" +
+                    "环境、身份和 cwd 是可选覆盖，不会在失败后自动切换。Linux 的 /workspace 对应哪个宿主目录以执行上下文为准；" +
+                    "共享目录位于 /workspace/mounts，访问用户共享文件时先确认实际挂载。" +
+                    "分析 APK 使用 Linux 环境的 APK 分析工具；未安装时提示用户在设置中安装，当前 apktool 不支持回编译。" +
+                    "读取图片内容调用 read_image；同一轮最多读取一张，观察返回内容后再读下一张。" +
+                    executionContext?.let { "\n" + it.description(rootAvailable) }.orEmpty(),
+            ))
         }
         if (config.usesHostedWebSearch) {
             messages.put(systemMessage(
@@ -168,6 +155,24 @@ internal object AgentPromptBuilder {
         buildMemorySystemMessage(memoryContext, writable = roleplayContext == null)?.let(messages::put)
         buildSkillSystemMessage(skillContext)?.let(messages::put)
         return messages
+    }
+
+    private fun rootInstructions(available: Boolean, state: RootAccessState?): String {
+        val status = state?.status ?: if (available) RootAccessStatus.GRANTED else RootAccessStatus.UNKNOWN
+        val evidence = when {
+            state?.isChecking == true -> "Root 授权正在检测，尚未取得本次检测结果。"
+            status == RootAccessStatus.GRANTED -> "最近一次 Root 检测已确认 UID=0，Android 命令与文件工具默认直接使用 Root，无需先以 user 尝试，也无需重复检测。"
+            status == RootAccessStatus.UNAVAILABLE -> "最近一次 Root 探测未能使用 su，不据此推断设备永远不支持 Root。"
+            status == RootAccessStatus.DENIED -> "最近一次 Root 检测未获授权；用户可能已在 Root 管理器中更改授权。"
+            status == RootAccessStatus.TIMED_OUT -> "最近一次 Root 检测超时，结果未确认。"
+            status == RootAccessStatus.NOT_GRANTED -> "检测到 su，但尚未确认当前授权。"
+            else -> "Root 授权尚未检测完成。"
+        }
+        return evidence +
+            "identity=user 是显式选择 Eta App 身份，不代表终端没有 Root 通道。" +
+            "用户说明已授权、授权状态发生变化或需要确认 Root 时，调用 terminal(action=check_root) 实际验证；" +
+            "它执行固定的 su -c 'id -u'，可能显示系统授权请求。成功后的新命令默认使用 Root；既有会话与后台任务保持创建时的身份。" +
+            "不得根据 su 文件大小、是否为符号链接或 ro.build.type 推断 Root 真伪；结论以实际检测和工具结果为准。"
     }
 
     private fun buildMemorySystemMessage(context: AgentMemoryContext, writable: Boolean): JSONObject? {

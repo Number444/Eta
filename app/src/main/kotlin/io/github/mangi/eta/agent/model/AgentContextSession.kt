@@ -21,7 +21,7 @@ internal class AgentContextSession(
     private val compactConfig: AgentModelClient.ModelConfig? = null,
     private val compactProvider: () -> AgentProviderClient? = { null },
 ) {
-    private val contextWindow = config.requireContextWindow()
+    private val contextWindow = config.knownContextWindow
     private var inputTokens: Int? = null
     private var compacted = false
     private var consumedSupplementCount = 0
@@ -70,7 +70,9 @@ internal class AgentContextSession(
             }
             return
         }
-        if (!force && (!config.autoCompactionEnabled || before == null || before < contextWindow * TRIGGER_RATIO)) {
+        if (!force && (!config.autoCompactionEnabled || contextWindow == null || before == null ||
+                before < contextWindow * TRIGGER_RATIO)
+        ) {
             try {
                 publishSnapshot()
             } catch (failure: Exception) {

@@ -112,7 +112,11 @@ import top.yukonga.miuix.kmp.window.WindowDialog
 @Composable
 fun AgentAppRoot(
     assistantConversationKey: String? = null,
+    requestedConversationId: String? = null,
+    onRequestedConversationOpened: () -> Unit = {},
     openSpeechSettings: Boolean = false,
+    openTerminal: Boolean = false,
+    onTerminalOpened: () -> Unit = {},
     onSpeechSettingsOpened: () -> Unit = {},
     onAssistantConversationOpened: (Boolean) -> Unit = {},
 ) {
@@ -126,18 +130,28 @@ fun AgentAppRoot(
             onSpeechSettingsOpened()
         }
     }
+    LaunchedEffect(openTerminal) {
+        if (openTerminal) {
+            if (backStack.lastOrNull() != AppRoute.Terminal) backStack.add(AppRoute.Terminal)
+            onTerminalOpened()
+        }
+    }
     val navigator = remember(backStack) { AgentNavigator(backStack) }
     var navigationResetKey by rememberSaveable { mutableIntStateOf(0) }
     val appViewModel = viewModel<AgentAppViewModel>()
     val agentState = appViewModel.state
+    val skills = appViewModel.skills
+    val memory = appViewModel.memory
+    val permissionHealth = appViewModel.permissionHealth
+    val toolsState = remember { buildToolsState(context) }
     val characterStore = viewModel<CharacterLibraryViewModel>().store
     val communityCatalogStore = viewModel<CommunityCatalogViewModel>().store
     val requestExecutionNotifications = rememberExecutionNotificationRequest()
-    val requestLocalNetworkPermission = rememberLocalNetworkPermissionRequest(agentState::refreshPermissionHealth)
+    val requestLocalNetworkPermission = rememberLocalNetworkPermissionRequest(permissionHealth::refreshPermissionHealth)
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) {
-        agentState.refreshPermissionHealth()
+        permissionHealth.refreshPermissionHealth()
     }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -145,7 +159,7 @@ fun AgentAppRoot(
             if (event == Lifecycle.Event.ON_RESUME) {
                 RootAccess.refresh(context)
                 appViewModel.refreshKimiWeb()
-                agentState.refreshPermissionHealth()
+                permissionHealth.refreshPermissionHealth()
                 agentState.refreshRuntimeResults()
             }
         }
@@ -194,6 +208,14 @@ fun AgentAppRoot(
 
     LaunchedEffect(Unit) {
         RuntimeConfigRepository.ensureDefaults(EtaApp.serviceInstance)
+    }
+
+    LaunchedEffect(requestedConversationId) {
+        val conversationId = requestedConversationId ?: return@LaunchedEffect
+        agentState.selectConversation(conversationId)
+        conversationPaneOpen = false
+        navigator.popToHome()
+        onRequestedConversationOpened()
     }
 
     LaunchedEffect(assistantConversationKey) {
@@ -386,7 +408,7 @@ fun AgentAppRoot(
             }
             entry<AppRoute.Tools>(swipeDismiss = swipeDismiss) {
                 AgentToolsScreen(
-                    state = agentState.toolsState,
+                    state = toolsState,
                     onAction = { action ->
                         when (action) {
                             AgentToolsAction.NavigateBack -> popRoute()
@@ -399,20 +421,20 @@ fun AgentAppRoot(
             }
             entry<AppRoute.Skills>(swipeDismiss = swipeDismiss) {
                 LaunchedEffect(Unit) {
-                    agentState.refreshSkills()
+                    skills.refreshSkills()
                 }
                 AgentSkillsScreen(
-                    state = agentState.skillsState,
+                    state = skills.skillsState,
                     onAction = { action ->
                         when (action) {
                             AgentSkillsAction.NavigateBack -> popRoute()
-                            is AgentSkillsAction.ImportZip -> agentState.importSkillZip(action.uri)
-                            AgentSkillsAction.ConfirmZipReplacement -> agentState.confirmSkillZipReplacement()
-                            AgentSkillsAction.CancelZipReplacement -> agentState.cancelSkillZipReplacement()
-                            AgentSkillsAction.DismissNotice -> agentState.dismissSkillNotice()
-                            is AgentSkillsAction.ToggleSkill -> agentState.toggleSkill(action.skillId, action.enabled)
-                            is AgentSkillsAction.DeleteSkill -> agentState.deleteSkill(action.skillId)
-                            is AgentSkillsAction.ReinstallBuiltin -> agentState.reinstallBuiltin(action.skillId)
+                            is AgentSkillsAction.ImportZip -> skills.importSkillZip(action.uri)
+                            AgentSkillsAction.ConfirmZipReplacement -> skills.confirmSkillZipReplacement()
+                            AgentSkillsAction.CancelZipReplacement -> skills.cancelSkillZipReplacement()
+                            AgentSkillsAction.DismissNotice -> skills.dismissSkillNotice()
+                            is AgentSkillsAction.ToggleSkill -> skills.toggleSkill(action.skillId, action.enabled)
+                            is AgentSkillsAction.DeleteSkill -> skills.deleteSkill(action.skillId)
+                            is AgentSkillsAction.ReinstallBuiltin -> skills.reinstallBuiltin(action.skillId)
                         }
                     },
                 )
@@ -461,10 +483,10 @@ fun AgentAppRoot(
             }
             entry<AppRoute.Permissions>(swipeDismiss = swipeDismiss) {
                 LaunchedEffect(Unit) {
-                    agentState.refreshPermissionHealth()
+                    permissionHealth.refreshPermissionHealth()
                 }
                 PermissionHealthScreen(
-                    state = agentState.permissionHealthState,
+                    state = permissionHealth.permissionHealthState,
                     onAction = { action ->
                         when (action) {
                             PermissionHealthAction.NavigateBack -> popRoute()
@@ -543,7 +565,7 @@ fun AgentAppRoot(
                                                 }
                                             }
                                             DeviceLocationProvider.AccessState.AVAILABLE -> {
-                                                agentState.refreshPermissionHealth()
+                                                permissionHealth.refreshPermissionHealth()
                                             }
                                         }
                                     }
@@ -660,18 +682,18 @@ fun AgentAppRoot(
             }
             entry<AppRoute.Memory>(swipeDismiss = swipeDismiss) {
                 LaunchedEffect(Unit) {
-                    agentState.refreshMemory()
+                    memory.refreshMemory()
                 }
                 AgentMemoryScreen(
-                    state = agentState.memoryState,
+                    state = memory.memoryState,
                     onAction = { action ->
                         when (action) {
                             AgentMemoryAction.NavigateBack -> popRoute()
-                            is AgentMemoryAction.ToggleEnabled -> agentState.setMemoryEnabled(action.enabled)
-                            is AgentMemoryAction.DraftChanged -> agentState.updateMemoryDraft(action.content)
-                            AgentMemoryAction.Save -> agentState.saveMemory()
-                            AgentMemoryAction.Clear -> agentState.clearMemory()
-                            AgentMemoryAction.DismissNotice -> agentState.dismissMemoryNotice()
+                            is AgentMemoryAction.ToggleEnabled -> memory.setMemoryEnabled(action.enabled)
+                            is AgentMemoryAction.DraftChanged -> memory.updateMemoryDraft(action.content)
+                            AgentMemoryAction.Save -> memory.saveMemory()
+                            AgentMemoryAction.Clear -> memory.clearMemory()
+                            AgentMemoryAction.DismissNotice -> memory.dismissMemoryNotice()
                         }
                     },
                 )

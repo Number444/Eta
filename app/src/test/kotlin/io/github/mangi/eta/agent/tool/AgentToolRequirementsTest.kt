@@ -14,8 +14,10 @@ class AgentToolRequirementsTest {
     @Test
     fun everyRegisteredToolHasExactlyOneRequirement() {
         val tools = catalog(root = true).also { CharacterMemoryTools.appendSchemas(it) }
+        val executionOnly = setOf("input_text", "replace_text", "clear_text", "paste_text")
         // Eta Mod：web_search 仅在 Exa key 已配置时注册（测试环境无 key），从恒等式期望集中排除。
-        assertEquals(AgentToolRequirements.toolNames - setOf("run_command", "web_search"), tools.names())
+        assertEquals(AgentToolRequirements.toolNames - executionOnly - setOf("web_search"), tools.names())
+        executionOnly.forEach { name -> assertFalse("$name 仅保留执行兼容，不再向模型暴露", name in tools.names()) }
         assertFalse("旧命令名仅保留执行兼容，不再向模型暴露", "run_command" in tools.names())
         assertEquals(tools.length(), tools.names().size)
         assertFalse(tools.toString().contains("rootRequirement"))
@@ -43,7 +45,7 @@ class AgentToolRequirementsTest {
         }
         assertTrue(required.isNotEmpty())
         assertTrue(required.none { it in projected.names() })
-        assertTrue(setOf("terminal", "read_file", "read_image", "observe_screen", "browser_use").all {
+        assertTrue(setOf("terminal", "terminal_job", "terminal_daemon", "read_file", "read_image", "observe_screen", "browser_use").all {
             it in projected.names()
         })
         assertEquals("[\"user\"]", projected.properties("terminal").getJSONObject("identity").getJSONArray("enum").toString())
@@ -72,11 +74,9 @@ class AgentToolRequirementsTest {
     }
 
     @Test
-    fun legacyRootArgumentsAreDeniedEvenWhenCallingAMixedToolDirectly() {
-        assertTrue(AgentToolRequirements.rootDenied("terminal", JSONObject().put("identity", "root"), false))
+    fun rootOnlyToolsAndPrivilegedKeysAreDeniedWithoutRoot() {
         assertTrue(AgentToolRequirements.rootDenied("press_key", JSONObject().put("button", "PASTE"), false))
         assertTrue(AgentToolRequirements.rootDenied("set_setting", JSONObject(), false))
-        assertFalse(AgentToolRequirements.rootDenied("terminal", JSONObject().put("identity", "user"), false))
         assertFalse(AgentToolRequirements.rootDenied("set_setting", JSONObject(), true))
     }
 

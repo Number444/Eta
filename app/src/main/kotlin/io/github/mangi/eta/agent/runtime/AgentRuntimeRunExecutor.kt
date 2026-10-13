@@ -78,7 +78,7 @@ internal class AgentRuntimeRunExecutor(
         val timing = AgentRunTiming(AndroidAgentLogger)
 
         val result = try {
-            val contextWindow = request.config.requireContextWindow()
+            val contextWindow = request.config.knownContextWindow
             // Eta Mod：小米超级岛上岛（压缩等内部任务不上岛）；任何异常都不影响主流程。
             if (request.operation != AgentRuntimeWire.OP_COMPACT) {
                 runCatching {
@@ -147,6 +147,15 @@ internal class AgentRuntimeRunExecutor(
                 }
             } else {
                 AgentMemoryContext.DISABLED
+            }
+            if (request.config.terminalTools) {
+                // 启动探测由 App 拥有；模型首轮等待其结果，避免把检测中的授权当成普通设备。
+                runBlocking {
+                    while (io.github.mangi.eta.agent.device.RootAccess.state.value.isChecking) {
+                        runController.throwIfCancelled()
+                        kotlinx.coroutines.delay(100)
+                    }
+                }
             }
             val pendingSkillConflict = PendingSkillConflictCapabilityParser.parse(request.history)
             val mcpSnapshot = runBlocking {
@@ -278,6 +287,7 @@ internal class AgentRuntimeRunExecutor(
                 skillContext = skillContext,
                 memoryContext = memoryContext,
                 additionalTools = runTools,
+                executionContext = executor.terminalExecutionContext,
             ) { event ->
                 timing.accept(event)
                 acceptEvent(
