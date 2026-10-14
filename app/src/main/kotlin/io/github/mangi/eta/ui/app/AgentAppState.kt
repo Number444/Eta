@@ -6,6 +6,7 @@ import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.SystemClock
 import android.text.format.DateFormat
 import android.widget.Toast
 import androidx.compose.runtime.getValue
@@ -121,6 +122,19 @@ internal class AgentAppState(
     private var conversationsById: Map<String, AgentChatHomeUiState> = initialConversations.conversationsById
     private var conversationTitles: Map<String, String> = initialConversations.titles
     private var conversationUpdatedAt: Map<String, Long> = initialConversations.updatedAt
+
+    // ── Eta Mod：临时会话 ────────────────────────────────────────────────
+    // 临时会话只活在内存：persistConversations 过滤后永不落库，切走即从 Map 销毁，
+    // 进程被杀后重启自然不出现。agent 能力不做任何裁剪。
+    private var temporaryConversationIds by mutableStateOf<Set<String>>(emptySet())
+
+    /** 已点「新建临时会话」但尚未发出首条消息的空草稿标记；首条消息落地成真实 id 后转移进 [temporaryConversationIds]。 */
+    private var pendingTemporaryConversation by mutableStateOf(false)
+
+    /** 当前正在查看的会话/草稿是否为临时会话，驱动聊天页顶部标识条。 */
+    val isCurrentConversationTemporary: Boolean
+        get() = (pendingTemporaryConversation && selectedConversationId == null) ||
+            (selectedConversationId?.let { it in temporaryConversationIds } == true)
 
     var homeState by mutableStateOf(
         selectedConversationId?.let(conversationsById::get) ?: emptyChatState(defaultReasoningEffort)
@@ -280,6 +294,8 @@ internal class AgentAppState(
             conversationTitles = snapshot.titles
             conversationUpdatedAt = snapshot.updatedAt
             conversationPersistence = AgentConversationPersistence(snapshot)
+            temporaryConversationIds = emptySet()
+            pendingTemporaryConversation = false
             fileAttachmentOwnerVersion += 1
             homeState = selectedConversationId
                 ?.let(conversationsById::get)
@@ -679,6 +695,7 @@ internal class AgentAppState(
     }
 
     fun selectConversation(conversationId: String) {
+        destroyTemporaryIfLeaving(conversationId)
         if (homeState.messageEdit != null) cancelMessageEdit()
         val state = conversationsById[conversationId] ?: return
         fileAttachmentOwnerVersion += 1
@@ -699,6 +716,7 @@ internal class AgentAppState(
     }
 
     fun createConversation() {
+        destroyTemporaryIfLeaving(null)
         if (homeState.messageEdit != null) cancelMessageEdit()
         fileAttachmentOwnerVersion += 1
         selectedConversationId = null
@@ -708,6 +726,31 @@ internal class AgentAppState(
             selectedConversationId = null,
             searchQuery = "",
         )
+        refreshConversationSummaries()
+    }
+
+    /** Eta Mod：新建临时会话——空草稿期间由 pending 标记承接，首条消息发送时才落地成真实会话 id。 */
+    fun createTemporaryConversation() {
+        createConversation()
+        pendingTemporaryConversation = true
+    }
+
+    /**
+     * Eta Mod：离开当前临时会话时将其从内存销毁（从未落库，无需删 DB）；
+     * 空临时草稿离开只需清 pending 标记。临时会话上的运行一并停止。
+     */
+    private fun destroyTemporaryIfLeaving(nextConversationId: String?) {
+        if (pendingTemporaryConversation && selectedConversationId == null) {
+            pendingTemporaryConversation = false
+        }
+        val leavingId = selectedConversationId
+            ?.takeIf { it in temporaryConversationIds && it != nextConversationId }
+            ?: return
+        if (currentRunId?.let(runConversationIds::get) == leavingId) stopCurrentRun()
+        conversationsById = conversationsById - leavingId
+        conversationTitles = conversationTitles - leavingId
+        conversationUpdatedAt = conversationUpdatedAt - leavingId
+        temporaryConversationIds = temporaryConversationIds - leavingId
         refreshConversationSummaries()
     }
 
@@ -752,6 +795,7 @@ internal class AgentAppState(
         conversationsById = conversationsById - conversationId
         conversationTitles = conversationTitles - conversationId
         conversationUpdatedAt = conversationUpdatedAt - conversationId
+        temporaryConversationIds = temporaryConversationIds - conversationId
         if (wasSelected) {
             fileAttachmentOwnerVersion += 1
             val nextId = conversationsById.keys.firstOrNull()
@@ -873,6 +917,10 @@ internal class AgentAppState(
 
         val conversationId = selectedConversationId ?: newConversationId().also {
             selectedConversationId = it
+            if (pendingTemporaryConversation) {
+                temporaryConversationIds = temporaryConversationIds + it
+                pendingTemporaryConversation = false
+            }
         }
         val runId = "run-${UUID.randomUUID()}"
         val userMessage = UserMessageUi(
@@ -1110,6 +1158,7 @@ internal class AgentAppState(
     ) {
         runConversationIds[runId] = conversationId
         currentRunId = runId
+        runStartedAtElapsed[runId] = SystemClock.elapsedRealtime()
         // 发送即绑定：会话记住本轮实际使用的模型，回落到默认模型时也随之更新。
         val runModelId = state.effectiveModelId
 
@@ -1492,6 +1541,9 @@ internal class AgentAppState(
 
     private val stopRequestedRunIds = mutableSetOf<String>()
 
+    /** Eta Mod：本进程发起的 run 的单调钟起点（elapsedRealtime），终态折算「用时+完成时刻」打到消息上。 */
+    private val runStartedAtElapsed = mutableMapOf<String, Long>()
+
     fun stopCurrentRun() {
         val runId = currentRunId ?: return
         if (!stopRequestedRunIds.add(runId)) return
@@ -1631,6 +1683,7 @@ internal class AgentAppState(
         flushPendingRunDelta(runId)
         val rewriting = result.operation == AgentRuntimeWire.OP_REWRITE_REPLY || isReplyRewrite(runId)
         stopRequestedRunIds.remove(runId)
+        if (rewriting) runStartedAtElapsed.remove(runId)
         if (runId == currentRunId) {
             currentRunId = null
             currentRunJob = null
@@ -1684,6 +1737,7 @@ internal class AgentAppState(
             }
         }
         setConversationStreaming(runId, false)
+        stampRunTiming(runId)
         // Eta Mod：排队消化——CHAT 运行自然结束（含失败）后自动发送队列下一条；
         // 用户手动停止不消化，避免停止后意外立刻发起新运行。
         val wasStoppedByUser = result.error == LEGACY_STOPPED_ERROR || result.error == SYNTHETIC_STATUS_STOPPED
@@ -1727,6 +1781,34 @@ internal class AgentAppState(
         transform: (List<AgentChatMessageUi>) -> List<AgentChatMessageUi>,
     ) {
         if (updateMessages(runId, transform = transform)) refreshConversationSummaries()
+    }
+
+    /**
+     * Eta Mod：run 终态把「用时 + 完成时刻」打到本轮最后一条 assistant 消息上。
+     * 只有本进程 launchConversationRun 发起的 run 有单调钟起点；恢复/归档/重放的 run
+     * 无起点自然跳过，压缩 run 找不到目标消息也自然跳过。不推进会话时间戳。
+     */
+    private fun stampRunTiming(runId: String) {
+        val startedAt = runStartedAtElapsed.remove(runId) ?: return
+        val durationMs = (SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(0)
+        val finishedAtMillis = System.currentTimeMillis()
+        updateMessages(runId, updateTimestamp = false) { messages ->
+            val index = AgentRunMessageProjector.resultTargetIndex(runId, messages)
+            if (index < 0 || messages[index] !is AgentMessageUi) {
+                messages
+            } else {
+                messages.mapIndexed { i, message ->
+                    if (i == index) {
+                        (message as AgentMessageUi).copy(
+                            runDurationMs = durationMs,
+                            runFinishedAtMillis = finishedAtMillis,
+                        )
+                    } else {
+                        message
+                    }
+                }
+            }
+        }
     }
 
     private fun insertSupplementMessage(
@@ -1915,10 +1997,12 @@ internal class AgentAppState(
     }
 
     private fun persistConversations(onSaved: (() -> Unit)? = null): Deferred<Boolean> {
-        val selected = selectedConversationId
-        val conversations = conversationsById
-        val titles = conversationTitles
-        val timestamps = conversationUpdatedAt
+        // Eta Mod：临时会话不进入持久化快照，永不落库；选中项为临时时按未选中保存。
+        val excluded = temporaryConversationIds
+        val selected = selectedConversationId?.takeUnless { it in excluded }
+        val conversations = if (excluded.isEmpty()) conversationsById else conversationsById - excluded
+        val titles = if (excluded.isEmpty()) conversationTitles else conversationTitles - excluded
+        val timestamps = if (excluded.isEmpty()) conversationUpdatedAt else conversationUpdatedAt - excluded
         return synchronized(persistenceLock) {
             // 未保存会阻止结果回执和 write-ahead 运行，由导入后的重载或失败后的补写收尾。
             if (persistencePaused) return CompletableDeferred(false)

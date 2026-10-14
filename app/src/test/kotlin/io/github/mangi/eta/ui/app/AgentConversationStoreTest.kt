@@ -412,6 +412,74 @@ class AgentConversationStoreTest {
     }
 
     @Test
+    fun runTimingFieldsRoundTripOnAssistantMessage() {
+        val message = AgentMessageUi(
+            id = "assistant-run-1-1",
+            content = "已完成",
+            isStreaming = false,
+            runDurationMs = 86_400L,
+            runFinishedAtMillis = 1_760_000_000_000L,
+        )
+        runBlocking {
+            AgentConversationStore.save(
+                context = context,
+                selectedConversationId = "conv-timing",
+                conversationsById = mapOf(
+                    "conv-timing" to AgentChatHomeUiState(
+                        messages = listOf(
+                            UserMessageUi(id = "user-run-1", content = "计时"),
+                            message,
+                        ),
+                        input = "",
+                        isStreaming = false,
+                        thinkingEnabled = false,
+                    ),
+                ),
+                titles = mapOf("conv-timing" to "计时"),
+                updatedAt = mapOf("conv-timing" to 1L),
+            )
+        }
+
+        val restored = AgentConversationStore.load(context)
+            .conversationsById
+            .getValue("conv-timing")
+            .messages
+            .filterIsInstance<AgentMessageUi>()
+            .single()
+
+        assertEquals(86_400L, restored.runDurationMs)
+        assertEquals(1_760_000_000_000L, restored.runFinishedAtMillis)
+    }
+
+    @Test
+    fun temporaryConversationLifecycleStaysOutOfPaneAndDatabase() {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+        try {
+            val state = AgentAppState(context, scope)
+
+            state.createTemporaryConversation()
+            assertTrue(state.isCurrentConversationTemporary)
+
+            // 空临时草稿被普通新建覆盖：标记清除，无残留。
+            state.createConversation()
+            assertFalse(state.isCurrentConversationTemporary)
+            assertTrue(state.conversationPaneState.conversations.isEmpty())
+
+            state.createTemporaryConversation()
+            state.createTemporaryConversation()
+            assertTrue(state.isCurrentConversationTemporary)
+            assertTrue(state.conversationPaneState.conversations.isEmpty())
+            assertTrue(
+                runBlocking {
+                    EtaDatabase.get(context).conversationDao().conversations().isEmpty()
+                }
+            )
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
     fun loadKeepsDatabaseEmptyUntilFirstMessageIsSent() {
         val snapshot = AgentConversationStore.load(context)
 

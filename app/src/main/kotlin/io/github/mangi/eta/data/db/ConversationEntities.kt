@@ -106,4 +106,8 @@ internal data class ConversationMessageEntity(
     @ColumnInfo(name = "result_summary") val resultSummary: String? = null,
     @ColumnInfo(name = "image_count") val imageCount: Int = 0,
     @ColumnInfo(name = "tools_json") val toolsJson: String = "[]",
+    /** Eta Mod：本轮 run 完成用时（毫秒）；仅 assistant 终态消息使用。 */
+    @ColumnInfo(name = "run_duration_ms") val runDurationMs: Long? = null,
+    /** Eta Mod：本轮 run 完成时刻（墙钟毫秒）；仅 assistant 终态消息使用。 */
+    @ColumnInfo(name = "run_finished_at") val runFinishedAtMillis: Long? = null,
 )

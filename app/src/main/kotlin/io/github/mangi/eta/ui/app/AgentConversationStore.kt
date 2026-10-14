@@ -260,6 +260,8 @@ internal object AgentConversationStore {
                         outputTokens = usage?.outputTokens,
                         reasoningTokens = usage?.reasoningTokens,
                         cachedTokens = usage?.cachedTokens,
+                        runDurationMs = runDurationMs,
+                        runFinishedAtMillis = runFinishedAtMillis,
                     )
                 }
             }
@@ -330,6 +332,8 @@ internal object AgentConversationStore {
                     reasoningTokens = reasoningTokens,
                     cachedTokens = cachedTokens,
                 ).takeUnless { it.isEmpty },
+                runDurationMs = runDurationMs,
+                runFinishedAtMillis = runFinishedAtMillis,
             )
 
             TYPE_SYSTEM_NOTICE -> SystemNoticeCode.fromWireValue(content)?.let { code ->

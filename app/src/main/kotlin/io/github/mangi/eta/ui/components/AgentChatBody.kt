@@ -40,6 +40,7 @@ import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DocumentScanner
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.HistoryToggleOff
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.RocketLaunch
 import androidx.compose.material.icons.rounded.Terminal
@@ -167,6 +168,7 @@ internal fun AgentChatBody(
     onRunTraceClick: () -> Unit,
     onOpenBrowser: () -> Unit,
     characterName: String? = null,
+    isTemporaryConversation: Boolean = false,
     isDrawerOpen: Boolean = false,
     topPadding: Dp = 0.dp,
     modifier: Modifier = Modifier,
@@ -276,6 +278,7 @@ internal fun AgentChatBody(
             onRunTraceClick = onRunTraceClick,
             onOpenBrowser = onOpenBrowser,
             currentBrowserMessageId = currentBrowserMessageId,
+            isTemporaryConversation = isTemporaryConversation,
             modifier = modifier,
         )
     }
@@ -328,6 +331,7 @@ private fun AgentChatScaffold(
     onRunTraceClick: () -> Unit,
     onOpenBrowser: () -> Unit,
     currentBrowserMessageId: String?,
+    isTemporaryConversation: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val surfaceColor = MiuixTheme.colorScheme.surface
@@ -431,6 +435,7 @@ private fun AgentChatScaffold(
                 onAttachFilePath = onAttachFilePath,
                 onRemoveFileReference = onRemoveFileReference,
                 onCancelMessageEdit = onCancelMessageEdit,
+                isTemporaryConversation = isTemporaryConversation,
             )
         },
     ) { innerPadding ->
@@ -990,6 +995,7 @@ private fun AgentChatBottomBar(
     onAttachFilePath: (String) -> Unit,
     onRemoveFileReference: (String) -> Unit,
     onCancelMessageEdit: () -> Unit,
+    isTemporaryConversation: Boolean,
 ) {
     // 底部栏实测高度：刻度气泡用它定位（浮层不参与布局，纯位移）。
     var dockHeightPx by remember { mutableIntStateOf(0) }
@@ -1093,6 +1099,26 @@ private fun AgentChatBottomBar(
                 .navigationBarsPadding()
                 .padding(start = 14.dp, end = 14.dp, bottom = 12.dp),
         ) {
+            // Eta Mod：临时会话轻量标识——切走或进程结束即销毁，提醒用户勿留重要内容。
+            if (isTemporaryConversation) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(start = 6.dp, bottom = 4.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.HistoryToggleOff,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
+                    )
+                    Text(
+                        text = stringResource(R.string.temporary_conversation_banner),
+                        style = MiuixTheme.textStyles.footnote1,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
+                        modifier = Modifier.padding(start = 4.dp),
+                    )
+                }
+            }
             if (queuedMessages.isNotEmpty()) {
                 QueuedMessagesPanel(
                     messages = queuedMessages,

@@ -255,6 +255,12 @@ fun AgentAppRoot(
         conversationPaneOpen = false
     }
 
+    fun createTemporaryConversation() {
+        focusManager.clearFocus()
+        agentState.createTemporaryConversation()
+        conversationPaneOpen = false
+    }
+
     @Composable
     fun RoutedShell(
         route: AppRoute,
@@ -270,6 +276,11 @@ fun AgentAppRoot(
             onDismissConversationPane = { conversationPaneOpen = false },
             onSearchConversations = { query -> agentState.updateSearchQuery(query) },
             onNewConversation = { createConversation() },
+            onNewTemporaryConversation = { createTemporaryConversation() },
+            onDeleteCurrentConversation = agentState.conversationPaneState
+                .conversations
+                .firstOrNull { it.id == agentState.conversationPaneState.selectedConversationId }
+                ?.let { summary -> { conversationDeleteTarget = summary } },
             onOpenTerminal = { pushRoute(AppRoute.Terminal) },
             onLaunchKimiWeb = {
                 requestExecutionNotifications()
@@ -339,6 +350,7 @@ fun AgentAppRoot(
                         state = agentState.homeState,
                         modelPickerState = agentState.modelPickerState,
                         conversationKey = agentState.conversationPaneState.selectedConversationId,
+                        isTemporaryConversation = agentState.isCurrentConversationTemporary,
                         onAction = { action ->
                             when (action) {
                                 is AgentHomeAction.ReasoningEffortChanged ->

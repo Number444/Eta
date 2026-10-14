@@ -13,6 +13,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ShortText
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.rounded.AddComment
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.HistoryToggleOff
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.runtime.Composable
@@ -38,6 +40,7 @@ import io.github.mangi.eta.ui.components.topBarContainerColor
 import io.github.mangi.eta.ui.model.ConversationPaneUiState
 import io.github.mangi.eta.ui.model.ConversationSummaryUi
 import io.github.mangi.eta.ui.navigation.AppRoute
+import top.yukonga.miuix.kmp.basic.DropdownDefaults
 import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.Icon
@@ -48,6 +51,7 @@ import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.window.WindowListPopup
 
 /**
@@ -69,6 +73,8 @@ fun AgentAppShell(
     onDismissConversationPane: () -> Unit,
     onSearchConversations: (String) -> Unit,
     onNewConversation: () -> Unit,
+    onNewTemporaryConversation: () -> Unit,
+    onDeleteCurrentConversation: (() -> Unit)?,
     onOpenTerminal: () -> Unit,
     onLaunchKimiWeb: () -> Unit,
     kimiWebLabel: String,
@@ -103,6 +109,8 @@ fun AgentAppShell(
                             onBack = onBack,
                             onOpenConversationPane = onOpenConversationPane,
                             onNewConversation = onNewConversation,
+                            onNewTemporaryConversation = onNewTemporaryConversation,
+                            onDeleteCurrentConversation = onDeleteCurrentConversation,
                             onOpenTerminal = onOpenTerminal,
                             onLaunchKimiWeb = onLaunchKimiWeb,
                             kimiWebLabel = kimiWebLabel,
@@ -157,6 +165,8 @@ private fun AgentTopBar(
     onBack: () -> Unit,
     onOpenConversationPane: () -> Unit,
     onNewConversation: () -> Unit,
+    onNewTemporaryConversation: () -> Unit,
+    onDeleteCurrentConversation: (() -> Unit)?,
     onOpenTerminal: () -> Unit,
     onLaunchKimiWeb: () -> Unit,
     kimiWebLabel: String,
@@ -183,6 +193,8 @@ private fun AgentTopBar(
         if (isHome) {
             TopBarOverflowMenu(
                 onNewConversation = onNewConversation,
+                onNewTemporaryConversation = onNewTemporaryConversation,
+                onDeleteCurrentConversation = onDeleteCurrentConversation,
                 onOpenTerminal = onOpenTerminal,
                 onLaunchKimiWeb = onLaunchKimiWeb,
                 kimiWebLabel = kimiWebLabel,
@@ -216,13 +228,23 @@ private fun AgentTopBar(
 
 private val TopBarMenuIconSize = 20.dp
 
+/** 顶栏溢出菜单项；danger 项整行用 error 色（文字 + 图标）。 */
+private class TopBarMenuEntry(
+    val text: String,
+    val icon: (@Composable (Modifier) -> Unit)?,
+    val danger: Boolean,
+    val onClick: () -> Unit,
+)
+
 /**
  * 首页顶栏溢出菜单。WindowListPopup 以父布局为锚点，因此与触发按钮包在同一个 Box 中，
- * 弹层从按钮下方右对齐展开。
+ * 弹层从按钮下方右对齐展开。菜单项数据驱动，条件项（停止 Kimi Web、删除会话）不进列表即不渲染。
  */
 @Composable
 private fun TopBarOverflowMenu(
     onNewConversation: () -> Unit,
+    onNewTemporaryConversation: () -> Unit,
+    onDeleteCurrentConversation: (() -> Unit)?,
     onOpenTerminal: () -> Unit,
     onLaunchKimiWeb: () -> Unit,
     kimiWebLabel: String,
@@ -245,22 +267,10 @@ private fun TopBarOverflowMenu(
             alignment = PopupPositionProvider.Align.End,
             onDismissRequest = { showMenu = false },
         ) {
-            val newConversationText = stringResource(R.string.action_new_conversation)
-            val openTerminalText = stringResource(R.string.action_open_terminal)
-            val launchKimiWebText = kimiWebLabel
-            val stopKimiWebText = stringResource(R.string.capability_kimi_stop)
-            val openBrowserText = stringResource(R.string.action_open_browser)
-            val menuItems = remember(
-                newConversationText,
-                openTerminalText,
-                launchKimiWebText,
-                openBrowserText,
-                stopKimiWebText,
-                canStopKimiWeb,
-            ) {
-                listOf(
-                    DropdownItem(
-                        text = newConversationText,
+            val menuEntries = buildList {
+                add(
+                    TopBarMenuEntry(
+                        text = stringResource(R.string.action_new_conversation),
                         icon = { modifier ->
                             Icon(
                                 imageVector = Icons.Rounded.AddComment,
@@ -268,9 +278,27 @@ private fun TopBarOverflowMenu(
                                 modifier = modifier.size(TopBarMenuIconSize),
                             )
                         },
+                        danger = false,
+                        onClick = onNewConversation,
                     ),
-                    DropdownItem(
-                        text = openTerminalText,
+                )
+                add(
+                    TopBarMenuEntry(
+                        text = stringResource(R.string.action_new_temporary_conversation),
+                        icon = { modifier ->
+                            Icon(
+                                imageVector = Icons.Rounded.HistoryToggleOff,
+                                contentDescription = null,
+                                modifier = modifier.size(TopBarMenuIconSize),
+                            )
+                        },
+                        danger = false,
+                        onClick = onNewTemporaryConversation,
+                    ),
+                )
+                add(
+                    TopBarMenuEntry(
+                        text = stringResource(R.string.action_open_terminal),
                         icon = { modifier ->
                             Icon(
                                 imageVector = Icons.Rounded.Terminal,
@@ -278,9 +306,13 @@ private fun TopBarOverflowMenu(
                                 modifier = modifier.size(TopBarMenuIconSize),
                             )
                         },
+                        danger = false,
+                        onClick = onOpenTerminal,
                     ),
-                    DropdownItem(
-                        text = launchKimiWebText,
+                )
+                add(
+                    TopBarMenuEntry(
+                        text = kimiWebLabel,
                         icon = { modifier ->
                             Icon(
                                 painter = painterResource(R.drawable.ic_kimi_code),
@@ -288,9 +320,13 @@ private fun TopBarOverflowMenu(
                                 modifier = modifier.size(TopBarMenuIconSize),
                             )
                         },
+                        danger = false,
+                        onClick = onLaunchKimiWeb,
                     ),
-                    DropdownItem(
-                        text = openBrowserText,
+                )
+                add(
+                    TopBarMenuEntry(
+                        text = stringResource(R.string.action_open_browser),
                         icon = { modifier ->
                             Icon(
                                 imageVector = Icons.Rounded.Language,
@@ -298,25 +334,58 @@ private fun TopBarOverflowMenu(
                                 modifier = modifier.size(TopBarMenuIconSize),
                             )
                         },
+                        danger = false,
+                        onClick = onOpenBrowser,
                     ),
-                ) + if (canStopKimiWeb) listOf(DropdownItem(text = stopKimiWebText)) else emptyList()
+                )
+                if (canStopKimiWeb) {
+                    add(
+                        TopBarMenuEntry(
+                            text = stringResource(R.string.capability_kimi_stop),
+                            icon = null,
+                            danger = false,
+                            onClick = onStopKimiWeb,
+                        ),
+                    )
+                }
+                if (onDeleteCurrentConversation != null) {
+                    add(
+                        TopBarMenuEntry(
+                            text = stringResource(R.string.action_delete_conversation),
+                            icon = { modifier ->
+                                Icon(
+                                    imageVector = Icons.Rounded.Delete,
+                                    contentDescription = null,
+                                    modifier = modifier.size(TopBarMenuIconSize),
+                                    tint = MiuixTheme.colorScheme.error,
+                                )
+                            },
+                            danger = true,
+                            onClick = onDeleteCurrentConversation,
+                        ),
+                    )
+                }
             }
+            val dangerColors = DropdownDefaults.dropdownColors(
+                contentColor = MiuixTheme.colorScheme.error,
+                selectedContentColor = MiuixTheme.colorScheme.error,
+                selectedIndicatorColor = MiuixTheme.colorScheme.error,
+            )
             ListPopupColumn {
-                menuItems.forEachIndexed { index, item ->
+                menuEntries.forEachIndexed { index, entry ->
                     DropdownImpl(
-                        item = item,
-                        optionSize = menuItems.size,
+                        item = DropdownItem(text = entry.text, icon = entry.icon),
+                        optionSize = menuEntries.size,
                         isSelected = false,
                         index = index,
+                        dropdownColors = if (entry.danger) {
+                            dangerColors
+                        } else {
+                            DropdownDefaults.dropdownColors()
+                        },
                         onSelectedIndexChange = {
                             showMenu = false
-                            when (index) {
-                                0 -> onNewConversation()
-                                1 -> onOpenTerminal()
-                                2 -> onLaunchKimiWeb()
-                                3 -> onOpenBrowser()
-                                4 -> onStopKimiWeb()
-                            }
+                            entry.onClick()
                         },
                     )
                 }

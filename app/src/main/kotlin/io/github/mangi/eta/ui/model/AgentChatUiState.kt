@@ -58,6 +58,10 @@ data class AgentMessageUi(
     val characterEditable: Boolean = false,
     val candidateCount: Int = 1,
     val selectedCandidate: Int = 0,
+    /** Eta Mod：本轮 run 的完成用时；仅每轮最后一条 assistant 消息打点，空表示未记录。 */
+    val runDurationMs: Long? = null,
+    /** Eta Mod：本轮 run 的完成时刻（墙钟毫秒）；与 [runDurationMs] 成对出现。 */
+    val runFinishedAtMillis: Long? = null,
 ) : AgentChatMessageUi
 
 enum class SystemNoticeCode(val wireValue: String) {

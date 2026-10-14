@@ -23,6 +23,7 @@ internal fun AgentHomeScreen(
     modelPickerState: AgentModelPickerUiState,
     conversationKey: String?,
     onAction: (AgentHomeAction) -> Unit,
+    isTemporaryConversation: Boolean = false,
     isDrawerOpen: Boolean = false,
     topPadding: Dp = 0.dp,
     modifier: Modifier = Modifier,
@@ -68,6 +69,7 @@ internal fun AgentHomeScreen(
             },
             onRunTraceClick = { onAction(AgentHomeAction.ExpandRunTrace) },
             onOpenBrowser = { onAction(AgentHomeAction.OpenBrowser) },
+            isTemporaryConversation = isTemporaryConversation,
             isDrawerOpen = isDrawerOpen,
             modifier = modifier,
         )

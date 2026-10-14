@@ -2,6 +2,7 @@ package io.github.mangi.eta.ui.components
 
 import io.github.mangi.eta.ui.voice.SpeechReadAloudButton
 import android.graphics.BitmapFactory
+import android.text.format.DateFormat
 import android.util.Base64
 import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
@@ -31,6 +32,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -78,6 +80,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
@@ -814,6 +817,7 @@ private fun AgentMessageBlock(
                         }
                     }
                 }
+                TurnTimingLabel(message)
             }
         }
     }
@@ -1199,3 +1203,42 @@ private fun ShareProgressSpinner(modifier: Modifier = Modifier) {
         )
     }
 }
+
+// ── Eta Mod：单轮计时 ────────────────────────────────────────────────
+
+/** 按钮行右侧的「用时 · 完成时间」；仅每轮最后一条 assistant 消息由 run 终态打点后有值。 */
+@Composable
+private fun RowScope.TurnTimingLabel(message: AgentMessageUi) {
+    val durationMs = message.runDurationMs
+    val finishedAtMillis = message.runFinishedAtMillis
+    if (durationMs == null || finishedAtMillis == null) return
+    val context = LocalContext.current
+    val timeText = remember(finishedAtMillis) {
+        formatTurnFinishTime(finishedAtMillis, DateFormat.is24HourFormat(context))
+    }
+    Spacer(Modifier.weight(1f))
+    Text(
+        text = stringResource(R.string.turn_timing_format, formatTurnDuration(durationMs), timeText),
+        style = MiuixTheme.textStyles.footnote1,
+        color = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
+        maxLines = 1,
+        modifier = Modifier.padding(start = 8.dp),
+    )
+}
+
+/** 轮次用时：<60s 保留一位小数秒（"8.6s"），≥60s 为 "Xm Ys"。 */
+internal fun formatTurnDuration(durationMs: Long): String {
+    if (durationMs < 60_000) {
+        return "%.1fs".format(java.util.Locale.US, durationMs / 1000.0)
+    }
+    val minutes = durationMs / 60_000
+    val seconds = (durationMs % 60_000) / 1000
+    return "${minutes}m ${seconds}s"
+}
+
+/** 完成时刻：跟随系统 12/24 小时制。 */
+internal fun formatTurnFinishTime(finishedAtMillis: Long, use24Hour: Boolean): String =
+    java.text.SimpleDateFormat(
+        if (use24Hour) "HH:mm" else "h:mm a",
+        java.util.Locale.getDefault(),
+    ).format(java.util.Date(finishedAtMillis))
