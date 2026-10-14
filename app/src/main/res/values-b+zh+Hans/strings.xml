@@ -70,7 +70,9 @@
   <string name="action_new_temporary_conversation">新建临时会话</string>
   <string name="action_delete_conversation">删除会话</string>
   <string name="temporary_conversation_banner">临时会话 · 切换或退出后自动销毁</string>
-  <string name="turn_timing_format">%1$s · %2$s</string>
+  <string name="turn_duration_label">用时: %1$s</string>
+  <string name="turn_unit_second">秒</string>
+  <string name="turn_unit_minute">分</string>
   <string name="action_conversation_history">会话历史</string>
   <string name="action_more">更多选项</string>
   <string name="action_open_terminal">打开终端</string>

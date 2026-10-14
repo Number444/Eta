@@ -71,7 +71,9 @@
   <string name="action_new_temporary_conversation">New temporary conversation</string>
   <string name="action_delete_conversation">Delete conversation</string>
   <string name="temporary_conversation_banner">Temporary conversation · destroyed when you leave or exit</string>
-  <string name="turn_timing_format">%1$s · %2$s</string>
+  <string name="turn_duration_label">Time: %1$s</string>
+  <string name="turn_unit_second">s</string>
+  <string name="turn_unit_minute">m\u0020</string>
   <string name="action_conversation_history">Conversation history</string>
   <string name="action_more">More options</string>
   <string name="action_open_terminal">Open terminal</string>

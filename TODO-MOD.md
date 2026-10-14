@@ -2,7 +2,7 @@
 
 > 本 fork：`my-mods` 分支，applicationId `io.github.mangi.eta.mod`
 > 远端：`origin` = Number444/Eta（推送目标），`upstream` = Mangi-11/Eta（官方源）
-> 当前版本：3.3.0-004（versionCode 2026101403；设置按钮震动修复 + 三轮岛诊断结论落盘、测试工具已清理）
+> 当前版本：3.3.0-008（versionCode 2026101407；单轮计时独立行排版定稿。v3.3.0-008 起首个 3.3.0 系公开发布，2026-10-14 由艾薇受 Four 委托执行 Release）
 
 > 已完成归档（2026-10-08 精简）：1. merge 上游 v3.2.0（30 commits，16 冲突手工裁决，出包真机回归通过）；2. 更新检查/关于页链接指向 Number444/Eta（`isNewer` 支持 `-NNN` 修订号）；3. 删官方搜索只留 Exa（官方服务本机超时不可用）；4. 消息操作行按钮放大 1.4 倍；5. 分享成图按新 markdown 层重写（含 `ShareCardRenderTest` 渲染基线）；6. merge 上游 v3.3.0（2026-10-13 完成：21 commits，7 冲突裁决 + `AgentAppState` 四功能块移植；暗礁=双方 `MIGRATION_21_22` 撞车，上游 `model_id` 迁移顺延 22_23、DB 升 v23；48 个单测失败对撞全为 Windows 环境基线零回归，出包真机冒烟通过）。详细过程见 git 历史。
 
@@ -21,7 +21,7 @@
   - 卡片 UI：大字码 + 点击复制 + 收起/关闭；数据持久化（进程重启恢复）
   - 坑位备忘：MIUI 悬浮窗权限与「后台弹出界面」两个开关；Android 12+ overlay 保持 `alpha=1` 否则触摸被拦截；保活靠 FGS
 
-## 8. ~~GUI run 胶囊吞点击 → 运行控制三键移交超级岛~~（2026-10-14 v3.3.0-005 已实装，待真机验证）
+## 8. ~~GUI run 胶囊吞点击 → 运行控制三键移交超级岛~~（2026-10-14 v3.3.0-005 已实装，Four 真机验证通过：岛三键功能正常、悬浮窗输入正常）
 
 - 问题（2026-10-13 v3.3.0-001 冒烟发现）：上游 v3.3.0 新运行胶囊窗口**可触摸**（有展开/暂停/停止按钮，窗口固定宽 × 分档高、顶部居中），agent 注入的坐标点按落在胶囊区域即被吞，点不到下层应用内容；上游自己在 `AgentRuntimeService.kt:1007` 注释里承认会吞但未真解决。边缘流光（全屏 `FLAG_NOT_TOUCHABLE`）与 `GestureIndicator` 均清白；`ui_nodes` 走 `rootInActiveWindow`，胶囊不可获焦不进节点树，故仅坐标点按受影响
 - 方案（Four 拍板）：GUI run 期间胶囊 + 结果卡片切 `FLAG_NOT_TOUCHABLE` 纯展示，控制职能移交超级岛；岛 action 按钮渲染已经 Four 真机验证可行（`dispatchGesture` 无目标窗口概念，「点到下层」只能让胶囊穿透实现）
@@ -40,6 +40,14 @@
 
 - 现象（2026-10-13 冒烟发现）：侧栏搜索行右侧设置按钮点击大概率无震动。非 merge 回归——`ConversationPanePanel.kt` 裸 `Modifier.clickable` 从未挂显式震动（同文件会话行有 `KeyboardTap`），merge 前后逐字节相同
 - 已修：`PaneActionBar` 设置按钮 `onClick` 补 `performHapticFeedback(HapticFeedbackType.KeyboardTap)`，与会话行对齐
+
+## 10. ~~会话管理与单轮计时三功能~~（2026-10-14 v3.3.0-006 实装 + v3.3.0-008 排版定稿，008 排版 Four 离场前装机、未回报确认）
+
+- 删除会话：右上角更多菜单新增红色危险项（`TopBarOverflowMenu` 重构为数据驱动 `TopBarMenuEntry` 列表，根治 index 分发耦合），复用既有 `conversationDeleteTarget` 确认对话框，仅当前有会话时显示
+- 新建临时会话：菜单第二项；`AgentAppState` 纯内存实现（`temporaryConversationIds`/`pendingTemporaryConversation`），切换/退出会话即销毁（运行中一并 `stopCurrentRun()`），`persistConversations()` 过滤临时 id 永不落库；输入区顶部有标识条
+- 单轮计时落库：`AgentMessageUi` 加 `runDurationMs`/`runFinishedAtMillis`；`launchConversationRun` 记 elapsedRealtime，非 rewriting 的 `applyRunResult` 调 `stampRunTiming`；DB v23→v24（`MIGRATION_23_24` 两条 ALTER TABLE ADD COLUMN）
+- 排版定稿（008，Four 拍板）：按钮行纯净，计时独占一行在按钮行下方贴左，格式 `HH:mm · 用时: x.x秒`（≥60 秒为 `x分x秒`），footnote1 + 75% 灰
+- 未来上游若升 DB v24，merge 时我方 migration 顺延重排（撞车先例：MIGRATION_21_22）
 
 ## 备注
 

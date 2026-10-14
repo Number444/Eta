@@ -32,7 +32,6 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -817,8 +816,8 @@ private fun AgentMessageBlock(
                         }
                     }
                 }
-                TurnTimingLabel(message)
             }
+            TurnTimingRow(message)
         }
     }
 }
@@ -1206,9 +1205,12 @@ private fun ShareProgressSpinner(modifier: Modifier = Modifier) {
 
 // ── Eta Mod：单轮计时 ────────────────────────────────────────────────
 
-/** 按钮行右侧的「用时 · 完成时间」；仅每轮最后一条 assistant 消息由 run 终态打点后有值。 */
+/**
+ * 单轮计时独立一行：按钮行下方贴左，「14:03 · 用时: 8.6秒」。
+ * 仅每轮最后一条 assistant 消息由 run 终态打点后有值。
+ */
 @Composable
-private fun RowScope.TurnTimingLabel(message: AgentMessageUi) {
+private fun TurnTimingRow(message: AgentMessageUi) {
     val durationMs = message.runDurationMs
     val finishedAtMillis = message.runFinishedAtMillis
     if (durationMs == null || finishedAtMillis == null) return
@@ -1216,24 +1218,28 @@ private fun RowScope.TurnTimingLabel(message: AgentMessageUi) {
     val timeText = remember(finishedAtMillis) {
         formatTurnFinishTime(finishedAtMillis, DateFormat.is24HourFormat(context))
     }
-    Spacer(Modifier.weight(1f))
+    val durationText = formatTurnDuration(
+        durationMs = durationMs,
+        secondsUnit = stringResource(R.string.turn_unit_second),
+        minutesUnit = stringResource(R.string.turn_unit_minute),
+    )
     Text(
-        text = stringResource(R.string.turn_timing_format, formatTurnDuration(durationMs), timeText),
+        text = timeText + " · " + stringResource(R.string.turn_duration_label, durationText),
         style = MiuixTheme.textStyles.footnote1,
         color = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
         maxLines = 1,
-        modifier = Modifier.padding(start = 8.dp),
+        modifier = Modifier.padding(start = 4.dp),
     )
 }
 
-/** 轮次用时：<60s 保留一位小数秒（"8.6s"），≥60s 为 "Xm Ys"。 */
-internal fun formatTurnDuration(durationMs: Long): String {
+/** 轮次用时：<60s 保留一位小数秒（"8.6秒"/"8.6s"），≥60s 精确到分秒（"1分12秒"/"1m 12s"）。 */
+internal fun formatTurnDuration(durationMs: Long, secondsUnit: String, minutesUnit: String): String {
     if (durationMs < 60_000) {
-        return "%.1fs".format(java.util.Locale.US, durationMs / 1000.0)
+        return "%.1f".format(java.util.Locale.US, durationMs / 1000.0) + secondsUnit
     }
     val minutes = durationMs / 60_000
     val seconds = (durationMs % 60_000) / 1000
-    return "${minutes}m ${seconds}s"
+    return "$minutes$minutesUnit$seconds$secondsUnit"
 }
 
 /** 完成时刻：跟随系统 12/24 小时制。 */

@@ -69,7 +69,9 @@
   <string name="action_new_temporary_conversation">新增臨時會話</string>
   <string name="action_delete_conversation">刪除會話</string>
   <string name="temporary_conversation_banner">臨時會話 · 切換或離開後自動銷毀</string>
-  <string name="turn_timing_format">%1$s · %2$s</string>
+  <string name="turn_duration_label">用時: %1$s</string>
+  <string name="turn_unit_second">秒</string>
+  <string name="turn_unit_minute">分</string>
   <string name="action_conversation_history">對話記錄</string>
   <string name="action_more">更多選項</string>
   <string name="action_open_terminal">開啟終端機</string>

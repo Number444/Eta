@@ -9,16 +9,17 @@ class TurnTimingFormatTest {
 
     @Test
     fun durationUnderOneMinuteKeepsOneDecimalSecond() {
-        assertEquals("0.0s", formatTurnDuration(0))
-        assertEquals("8.6s", formatTurnDuration(8_640))
-        assertEquals("59.9s", formatTurnDuration(59_949))
+        assertEquals("0.0秒", formatTurnDuration(0, "秒", "分"))
+        assertEquals("8.6秒", formatTurnDuration(8_640, "秒", "分"))
+        assertEquals("59.9秒", formatTurnDuration(59_949, "秒", "分"))
+        assertEquals("8.6s", formatTurnDuration(8_640, "s", "m "))
     }
 
     @Test
     fun durationOverOneMinuteUsesMinutesAndSeconds() {
-        assertEquals("1m 0s", formatTurnDuration(60_000))
-        assertEquals("2m 5s", formatTurnDuration(125_000))
-        assertEquals("61m 0s", formatTurnDuration(3_660_000))
+        assertEquals("1分0秒", formatTurnDuration(60_000, "秒", "分"))
+        assertEquals("2分5秒", formatTurnDuration(125_000, "秒", "分"))
+        assertEquals("61m 0s", formatTurnDuration(3_660_000, "s", "m "))
     }
 
     @Test
