@@ -316,6 +316,7 @@ private fun PaneActionBar(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // 按钮到输入框的距离等于面板右边距，视觉上左右等距。
                 Spacer(modifier = Modifier.width(ConversationPanelMetrics.PaneHorizontalPadding))
+                val hapticFeedback = LocalHapticFeedback.current
                 Box(
                     modifier = Modifier
                         .size(settingsButtonSize)
@@ -323,7 +324,10 @@ private fun PaneActionBar(
                         .background(MiuixTheme.colorScheme.surfaceContainerHighest)
                         .clickable(
                             onClickLabel = stringResource(R.string.route_settings),
-                            onClick = onOpenSettings,
+                            onClick = {
+                                hapticFeedback.performHapticFeedback(HapticFeedbackType.KeyboardTap)
+                                onOpenSettings()
+                            },
                         ),
                     contentAlignment = Alignment.Center,
                 ) {

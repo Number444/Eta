@@ -104,3 +104,39 @@ eta_island 换 id 1208 首发「已完成」（岛展开）+ eta_completion 横�
 **设计要点**：展开只能跟着「首发 alert」走（同 id 更新永不展开），所以完成态必须撤销胶囊换新 id；
 展开与否的最终开关在用户系统设置（eta_island 的悬浮通知），App 只能选择发到哪个频道。
 - 诊断日志留存：`D:\Agent Space\temp_inspect\eta-diag-live.log`（两轮完整 T1–T10）。
+
+## 九、第四轮：LiveUpdate → 超级岛桥接映射测定（2026-10-14，v3.3.0-002）
+
+**动机**：生产通道同时携带 LiveUpdate 三件套与 miui.focus.param 私有参数，渲染结果无法归因；
+本 fork 未经小米企业审核，私有协议不能作为依赖路径。新增「岛映射诊断测试」
+（`AgentIslandMappingDiagnostics`，设置页入口在岛通知诊断测试下方），纯 LiveUpdate 基准起步
+逐步叠加变量，Four 真机逐步骤观察（logcat 标签 `EtaIslandMap`，按钮回调 Toast 回报）。
+
+**T30–T35 变量隔离序列**（eta_island_run 安静频道，通知 id 1209，每步约 15s 同 id 替换）：
+
+| 步骤 | 变量 | 真机结果（Four 观测） |
+|---|---|---|
+| T30 基准 | 纯 LiveUpdate（title/content/largeIcon/shortCriticalText/ongoing/promoted，无 miui extras、无样式、无按钮） | ✅ 正常上岛——**桥接不依赖 miui.focus.param 即成立** |
+| T31 按钮 | +3 个标准 addAction（暂停/补充/停止运行任务） | ✅ 展开岛底部渲染三个按钮，点击回调广播全部送达；停止按钮撤销通知正常 |
+| T32 输入 | +带 RemoteInput 的第 4 个「回复」动作 | ❌ 岛/展开态均无输入框——**RemoteInput 无映射** |
+| T33a 样式 | +BigTextStyle | ✅ 正常 |
+| T33b 样式 | 换 ProgressStyle（分段 50/30/20，未 setProgress） | ✅ 展开岛渲染三段进度条；无填充/动效（未设进度值的预期表现）——进度组件映射存在，填充需 setProgress 驱动 |
+| T34 计时 | +setWhen/setUsesChronometer | ✅ 胶囊计时正常 |
+| T35 对照 | +miui.focus.param（buildFocusParam） | （Four 未回报此步差异，待补） |
+
+**映射关系结论**：
+
+- `addAction` → 展开岛底部按钮，点击回调走标准 PendingIntent 广播——**待办 8「运行控制三键上岛」可行性实锤**，
+  且不依赖小米私有协议。
+- `RemoteInput` → 无映射——「插入/补充」键确认走悬浮窗输入 fallback（岛按钮唤起 overlay supplement 输入）。
+- `ProgressStyle` → 展开岛分段进度条（渲染存在；动效/填充需要进度值更新驱动，生产可用 `setProgress` 跟进任务进度）。
+- `setUsesChronometer` → 胶囊计时（生产 AgentIslandNotifier 已用）。
+- 展开岛按钮文案全显不截断（实测「停止运行任务」五字全显），但为排版紧凑宜控制在 2–3 字。
+
+**岛插入悬浮窗测试（2026-10-14，v3.3.0-003，Four 真机全链路通过）**：岛通知「补充」按钮
+PendingIntent.getService 直发测试服务（生产停止键同款模式，穿透后台启动限制）→ 悬浮窗输入卡片
+（复用生产 `OverlaySupplementInput` + 胶囊窗口参数：顶部居中、可获焦收 IME、窗口外触摸穿透、关 squircle）
+→ 输入文本提交后 Toast + Log 回报全链路通过。**待办 8「插入」键 fallback 链路定案。**
+
+（三轮诊断工具——岛通知诊断 T20-T24 / 岛映射诊断 T30-T35 / 岛插入悬浮窗测试——使命完成，
+2026-10-14 随 v3.3.0-004 清理，本文档保留全部结论。）

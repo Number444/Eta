@@ -2,7 +2,7 @@
 
 > 本 fork：`my-mods` 分支，applicationId `io.github.mangi.eta.mod`
 > 远端：`origin` = Number444/Eta（推送目标），`upstream` = Mangi-11/Eta（官方源）
-> 当前版本：3.3.0-001（versionCode 2026101301，merge 官方 v3.3.0 后第一个 Mod 修订）
+> 当前版本：3.3.0-004（versionCode 2026101403；设置按钮震动修复 + 三轮岛诊断结论落盘、测试工具已清理）
 
 > 已完成归档（2026-10-08 精简）：1. merge 上游 v3.2.0（30 commits，16 冲突手工裁决，出包真机回归通过）；2. 更新检查/关于页链接指向 Number444/Eta（`isNewer` 支持 `-NNN` 修订号）；3. 删官方搜索只留 Exa（官方服务本机超时不可用）；4. 消息操作行按钮放大 1.4 倍；5. 分享成图按新 markdown 层重写（含 `ShareCardRenderTest` 渲染基线）；6. merge 上游 v3.3.0（2026-10-13 完成：21 commits，7 冲突裁决 + `AgentAppState` 四功能块移植；暗礁=双方 `MIGRATION_21_22` 撞车，上游 `model_id` 迁移顺延 22_23、DB 升 v23；48 个单测失败对撞全为 Windows 环境基线零回归，出包真机冒烟通过）。详细过程见 git 历史。
 
@@ -25,18 +25,20 @@
 
 - 问题（2026-10-13 v3.3.0-001 冒烟发现）：上游 v3.3.0 新运行胶囊窗口**可触摸**（有展开/暂停/停止按钮，窗口固定宽 × 分档高、顶部居中），agent 注入的坐标点按落在胶囊区域即被吞，点不到下层应用内容；上游自己在 `AgentRuntimeService.kt:1007` 注释里承认会吞但未真解决。边缘流光（全屏 `FLAG_NOT_TOUCHABLE`）与 `GestureIndicator` 均清白；`ui_nodes` 走 `rootInActiveWindow`，胶囊不可获焦不进节点树，故仅坐标点按受影响
 - 方案（Four 拍板）：GUI run 期间胶囊 + 结果卡片切 `FLAG_NOT_TOUCHABLE` 纯展示，控制职能移交超级岛；岛 action 按钮渲染已经 Four 真机验证可行（`dispatchGesture` 无目标窗口概念，「点到下层」只能让胶囊穿透实现）
-- 实施要点：
-  - `AgentIslandNotifier` 运行中通知加三个 action：暂停/继续（随暂停态翻转）+ 插入 + 停止——复用现有停止 action 模式（`AgentIslandNotifier.kt:330-343`）
+- 映射测定（2026-10-14，v3.3.0-002，**已出结论**，映射表见 `docs/ISLAND-EXPANSION-INVESTIGATION.md` 第九节）：新增「岛映射诊断测试」`AgentIslandMappingDiagnostics`（设置页入口在岛通知诊断测试下方），T30–T35 变量隔离序列真机跑完——**纯 LiveUpdate 即上岛（T30），三个标准按钮渲染+回调全通（T31），RemoteInput 无输入框映射（T32），BigTextStyle 正常（T33a），ProgressStyle 渲染分段进度条（T33b），chronometer 计时正常（T34）**；T35 对照 Four 未回报差异
+- 实施要点（已按映射结论修正）：
+  - 三键岛**不依赖 miui.focus.param**：纯 LiveUpdate + addAction 即可渲染按钮并回调，实装时可考虑精简私有参数（T35 对照结论补齐后再定）
+  - `AgentIslandNotifier` 运行中通知加三个 action：暂停/继续（随暂停态翻转）+ 插入 + 停止——复用现有停止 action 模式（`AgentIslandNotifier.kt:330-343`）；按钮文案宜 2–3 字（实测长文案全显不截断但排版松散，诊断测试用的 `execution_stop`「停止运行任务」五字偏长）
   - 岛按钮 PendingIntent 须打到 `AgentRuntimeService`（GUI run 会话所在，`requestPause/requestResume/requestSupplement` 现成于 `:768/:776/:784`）；现有岛停止 action 只打 `AgentExecutionService`（App 侧 run），需统一广播或双服务分发
-  - 「插入」键收不了文本，唤起浮层直进 supplement 输入模式（`enterSupplementMode` 现成）
+  - 「插入」键确认走悬浮窗输入 fallback（T32 实锤 RemoteInput 无映射）：唤起浮层直进 supplement 输入模式（`enterSupplementMode` 现成）；**交互链路已经 Four 真机验证通过**（2026-10-14，v3.3.0-003「岛插入悬浮窗测试」：岛「补充」按钮 getService 直发服务唤起浮窗，复用生产 `OverlaySupplementInput` 组件与胶囊窗口参数，提交文本回报正确）
   - run 结束恢复窗口可触摸（结果卡片弹出需要交互，时机衔接）
   - 兜底：即便岛不渲染，通知栏通知的 action 按钮是标准 Android 能力必可用
-- 备忘：属上游设计缺陷，找时机给上游提 issue
+- 备忘：属上游设计缺陷，找时机给上游提 issue；三轮诊断工具（岛通知 T20-T24 / 岛映射 T30-T35 / 岛插入悬浮窗）使命完成，已随 v3.3.0-004 清理，结论全文在 `docs/ISLAND-EXPANSION-INVESTIGATION.md`
 
-## 9. 侧栏设置圆形按钮无点击震动（Four 标：先不修）
+## 9. ~~侧栏设置圆形按钮无点击震动~~（2026-10-14 已修复，待真机确认）
 
-- 现象（2026-10-13 冒烟发现）：侧栏搜索行右侧设置按钮点击大概率无震动。非 merge 回归——`ConversationPanePanel.kt:324` 裸 `Modifier.clickable` 从未挂显式震动（同文件会话行 `:406` 有 `KeyboardTap`），merge 前后逐字节相同
-- 修法（一行）：`onClick` 里补 `performHapticFeedback(HapticFeedbackType.KeyboardTap)` 与会话行对齐
+- 现象（2026-10-13 冒烟发现）：侧栏搜索行右侧设置按钮点击大概率无震动。非 merge 回归——`ConversationPanePanel.kt` 裸 `Modifier.clickable` 从未挂显式震动（同文件会话行有 `KeyboardTap`），merge 前后逐字节相同
+- 已修：`PaneActionBar` 设置按钮 `onClick` 补 `performHapticFeedback(HapticFeedbackType.KeyboardTap)`，与会话行对齐
 
 ## 备注
 

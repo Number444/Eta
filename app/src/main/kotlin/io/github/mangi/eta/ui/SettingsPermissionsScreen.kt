@@ -6,7 +6,6 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccessibilityNew
-import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.VerifiedUser
@@ -19,7 +18,6 @@ import androidx.compose.ui.res.stringResource
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.accessibility.AccessibilityProtectionClient
 import io.github.mangi.eta.agent.accessibility.AgentAccessibilityService
-import io.github.mangi.eta.agent.runtime.AgentIslandDiagnostics
 import io.github.mangi.eta.agent.runtime.AgentIslandNotifier
 import io.github.mangi.eta.ui.components.EtaArrowPreference
 import io.github.mangi.eta.ui.components.EtaPreferenceColors
@@ -212,31 +210,6 @@ internal fun SettingsPermissionsScreen(
                                     .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
                             )
                         }
-                    },
-                )
-
-                // Eta Mod：岛通知诊断测试（临时工具，定位岛自动展开触发源）。
-                EtaPreferenceDivider()
-                EtaArrowPreference(
-                    title = stringResource(R.string.settings_island_test_title),
-                    summary = stringResource(R.string.settings_island_test_summary),
-                    startAction = {
-                        EtaPreferenceIcon(
-                            icon = Icons.Rounded.BugReport,
-                            tint = EtaPreferenceColors.Blue,
-                        )
-                    },
-                    onClick = {
-                        val started = AgentIslandDiagnostics.start(context)
-                        Toast.makeText(
-                            context.applicationContext,
-                            if (started) {
-                                context.getString(R.string.settings_island_test_started)
-                            } else {
-                                context.getString(R.string.settings_island_test_running)
-                            },
-                            Toast.LENGTH_LONG,
-                        ).show()
                     },
                 )
             }
