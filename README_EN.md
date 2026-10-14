@@ -1,189 +1,55 @@
-# Eta
+# Eta Mod
 
 [简体中文](README.md) | **English**
 
-> **Eta Mod (this repo)**: personal mod of [Mangi-11/Eta](https://github.com/Mangi-11/Eta), installs alongside the official app (`io.github.mangi.eta.mod`, "Eta Mod", own signature). Version scheme: `upstream-threeDigitMod` (e.g. `3.2.0-001`). Mod features: toggleable reasoning auto-expansion with manual default effort, zero-thinking compaction requests with a dedicated compaction model, per-provider balance display in the model picker, selectable web search backend (official keyless or Exa), message queueing while the model runs, and Xiaomi HyperOS island task states with a completion banner. See [README.md](README.md) for details.
+A personal mod of [Mangi-11/Eta](https://github.com/Mangi-11/Eta). It **installs alongside** the official app without conflicts (applicationId `io.github.mangi.eta.mod`, app name "Eta Mod", separate signature).
 
-<p><a href="https://github.com/Mangi-11/Eta/releases"><img src="https://img.shields.io/github/downloads/Mangi-11/Eta/total?logo=github&amp;label=Downloads&amp;color=1677FF" alt="Total GitHub Releases downloads"></a> <img src="https://img.shields.io/badge/minSdk-34-3DDC84?logo=android&amp;logoColor=white" alt="minSdk 34"> <img src="https://img.shields.io/badge/Kotlin-2.4.20-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin 2.4.20"> <img src="https://img.shields.io/badge/AGP-9.4.1-3DDC84?logo=android&amp;logoColor=white" alt="AGP 9.4.1"> <img src="https://img.shields.io/badge/Assistant%20Integrations-ColorOS%20%26%20HyperOS-1677FF" alt="Assistant integrations for ColorOS and HyperOS"></p>
+<p><a href="https://github.com/Number444/Eta/releases"><img src="https://img.shields.io/github/downloads/Number444/Eta/total?logo=github&amp;label=Downloads&amp;color=1677FF" alt="GitHub Releases downloads"></a> <img src="https://img.shields.io/badge/minSdk-33-3DDC84?logo=android&amp;logoColor=white" alt="minSdk 33"> <img src="https://img.shields.io/badge/Kotlin-2.4.20-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin 2.4.20"> <img src="https://img.shields.io/badge/AGP-9.4.1-3DDC84?logo=android&amp;logoColor=white" alt="AGP 9.4.1"></p>
 
-**A third-party, system-level AI assistant for Android**
+**[Download APK](https://github.com/Number444/Eta/releases)** · In-app "Settings → Check for updates" tracks this repository's releases.
 
-Eta is an AI agent designed for phones and other mobile devices. It pairs the autonomous task planning and execution familiar from coding agents such as [Codex](https://openai.com/codex/) with the GUI-driven, cross-app interaction demonstrated by [Doubao Phone Assistant](https://o.doubao.com/). It can work with files, run commands, and write code. Integrations with Android and OEM apps also let it call system APIs directly and retrieve information from notifications, calendars, photos, and other local sources.
+**Version scheme**: `upstream version - three-digit mod revision`, e.g. `3.3.0-008`. The left part tracks the upstream release; the right part increments per mod iteration and resets after each upstream merge.
 
-**System-level capabilities:**
+## Mod Features
 
-- **System actions:** call Android APIs directly to set alarms, control media playback, adjust volume, and more.
-- **OEM data:** query sources such as Xiaobu Memory, notes, and recording summaries on supported systems with the required permissions.
-- **System entry points:** use Xposed hooks to route the power button and requests from Breeno (Xiaobu) or Super XiaoAI to Eta.
+All changes relative to the official app:
 
-Eta has its own agent runtime. An agent loop coordinates model requests, tool execution, and feedback, with Skills and MCP available for extensions. **You must supply your own model-provider API key (BYOK)** to use its AI features; you choose the model and provider.
+1. **Super Island run controls** (Xiaomi HyperOS): task status (thinking / responding / tool calls) is mirrored to the island in real time. During GUI runs, pause/resume, supplement and stop buttons render directly on the island, while the floating capsule becomes display-only and no longer swallows the agent's taps on apps underneath. "Supplement" submits through a floating input card (Live Updates have no input-field mapping, verified on-device). During foreground GUI control the island reads "Taking over"; completions expand the island once with a banner notification, while manual stops/failures stay silent. Enable "floating notifications" for the "Task status island" channel in system notification settings.
+2. **Thinking & compaction control**: toggle for auto-expanding thinking streams, manual default thinking depth, a dedicated compaction/summary model, and compaction requests that explicitly strip reasoning parameters per provider protocol.
+3. **Provider balance display**: expandable "balance query" per provider (API URL + JSON path, off by default, with a test button); the balance appears next to the provider name in the model picker, tinted with the theme accent color.
+4. **Exa-only search**: `web_search` keeps Exa only (bring your own API key) — the official key-free search times out on this device and is no longer registered (upstream code retained); the official `fetch_url` tool is unaffected.
+5. **Conversation management**: a red "Delete conversation" entry (with confirmation) in the top-right overflow menu, and "New temporary conversation" — a full-capability session that auto-destructs when you leave or switch away, never touches the database, and shows a banner above the input bar.
+6. **Per-turn timing**: each reply shows its finish time and duration below the action row, e.g. `14:03 · Time: 8.6s`, rendered as "Xm Xs" beyond 60 seconds.
+7. **Message queueing**: queue messages while the model is running; send anytime.
+8. **Share-as-image rewrite**: rebuilt on the new markdown rendering layer — tables and code blocks render correctly, with haptic feedback and success/failure indication on the share button.
 
-Requires **Android 13 or later**. The app works across phone brands, and core features do not require root. Root and LSPosed extend system access and assistant integration where permissions and ROM compatibility allow.
+## Screenshots (Mod)
 
-[Download APK](https://github.com/Mangi-11/Eta/releases) · [Getting started](#getting-started) · [Why I built Eta](#why-i-built-eta)
+| Overflow menu: temporary session / delete (with per-turn timing) | Temporary session (input-area banner) |
+| :--------------------------------------------------------------: | :-----------------------------------: |
+| ![Overflow menu](docs/Screenshots/mod_menu_timing.jpg) | ![Temporary session](docs/Screenshots/mod_temp_conversation.jpg) |
 
-## See it in action
+| Model & chat settings (Mod area) | Settings home |
+| :------------------------------: | :-----------: |
+| ![Model settings](docs/Screenshots/mod_model_settings.png) | ![Settings](docs/Screenshots/mod_settings.png) |
 
-| GUI Agent | Breeno with your own model |
-| :---: | :---: |
-| <img src="docs/Screenshots/demo_gui_agent.gif" width="320" alt="Eta GUI Agent in action"> | <img src="docs/Screenshots/demo_tools.gif" width="320" alt="Starting an Eta task through Breeno"> |
+## Upstream Capabilities
 
-More screenshots: chat, system tools, and settings
+Eta itself is a system-level AI agent for Android: cross-app GUI operation, terminals (Android user/root shell, Alpine / Debian Linux), a built-in browser, file tools, Skills and MCP extensions, personal context retrieval, long-term memory, character cards, and system assistant entries (power button / Breeno / Super XiaoAi takeover via Xposed). AI features require your own model API key (BYOK), with built-in presets for OpenAI, Anthropic, Alibaba Bailian, DeepSeek, Kimi and more, plus custom providers.
 
-| Chat | Commands through Breeno | Direct system API calls |
-| :---: | :---: | :---: |
-| ![Chat](docs/Screenshots/chat_home.jpg) | ![Commands through Breeno](docs/Screenshots/chat_breeno_analysis.jpg) | ![Direct system API calls](docs/Screenshots/chat_device_direct.jpg) |
+See the upstream repository [Mangi-11/Eta](https://github.com/Mangi-11/Eta) and its [README](https://github.com/Mangi-11/Eta/blob/main/README_EN.md) for the full introduction, documentation and design notes.
 
-| Settings | Tools | Skills |
-| :---: | :---: | :---: |
-| ![Settings](docs/Screenshots/settings.jpg) | ![Tools](docs/Screenshots/tools.jpg) | ![Skills](docs/Screenshots/skills.jpg) |
+| GUI Agent | Breeno BYOK (upstream demos) |
+| :-------: | :--------------------------: |
+| <img src="docs/Screenshots/demo_gui_agent.gif" width="320" alt="Eta GUI Agent demo"> | <img src="docs/Screenshots/demo_tools.gif" width="320" alt="Launching Eta tasks from Breeno"> |
 
+## Documentation in This Fork
 
-## Core capabilities
+- [Island-notification investigation](docs/ISLAND-EXPANSION-INVESTIGATION.md): complete mapping results for Xiaomi Super Island / Live Updates (the basis of this mod's island features).
+- [TODO & merge decisions](TODO-MOD.md): roadmap, completed items and upstream merge rulings.
+- Upstream docs: [Agent Runtime](docs/AGENT_RUNTIME.md) · [Technical](docs/TECHNICAL.md) · [Device support & permission boundaries](docs/ROOTLESS_SUPPORT.md) · [HyperOS system entry](docs/HYPEROS_SYSTEM_ENTRY.md) · [Terminal native components](docs/TERMINAL_NATIVE.md)
 
-### Execution tools
+## Credits & License
 
-- **Direct system API calls:** use Android APIs and system intents to set alarms, control media, adjust volume, and read device status without navigating through app screens.
-- **GUI Agent:** combine the accessibility UI tree, element targeting, and screenshots taken as needed to tap, scroll, and type. While it works, a flowing edge light shows the phone is being driven, and a status capsule below the status bar shows the current step; tap it to add instructions, pause, or stop. On Android 16 QPR2 and later, run status also appears in the status bar chip and on the lock screen via Live Updates, which some systems map to Fluid Cloud and similar surfaces.
-- **Built-in browser:** load JavaScript pages in a WebView, extract readable content, interact with the DOM, and capture screenshots. You can open the same browser session to take control.
-- **Terminal and files:** use Android `user`/`root` shells, Alpine or Debian Linux, file operations, and scripts, with support for persistent sessions, asynchronous commands, and daemon tasks.
-
-A task can combine these tools: read web sources and then organize files with a script, or find order details in notifications and open the relevant app to check their status.
-
-### Context and extensions
-
-- **Personal context:** retrieve notifications, app usage, and location on demand. Dedicated searches for photos, calendar events, SMS messages, recordings, health summaries, and chat images require root; some sources also depend on the ROM and installed apps.
-- **Long-term memory:** store context for future conversations in a local `MEMORY.md`. Core memory is included within a context budget, with the rest retrieved as needed. You can edit, clear, or disable it.
-- **Skills:** load task instructions, reference material, and script resources as needed. Install from public GitHub repositories or import a local ZIP. Installation does not run scripts or grant additional permissions.
-- **MCP:** connect remote tools over Streamable HTTP, with optional bearer-token authentication. Enable tools individually to use them alongside local tools.
-
-### Agent runtime
-
-The runtime runs inside Eta. Requests from chat and system assistants use the same agent loop: the model selects tools through tool calling, execution results return to its context, and it decides what to do next. Calls are validated against JSON Schema and permissions are checked before execution. Hooked processes only handle the entry point and return path.
-
-The runtime also manages streaming events, steering, cancellation, and incremental transcripts. Steering messages enter after the current turn completes. Conversations and results are stored locally; after an interruption, Eta attempts to recover existing records without automatically replaying actions. See [Agent Runtime](docs/AGENT_RUNTIME.md) for implementation details.
-
-## A terminal designed for mobile
-
-You can use Eta's terminal yourself or let the agent use it. Each session retains its working directory and environment. The compact view groups input and output by command; the PTY console supports TUIs, keyboard shortcuts, and ANSI rendering. Asynchronous commands and daemon tasks have logs and explicit stop controls.
-
-- **Linux environments:** choose Alpine or Debian. PRoot works without root; rooted devices can also use chroot. The backends have separate installations, with no automatic data migration. PRoot's simulated root identity does not grant Android system privileges.
-- **Development tools:** install Python, Node.js, SSH, APK analysis tools, and Kimi Code as needed.
-- **File management:** import and export files through the private workspace, share accessible Android directories under `/workspace/mounts/` in Linux, and browse Linux files from the app.
-
-Eta itself can read projects, edit code, run commands, and verify results. For longer coding sessions on a phone, [Kimi Code](https://github.com/MoonshotAI/kimi-code)'s **Kimi Web** offers a web UI well suited to mobile. Continue a conversation, inspect code changes, and review execution results in your browser, with a full coding-agent workflow for vibe coding wherever you are.
-
-After installing Linux, Node.js, and Kimi Code in Eta, launch Kimi Web from the home screen or run `kimi` in the terminal. Kimi has its own model configuration and sessions, so it requires a separate sign-in or setup. You can return to a running instance after leaving the page, or stop it from Eta.
-
-## Models and BYOK
-
-Eta's AI features require **your own model-provider API key**. Built-in provider configurations include OpenAI, Anthropic, Alibaba Cloud Model Studio, DeepSeek, Kimi, MiMo, MiniMax, StepFun, SiliconFlow, and OpenRouter. You can also add custom services.
-
-The provider layer supports OpenAI-compatible Chat Completions, the Responses API, and Anthropic Messages, including SSE streaming, tool calling, image input, and reasoning content. Configure custom endpoints, headers, and request bodies; fetch model lists or add models manually; and override context windows and reasoning effort. Available features depend on the model and API. Some Responses providers also support server-side web search.
-
-Automatic compaction needs the model's context window in tokens, set under Settings → Model Providers. Without it, chat still works and manual compaction remains available. Automatic context compaction is enabled by default under Settings → Context & Extensions; changes apply to the next run, and manual compaction remains available when disabled. Automatic compaction uses the provider's reported input usage and this configured window. Eta does not fill in missing windows or estimate request tokens; manual compaction remains available when input usage is absent.
-
-## System assistant entry points
-
-- **Power-button long press:** choose the default OEM assistant, Gemini, or Eta.
-- **Eta system assistant:** open Eta's text conversation panel from the power button, with screen context and follow-up conversations.
-- **Breeno / Super XiaoAI integration:** keep the familiar OEM assistant entry point while routing requests to Eta and your configured model.
-
-Power-button interception requires LSPosed and a supported system.
-
-## Unlocking Gemini and Circle to Search
-
-- **Gemini:** enable system-assistant capabilities, including making the Google app a system app, voice input on the lock screen and while the screen is on, and support for keeping hotword detection working with the screen off.
-- **Circle to Search:** enable the feature and trigger it with a long press on the navigation handle or a two-finger long press on the screen.
-
-These features require LSPosed and a supported system. See [Technical Implementation](docs/TECHNICAL.md) for functionality and compatibility details.
-
-## Permissions and data
-
-System tools, sensitive reads, sensitive actions, terminal and file access, browsing, and memory have separate switches, currently enabled by default. The runtime rechecks permissions before execution. Revoked access or a lost connection does not overwrite your saved settings.
-
-- **Model requests:** task-relevant conversation content, images, and tool results are sent to your configured provider. A local runtime does not imply local inference. Custom HTTP endpoints transmit API keys and request content without transport encryption.
-- **Local records:** raw arguments and results from sensitive tools and MCP tools are excluded from persistent conversation history; model replies are still saved. Once notification access is granted, Eta retains up to 1,000 notifications for seven days. MCP authentication tokens are stored encrypted.
-- **Conversations and backups:** copy or edit messages, delete a conversation from a selected turn onward, and regenerate replies. A single conversation can be exported as Markdown; conversations, model configurations, and memory can also be imported or exported in bulk. Backups contain API keys.
-- **Execution limits:** tasks can be stopped or taken over. Background work remains subject to Android and OEM process management; restart tasks manually after a force-stop or reboot. System and app updates may also require hook adaptations.
-
-## Getting started
-
-1. Download the APK from [Releases](https://github.com/Mangi-11/Eta/releases). After installation, open **Model provider** in Settings, enter your API key, and select a model. Task execution requires tool calling; interpreting images also requires image input support.
-2. Enable the tools and permissions you need. GUI control requires Eta's accessibility service. Notification access and usage access are granted separately; location tools require **Allow all the time**. The tools page shows what is available on your device.
-3. Start a conversation. For Linux, install a distribution, base tools, and any development tools you need under **Linux tool environment**. For assistant integration, see [System assistant entry points](#system-assistant-entry-points).
-
-- **Unrooted devices:** Android 13+ supports chat, browsing, memory, Skills, MCP, the ordinary terminal, and a private workspace. GUI control and personal data access need their respective permissions. Linux is available on supported 64-bit devices.
-- **Rooted devices:** gain access to protected system settings, app management, privileged files, dedicated personal-data searches, root shells, and chroot.
-- **LSPosed with a compatible ROM:** adds OEM assistant integration, system shortcuts, and Google feature enablement. Some features also require root.
-
-Dedicated searches for contacts, SMS messages, and calendar events still require root. See [Device Support](docs/ROOTLESS_SUPPORT.md) for full requirements and validation coverage.
-
-## Why I built Eta
-
-### Starting with assistants I did not enjoy using
-
-I started Eta because I found many phone makers' AI assistants frustrating. Answers were often inaccurate, and anything slightly complicated left me finishing the job myself. My first goal was simple: ask about whatever was on my screen. If I came across an unfamiliar idea, I wanted a model to use that context to search and explain it, without copying text, switching apps, and describing everything again.
-
-That experience depends heavily on the model. Models improve quickly, and I want a phone assistant to keep up. Choosing your own model is therefore a basic part of Eta: keep the system entry point you know, and use the model you prefer for both conversation and action.
-
-### Desktop agents thrive; phone AI keeps hitting walls
-
-Desktop systems offer a full shell environment, mature command-line tools, and a broadly accessible file system. Within the user's permissions, a model can read and write files, install dependencies, run programs, and combine existing tools into new workflows. That room to work is a major reason coding agents have flourished on the desktop.
-
-Android has a shell too, but an ordinary app has much less access to directories, system capabilities, and execution environments. Adding a Linux userspace supplies commands and dependencies; it does not connect the agent to the apps and data elsewhere on the phone. Many services remain locked inside their own apps without an interface an agent can call, and even system assistants struggle to connect them.
-
-This is what frustrates me most about phone AI. After years of model improvements, desktop workflows are changing, while much of the phone experience still consists of chat, summaries, and a few predefined scenarios. Feature lists keep growing, but few products change how I use the device. As soon as a task crosses apps or services, I am often left to finish it myself.
-
-Doubao Phone Assistant showed a different possibility. Built around the Doubao app in partnership with phone manufacturers at the OS level, it interprets screens and performs tasks across apps. It also quickly ran into ecosystem boundaries. In December 2025, some users encountered unexpected WeChat logouts and login restrictions, after which Doubao disabled WeChat automation. Users also reported human-verification challenges in Taobao and banking apps asking them to turn off screen sharing. WeChat said its existing security checks might have been triggered.
-
-That month, Doubao also announced restrictions on reward farming, financial apps, and some gaming scenarios. To me, these events show how little system privileges alone can do to open an app ecosystem. Apps keep accounts, data, services, and transactions within their own platforms; phone makers have their own device and service ecosystems to protect. Agents change who owns the user entry point and directs users to services. Opening interfaces involves technical, security, and commercial decisions.
-
-I understand the constraints phone makers face in their partnerships and ecosystems. They still owe users a useful assistant. Even when cross-app actions are limited, they should at least offer a model that understands requests and answers reliably, or let users connect one of their own.
-
-### Installing an agent on a phone is only the beginning
-
-Put OpenClaw or a desktop coding agent in a phone's Linux environment, and it can keep working with files and scripts. Without access to Android's system capabilities and personal context, OpenClaw's lobster is still trapped in a sandbox. The apps, data, and system entry points on the phone still need to be connected.
-
-I am both an independent developer and an Android tinkerer. I have no preinstallation deals or proprietary ecosystem to protect, so I am willing to take a more aggressive approach to system integration and make more of the phone's existing capabilities available to a model the user chooses.
-
-That is where Eta does the integration work: Xposed hooks for Breeno, Super XiaoAI, and the power button; direct Android API calls; and dedicated access to sources such as Xiaobu Memory, notes, and recording summaries. Shell and Linux provide the computing environment, while GUI control covers apps without callable interfaces. A shared agent runtime connects these pieces, giving the model both context about the phone and tools to act on it.
-
-I do not want AI to do everything. If a few taps are faster than waiting for a model, paying for calls, and watching for mistakes, I would rather tap it myself. I want an agent for tasks that benefit from local context, involve repetitive work across apps, or are inconvenient to do by hand. A useful phone agent needs thoughtful integration with the system, local data, and mobile interaction. A long feature list does not tell me whether a product is good to use.
-
-### My view of AI phones and Agentic OS
-
-> This is a longer-term vision. Some of these capabilities are not implemented in Eta.
-
-GUIs are designed for people. Menus turn a loosely expressed need into a specific action, one step at a time. APIs, CLIs, and MCP give models a more direct interface, reducing the overhead and errors associated with screenshots, element recognition, and changing page layouts. GUI agents fill the gaps where those interfaces are missing.
-
-In the Agentic OS I want to see, the operating system becomes the first place a user expresses a goal. It understands that goal in context, then uses an agent runtime to select models, call tools, and check results. The OS can organize the steps that users currently have to piece together across apps and menus.
-
-Apps still supply specialized features and services, but those capabilities also become resources an agent can invoke. A single task could combine several apps, with results presented by the system and individual interfaces available for inspection or manual control. That shifts control over entry points and service discovery, so it requires participation from the app ecosystem.
-
-Personal context, memory, and task state should follow the user across devices. Plan a trip on your phone, get into the car, and have its navigation continue with the same destination and context. Phones, computers, cars, and glasses could share one personal agent's memory while contributing their own sensing and execution capabilities. Voice, vision, and physical actions would let devices respond at the right moment and extend the agent's reach into the physical world.
-
-Eta starts with the models, context, and tools available on Android today. A fully realized Agentic OS on real phones will take coordinated work from phone makers, Android app developers, model providers, and the hardware ecosystem. The technology needs to mature, interfaces need to open, and commercial interests need to align. That complete picture still feels a long way off.
-
-## Further reading
-
-These implementation notes are currently in Chinese:
-
-- [Device support and permissions](docs/ROOTLESS_SUPPORT.md): unrooted and rooted devices, the file workspace, and background execution.
-- [Technical implementation](docs/TECHNICAL.md): system tools, data retrieval, browser, terminal, and system integration.
-- [Agent Runtime](docs/AGENT_RUNTIME.md): the agent loop, providers, steering, transcripts, and result recovery.
-- [HyperOS system entry points](docs/HYPEROS_SYSTEM_ENTRY.md): power-button and Circle to Search integration, requirements, and validation coverage.
-- [Native terminal components](docs/TERMINAL_NATIVE.md): PTY and PRoot components, and rebuilding the bundled source.
-
-## References and acknowledgements
-
-- [Pi Coding Agent](https://github.com/earendil-works/pi): the main reference for Eta's agent runtime, including the agent loop, tool calling, steering, and transcript state management.
-- [OmniBot](https://github.com/omnimind-ai/OmniBot): a reference project for AI agents on Android.
-- [libxposed API](https://github.com/libxposed/api): the modern Xposed API.
-- [Miuix](https://github.com/compose-miuix-ui/miuix): the UI component library.
-
-## License
-
-Eta uses the [PolyForm Noncommercial License 1.0.0](LICENSE); personal redistribution, sales, paid installation, and other commercial use require prior written permission from the [author](https://github.com/Mangi-11).
-
-<sub>Community: <a href="https://linux.do">LINUX DO</a></sub>
+- Upstream author [Mangi-11](https://github.com/Mangi-11) and all of Eta's reference projects (see the upstream README).
+- This repository follows the upstream [PolyForm Noncommercial License 1.0.0](LICENSE): redistribution, resale, paid installation services and any other commercial use are prohibited without the upstream author's written permission.
