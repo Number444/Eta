@@ -47,7 +47,7 @@ internal object AgentIslandNotifier {
     private const val MIN_UPDATE_INTERVAL_MS = 1_500L
     private const val FINAL_DISMISS_MS = 8_000L
 
-    enum class State { THINKING, OUTPUT, TOOL }
+    enum class State { THINKING, OUTPUT, TOOL, TAKEOVER }
 
     enum class Terminal { COMPLETED, FAILED, STOPPED }
 
@@ -67,6 +67,7 @@ internal object AgentIslandNotifier {
 
     @Volatile private var gateAllowed = false
     @Volatile private var runActive = false
+    @Volatile private var paused = false
     @Volatile private var lastState: State? = null
     @Volatile private var lastPostedAt = 0L
     @Volatile private var lastIconRes = 0
@@ -85,6 +86,7 @@ internal object AgentIslandNotifier {
         if (!gateAllowed) return
         cancelPendingDismiss()
         runActive = true
+        paused = false
         lastState = null
         lastIconRes = iconRes
         lastSubtitle = subtitle
@@ -106,10 +108,19 @@ internal object AgentIslandNotifier {
         lastState = state
     }
 
+    /** Eta Mod：暂停/继续后翻转岛按钮文案，立即重发（绕过节流）。由 AgentRuntimeService 回调。 */
+    fun onPauseChanged(context: Context, isPaused: Boolean) {
+        if (!runActive || !gateAllowed || paused == isPaused) return
+        paused = isPaused
+        val appContext = context.applicationContext
+        post(appContext, RUN_CHANNEL_ID, NOTIFICATION_ID, stateText(appContext, lastState ?: State.THINKING), ongoing = true)
+    }
+
     /** 完成：eta_island 新 id 首发展开；失败/停止：安静频道收尾。终态展示约 8 秒后自动撤销。 */
     fun onRunFinished(context: Context, terminal: Terminal) {
         val wasActive = runActive
         runActive = false
+        paused = false
         if (!wasActive || !gateAllowed) return
         val appContext = context.applicationContext
         val manager = NotificationManagerCompat.from(appContext)
@@ -152,6 +163,7 @@ internal object AgentIslandNotifier {
             State.THINKING -> R.string.island_state_thinking
             State.OUTPUT -> R.string.island_state_output
             State.TOOL -> R.string.island_state_tool
+            State.TAKEOVER -> R.string.island_state_takeover
         },
     )
 
@@ -326,7 +338,37 @@ internal object AgentIslandNotifier {
             if (lastProviderName.isNotBlank()) builder.setSubText(lastProviderName)
             if (!terminal && ongoing && runStartedAtMs > 0L) {
                 builder.setWhen(runStartedAtMs).setUsesChronometer(true)
-                // 展开岛渲染 action 按钮（澎湃对 B 站等媒体卡片已验证渲染），提供一键停止。
+                // Eta Mod：运行控制三键上岛（GUI run 期间胶囊纯展示，控制职能移到岛）。
+                // 展开岛渲染 action 按钮与回调已经映射测定验证（ISLAND-EXPANSION-INVESTIGATION 第九节）。
+                // 暂停/继续与插入打到 AgentRuntimeService（run 会话所在）；停止沿用 AgentExecutionService 租约回收。
+                val togglePauseIntent = PendingIntent.getService(
+                    context,
+                    3,
+                    Intent(context, AgentRuntimeService::class.java)
+                        .setAction(AgentRuntimeService.ACTION_ISLAND_TOGGLE_PAUSE),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                )
+                builder.addAction(
+                    NotificationCompat.Action.Builder(
+                        null,
+                        context.getString(if (paused) R.string.overlay_resume else R.string.overlay_pause),
+                        togglePauseIntent,
+                    ).build(),
+                )
+                val supplementIntent = PendingIntent.getService(
+                    context,
+                    4,
+                    Intent(context, AgentRuntimeService::class.java)
+                        .setAction(AgentRuntimeService.ACTION_ISLAND_SUPPLEMENT),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                )
+                builder.addAction(
+                    NotificationCompat.Action.Builder(
+                        null,
+                        context.getString(R.string.overlay_supplement),
+                        supplementIntent,
+                    ).build(),
+                )
                 val stopIntent = PendingIntent.getService(
                     context,
                     2,
@@ -337,7 +379,7 @@ internal object AgentIslandNotifier {
                 builder.addAction(
                     NotificationCompat.Action.Builder(
                         null,
-                        context.getString(R.string.execution_stop),
+                        context.getString(R.string.action_stop),
                         stopIntent,
                     ).build(),
                 )

@@ -25,6 +25,7 @@ import android.window.OnBackInvokedDispatcher
 import android.window.OnBackInvokedCallback
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.ComposeView
 import androidx.lifecycle.Lifecycle
@@ -114,6 +115,8 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
             }
     }
     private val capsuleExpanded = mutableStateOf(false)
+    /** Eta Mod：岛「插入」键触发计数，胶囊观察它进入补充输入模式（UI 态在胶囊内部）。 */
+    private val islandSupplementRequests = mutableIntStateOf(0)
     private var hasExecutedForegroundTool = false
     /** 结果卡片"回到 Eta"打开的会话；只有 App 内发起的 run 才有，系统助手入口为 null。 */
     private var resultConversationId: String? = null
@@ -138,6 +141,27 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Eta Mod：超级岛运行控制按钮（GUI run 期间胶囊纯展示，控制职能移到岛）。
+        when (intent?.action) {
+            ACTION_ISLAND_TOGGLE_PAUSE -> {
+                val session = activeSession
+                if (session != null && !session.isTerminal) {
+                    if (state.value.phase == AgentOverlayPhase.PAUSED) requestResume() else requestPause()
+                } else {
+                    stopSelf(startId)
+                }
+                return START_NOT_STICKY
+            }
+            ACTION_ISLAND_SUPPLEMENT -> {
+                if (activeSession?.isTerminal == false) {
+                    ensureOverlayVisible()
+                    islandSupplementRequests.intValue += 1
+                } else {
+                    stopSelf(startId)
+                }
+                return START_NOT_STICKY
+            }
+        }
         if (intent?.action != ACTION_KEEP_ALIVE || activeSession == null) {
             stopSelf(startId)
         }
@@ -771,6 +795,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
             phase = AgentOverlayPhase.PAUSED,
             status = AgentOverlayStatus.Paused,
         )
+        AgentIslandNotifier.onPauseChanged(this, true)
     }
 
     private fun requestResume() {
@@ -779,6 +804,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
             phase = AgentOverlayPhase.RUNNING,
             status = AgentOverlayStatus.Continuing,
         )
+        AgentIslandNotifier.onPauseChanged(this, false)
     }
 
     private fun requestSupplement(text: String) {
@@ -862,6 +888,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
             AgentOverlayCapsule(
                 state = state.value,
                 expanded = capsuleExpanded.value,
+                supplementRequestCount = islandSupplementRequests.intValue,
                 onToggleExpanded = ::toggleCapsule,
                 onCollapsedSettled = ::onCapsuleCollapsedSettled,
                 onPause = ::requestPause,
@@ -1006,6 +1033,10 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
      * WRAP_CONTENT 会让每一帧的尺寸变化都触发 WindowManager 重新布局整个窗口，这是卡顿的来源；
      * 但窗口内透明区域同样会吞掉触摸（包括 Agent 自己注入的点击），所以高度只在需要时扩大：
      * 展开前先扩到目标档，收起动画结束后再缩回，见 [setCapsuleWindowHeight]。
+     *
+     * Eta Mod：胶囊只在 GUI run（前台操作事件）期间出现，而它的固定窗口会吞掉 agent 注入的
+     * 坐标点按（上游遗留缺陷），故常驻 FLAG_NOT_TOUCHABLE 纯展示，控制职能移交超级岛；
+     * 仅补充输入时经 [setCapsuleInputMode] 临时恢复可触摸。
      */
     private fun capsuleLayoutParams(): WindowManager.LayoutParams =
         WindowManager.LayoutParams(
@@ -1014,6 +1045,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
             overlayType(),
             WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED or
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
@@ -1121,10 +1153,13 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         val wm = windowManager ?: return
         val capsule = capsuleView ?: return
         val lp = capsuleParams ?: return
+        // 输入态临时恢复可聚焦/可触摸（收键盘、收点击）；退出输入即回归纯展示。
         val nextFlags = if (focusable) {
-            lp.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+            lp.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv() and
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
         } else {
-            lp.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+            lp.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
         }
         if (lp.flags == nextFlags) return
         lp.flags = nextFlags
@@ -1211,8 +1246,11 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         )
     }
 
-    private companion object {
+    companion object {
         const val ACTION_KEEP_ALIVE = "io.github.mangi.eta.mod.agent.runtime.KEEP_ALIVE"
+        // Eta Mod：超级岛运行控制按钮（AgentIslandNotifier 的运行中通知 action 打到这两个动作）。
+        const val ACTION_ISLAND_TOGGLE_PAUSE = "io.github.mangi.eta.mod.agent.runtime.ISLAND_TOGGLE_PAUSE"
+        const val ACTION_ISLAND_SUPPLEMENT = "io.github.mangi.eta.mod.agent.runtime.ISLAND_SUPPLEMENT"
         const val HIDE_DELAY_MS = 2_500L
         const val RESULT_REVIEW_DELAY_MS = 120_000L
         const val RESULT_CARD_HEIGHT_RATIO = 0.5f

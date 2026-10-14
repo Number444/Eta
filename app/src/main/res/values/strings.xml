@@ -31,6 +31,7 @@
   <string name="island_state_thinking">Thinking</string>
   <string name="island_state_output">Output</string>
   <string name="island_state_tool">Tools</string>
+  <string name="island_state_takeover">Driving UI</string>
   <string name="island_state_done">Done</string>
   <string name="island_state_failed">Failed</string>
   <string name="island_state_stopped">Stopped</string>

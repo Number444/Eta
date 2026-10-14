@@ -81,6 +81,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 internal fun AgentOverlayCapsule(
     state: AgentOverlayState,
     expanded: Boolean,
+    supplementRequestCount: Int,
     onToggleExpanded: () -> Unit,
     onCollapsedSettled: () -> Unit,
     onPause: () -> Unit,
@@ -93,6 +94,9 @@ internal fun AgentOverlayCapsule(
     LaunchedEffect(Unit) { visible = true }
     var supplementMode by remember { mutableStateOf(false) }
     var supplementText by remember { mutableStateOf("") }
+    // Eta Mod：本次补充输入是否由岛「插入」键唤起；外部唤起的输入结束后要自动收拢胶囊
+    // （胶囊在 GUI run 期间不可触摸，用户无法自己收起）。
+    var supplementExternal by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val keyboard = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
@@ -110,7 +114,20 @@ internal fun AgentOverlayCapsule(
         scope.launch {
             delay(80)
             setSupplementMode(false)
+            if (supplementExternal) {
+                supplementExternal = false
+                onToggleExpanded()
+            }
             then()
+        }
+    }
+
+    // 岛「插入」键：展开胶囊并直进补充输入模式（窗口可聚焦/可触摸由 onSupplementModeChange 驱动）。
+    LaunchedEffect(supplementRequestCount) {
+        if (supplementRequestCount > 0) {
+            supplementExternal = true
+            if (!expanded) onToggleExpanded()
+            setSupplementMode(true)
         }
     }
 

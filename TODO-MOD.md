@@ -21,7 +21,7 @@
   - 卡片 UI：大字码 + 点击复制 + 收起/关闭；数据持久化（进程重启恢复）
   - 坑位备忘：MIUI 悬浮窗权限与「后台弹出界面」两个开关；Android 12+ overlay 保持 `alpha=1` 否则触摸被拦截；保活靠 FGS
 
-## 8. GUI run 胶囊吞点击 → 运行控制三键移交超级岛（方案已定，待实施）
+## 8. ~~GUI run 胶囊吞点击 → 运行控制三键移交超级岛~~（2026-10-14 v3.3.0-005 已实装，待真机验证）
 
 - 问题（2026-10-13 v3.3.0-001 冒烟发现）：上游 v3.3.0 新运行胶囊窗口**可触摸**（有展开/暂停/停止按钮，窗口固定宽 × 分档高、顶部居中），agent 注入的坐标点按落在胶囊区域即被吞，点不到下层应用内容；上游自己在 `AgentRuntimeService.kt:1007` 注释里承认会吞但未真解决。边缘流光（全屏 `FLAG_NOT_TOUCHABLE`）与 `GestureIndicator` 均清白；`ui_nodes` 走 `rootInActiveWindow`，胶囊不可获焦不进节点树，故仅坐标点按受影响
 - 方案（Four 拍板）：GUI run 期间胶囊 + 结果卡片切 `FLAG_NOT_TOUCHABLE` 纯展示，控制职能移交超级岛；岛 action 按钮渲染已经 Four 真机验证可行（`dispatchGesture` 无目标窗口概念，「点到下层」只能让胶囊穿透实现）
@@ -34,6 +34,7 @@
   - run 结束恢复窗口可触摸（结果卡片弹出需要交互，时机衔接）
   - 兜底：即便岛不渲染，通知栏通知的 action 按钮是标准 Android 能力必可用
 - 备忘：属上游设计缺陷，找时机给上游提 issue；三轮诊断工具（岛通知 T20-T24 / 岛映射 T30-T35 / 岛插入悬浮窗）使命完成，已随 v3.3.0-004 清理，结论全文在 `docs/ISLAND-EXPANSION-INVESTIGATION.md`
+- 实装（2026-10-14，v3.3.0-005）：胶囊窗口常驻 `FLAG_NOT_TOUCHABLE` 纯展示（仅补充输入时经 `setCapsuleInputMode` 临时恢复可触摸）；岛运行通知三键 = 暂停/继续（`onPauseChanged` 翻转文案）+ 补充 + 停止；暂停/补充 getService 直发 `AgentRuntimeService` 新 action（`ACTION_ISLAND_TOGGLE_PAUSE`/`ACTION_ISLAND_SUPPLEMENT`），停止沿用 `AgentExecutionService` 租约回收；岛「补充」经 `islandSupplementRequests` 计数触发胶囊展开直进补充输入，提交/取消后自动收拢并恢复纯展示；GUI 前台工具（`AgentOverlayVisibilityPolicy.isForegroundOperationTool`）岛文案单独显示「接管中」（`State.TAKEOVER`），普通工具仍「工具调用」
 
 ## 9. ~~侧栏设置圆形按钮无点击震动~~（2026-10-14 已修复，待真机确认）
 

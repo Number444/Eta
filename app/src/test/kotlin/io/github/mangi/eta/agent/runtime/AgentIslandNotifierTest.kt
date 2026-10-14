@@ -81,6 +81,7 @@ class AgentIslandNotifierTest {
             R.string.island_state_thinking,
             R.string.island_state_output,
             R.string.island_state_tool,
+            R.string.island_state_takeover,
             R.string.island_state_done,
             R.string.island_state_failed,
             R.string.island_state_stopped,

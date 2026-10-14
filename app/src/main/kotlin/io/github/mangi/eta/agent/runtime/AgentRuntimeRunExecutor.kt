@@ -470,7 +470,15 @@ internal class AgentRuntimeRunExecutor(
                     AgentEvent.AssistantBlockKind.TOOL_CALL -> Unit
                 }
                 is AgentEvent.ToolStarted ->
-                    AgentIslandNotifier.onRunState(appContext, AgentIslandNotifier.State.TOOL)
+                    // GUI 前台工具（点击/滑动/输入等接管屏幕的操作）单独显示「接管中」。
+                    AgentIslandNotifier.onRunState(
+                        appContext,
+                        if (AgentOverlayVisibilityPolicy.isForegroundOperationTool(event.name)) {
+                            AgentIslandNotifier.State.TAKEOVER
+                        } else {
+                            AgentIslandNotifier.State.TOOL
+                        },
+                    )
                 else -> Unit
             }
         }
