@@ -20,7 +20,9 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 @Composable
 internal fun rememberTopBarBackdrop(): LayerBackdrop? {
     if (!LocalBlurEnabled.current || !isRuntimeShaderSupported()) return null
-    val surfaceColor = MiuixTheme.colorScheme.surface
+    // Eta Mod（阶段四）：液态玻璃档浅色下页面底色已灰白化，采样预填色同步，
+    // 否则顶栏往白混合，与页面身体出现色差（发白）。
+    val surfaceColor = etaGlassPageBaseColor(MiuixTheme.colorScheme.surface)
     return rememberLayerBackdrop {
         drawRect(surfaceColor)
         drawContent()
@@ -32,7 +34,8 @@ internal fun TopBarBackdrop(
     backdrop: LayerBackdrop?,
     content: @Composable () -> Unit,
 ) {
-    val surfaceColor = MiuixTheme.colorScheme.surface
+    // 同 rememberTopBarBackdrop：液态玻璃档浅色下跟随灰白底，否则顶栏发白。
+    val surfaceColor = etaGlassPageBaseColor(MiuixTheme.colorScheme.surface)
     Box {
         // 背景层：渐进模糊——顶端实、向下缘淡出，滚入内容柔和消隐。
         // 注意：textureBlur 系 modifier 不能被 graphicsLayer(Offscreen)+DstIn 遮罩包裹，

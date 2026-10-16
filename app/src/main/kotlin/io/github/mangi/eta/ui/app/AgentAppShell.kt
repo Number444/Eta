@@ -109,6 +109,9 @@ fun AgentAppShell(
     val pageContent: @Composable () -> Unit = {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
+            // Eta Mod（阶段四）：浅色液态玻璃档主页身体灰白化——miuix Scaffold 默认
+            // containerColor=surface（不透明白）会盖住下层灰白底，与已灰白化的顶栏割裂。
+            containerColor = etaGlassPageBaseColor(MiuixTheme.colorScheme.surface),
             contentWindowInsets = WindowInsets.safeDrawing.only(
                 WindowInsetsSides.Top + WindowInsetsSides.Horizontal,
             ),
