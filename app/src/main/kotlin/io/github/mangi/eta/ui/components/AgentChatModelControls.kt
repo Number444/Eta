@@ -66,7 +66,6 @@ import top.yukonga.miuix.kmp.basic.TooltipAnchorPosition
 import top.yukonga.miuix.kmp.basic.TooltipBox
 import top.yukonga.miuix.kmp.basic.TooltipDefaults
 import top.yukonga.miuix.kmp.basic.rememberTooltipState
-import top.yukonga.miuix.kmp.overlay.OverlayListPopup
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -125,7 +124,7 @@ internal fun AgentModelPickerButton(
             )
         }
 
-        OverlayListPopup(
+        EtaListPopup(
             show = showPopup && popupAnchorTopPx > 0,
             popupPositionProvider = popupPositionProvider,
             alignment = PopupPositionProvider.Align.TopEnd,

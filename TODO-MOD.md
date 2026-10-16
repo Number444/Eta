@@ -6,6 +6,24 @@
 
 > 已完成归档（2026-10-08 精简）：1. merge 上游 v3.2.0（30 commits，16 冲突手工裁决，出包真机回归通过）；2. 更新检查/关于页链接指向 Number444/Eta（`isNewer` 支持 `-NNN` 修订号）；3. 删官方搜索只留 Exa（官方服务本机超时不可用）；4. 消息操作行按钮放大 1.4 倍；5. 分享成图按新 markdown 层重写（含 `ShareCardRenderTest` 渲染基线）；6. merge 上游 v3.3.0（2026-10-13 完成：21 commits，7 冲突裁决 + `AgentAppState` 四功能块移植；暗礁=双方 `MIGRATION_21_22` 撞车，上游 `model_id` 迁移顺延 22_23、DB 升 v23；48 个单测失败对撞全为 Windows 环境基线零回归，出包真机冒烟通过）。详细过程见 git 历史。
 
+## 12. App 全面 UI 焕新计划：液态玻璃（2026-10-16 Four 拍板启动，进行中）
+
+- **Four 三条定调**：
+  1. Window 系弹层（WindowDialog/WindowListPopup/WindowDropdownPopup，独立 Window 采不到样）统一做**只带高光的半透明假玻璃**
+  2. 其余部分全部做**真玻璃**——后续可能上自定义图片背景，采样能力必须现在就位，不留欠账
+  3. 为稳定性先优化架构，再谈样式
+- **开发顺序（Four 指令）**：主页 → 侧边栏 → 设置页，逐步来
+- **第一步：三项架构调整（计划模式执行，2026-10-16 已实施，Four 真机验收通过）**：
+  1. ~~玻璃材质 Token 层~~：`ui/components/EtaGlassTokens.kt`（`EtaGlassStyle` + 5 预设 FloatingButton/InputBar/Popup/DialogCard/ListRow + `etaGlass` 真玻璃 / `etaPseudoGlass` 假玻璃两工厂）；`LiquidGlass.kt` 两 modifier 改为预设薄封装，参数原样像素级不变
+  2. ~~主页弹窗收口~~：新建 `EtaPopups.kt` 的 `EtaListPopup`（默认 overlay 真玻璃能力，`useWindow=true` 走 Window 变体）；迁移 6 处：顶栏溢出/附件菜单/思考强度/模型选择（overlay）+ 侧栏长按菜单（useWindow，面板在 Scaffold 外无 overlay 宿主）+ 路径输入弹窗（→EtaOverlayDialog，**底色对齐 surfaceContainer 有微色差 + IME 需真机盯**）；**根级 5 弹窗（AgentAppRoot 角色通知/重命名/删除会话/删除消息/重新生成）在 NavDisplay 之外无 overlay 宿主（miuix LocalDialogStates 默认空列表会静默不渲染），保持 WindowDialog 不动**，阶段二套假玻璃时再收口
+  3. ~~多采样源模式~~：侧边栏面板自建 backdrop（`ConversationPanePanel`，baseColor=面板容器色，源=会话 LazyColumn）；设置骨架两处（`MiuixScaffoldPage`/`MiuixScaffold`，源=内容列表，与 miuix captureForTopBar 同节点叠加——主页已验证双录制可共存，真机回归盯顶栏模糊）；模式文档 `docs/UI-GLASS-ARCHITECTURE.md`（含嵌套禁令、真假玻璃决策矩阵、根 surface 背景锚点）
+- **调研关键结论存档（2026-10-16，三子代理全量摸排）**：
+  - 主页弹层清单：顶栏溢出菜单（`AgentAppShell.kt:290`）、附件菜单（`AgentChatFileAttachments.kt:122`）、路径输入（`:165` 原生 WindowDialog）、思考强度（`AgentChatInputBar.kt:572`）、模型选择 OverlayListPopup（`AgentChatModelControls.kt:128`，最复杂）、上下文 TooltipBox（`:319`）、侧栏会话操作（`ConversationPanePanel.kt:455`）、重命名/删除会话/删除消息/重新生成 4 个 WindowDialog（`AgentAppRoot.kt:797/826/846/874`）
+  - 侧边栏：推移式非覆盖（`ConversationSidePaneScaffold.kt:215`），自身背景不透明实色，不在采样层内；搜索框 `ConversationPanePanel.kt:288`、设置圆钮 `:320`、选中行实色 `:401`
+  - 设置页：16 设置页 + 5 供应商页全屏不透明路由；返回钮统一 `MiuixBackButton`（真实使用点仅 3 处）；卡片背景全 app 仅 2 个定义点（`EtaCard` 默认色 + `EtaPreferenceGroupItem.kt:28,34`）；弹窗收口 3 点（`EtaWindowDialog` 22 处调用 / `EtaOverlayDialog` 6 处 / `EtaDropdownPreference` 18 处，改 3 个函数覆盖 46 个弹窗点）
+  - 风险点：含 IME 的弹窗（重命名、API key、路径输入）从 Window 迁 overlay 需重点测键盘行为；设置页长列表逐卡 drawBackdrop 有滚动掉帧风险，列表项宜用简化材质，玻璃重头戏留给弹窗与固定控件；性能降级挂现有三档模糊设置（无/默认/液态玻璃）
+- **后续阶段（待第一步完成后细化）**：主页弹窗真玻璃化（overlay 化后立即可采样消息层，收益最大）→ 侧边栏（搜索框/设置钮/选中行/长按弹窗，伪玻璃为主 + 面板独立采样源）→ 设置页（返回钮 1 处、卡片 2 处、弹窗 3 处收口）
+
 ## 7.【暂不考虑实现】分享图片进 Eta → 模型识别 → 自主生成「岛」卡片（取餐码/取件码等）
 
 - [ ] 调研结论（2026-10-08，两条子线调研完成）：

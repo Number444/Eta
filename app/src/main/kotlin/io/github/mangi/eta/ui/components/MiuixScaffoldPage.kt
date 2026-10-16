@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Dp
@@ -41,7 +42,12 @@ fun MiuixScaffoldPage(
         val scrollBehavior = MiuixScrollBehavior()
         val backdrop = rememberTopBarBackdrop()
         val topBarColor = topBarContainerColor(backdrop)
+        // Eta Mod：设置骨架级玻璃采样源（焕新架构改动三）——31 个二级页一处注入，
+        // 采样内容=滚动列表，消费者（顶栏控件等固定元素）在列表之外，不触嵌套禁令。
+        // 本步仅建源，无消费者，视觉零变化。
+        val glassBackdrop = rememberLiquidGlassBackdrop()
 
+        CompositionLocalProvider(LocalLiquidGlassBackdrop provides glassBackdrop) {
         Scaffold(
             modifier = modifier.fillMaxSize(),
             topBar = {
@@ -64,6 +70,7 @@ fun MiuixScaffoldPage(
                         .fillMaxSize()
                         .horizontalCutoutPadding()
                         .captureForTopBar(backdrop)
+                        .liquidGlassSource(glassBackdrop)
                         .scrollEndHaptic()
                         .overScrollVertical()
                         .nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -79,6 +86,7 @@ fun MiuixScaffoldPage(
                     }
                 }
             }
+        }
         }
     }
 }
@@ -103,7 +111,10 @@ fun MiuixScaffold(
         val scrollBehavior = MiuixScrollBehavior()
         val backdrop = rememberTopBarBackdrop()
         val topBarColor = topBarContainerColor(backdrop)
+        // Eta Mod：设置骨架级玻璃采样源（焕新架构改动三），同 MiuixScaffoldPage。
+        val glassBackdrop = rememberLiquidGlassBackdrop()
 
+        CompositionLocalProvider(LocalLiquidGlassBackdrop provides glassBackdrop) {
         Scaffold(
             modifier = modifier.fillMaxSize(),
             topBar = {
@@ -118,11 +129,17 @@ fun MiuixScaffold(
                 }
             },
         ) { paddingValues ->
-            Box(modifier = Modifier.fillMaxSize().captureForTopBar(backdrop)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .captureForTopBar(backdrop)
+                    .liquidGlassSource(glassBackdrop),
+            ) {
                 WidePageContent { sidePadding ->
                     content(paddingValues, scrollBehavior, sidePadding)
                 }
             }
+        }
         }
     }
 }

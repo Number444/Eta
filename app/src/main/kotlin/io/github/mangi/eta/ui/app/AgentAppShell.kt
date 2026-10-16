@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.components.AdaptiveTopAppBar
 import io.github.mangi.eta.ui.components.ConversationSidePaneScaffold
+import io.github.mangi.eta.ui.components.EtaListPopup
 import io.github.mangi.eta.ui.components.LocalLiquidGlassBackdrop
 import io.github.mangi.eta.ui.components.MiuixBackButton
 import io.github.mangi.eta.ui.components.TopBarBackdrop
@@ -56,7 +57,6 @@ import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowListPopup
 
 /**
  * Agent App 统一壳层。
@@ -97,7 +97,10 @@ fun AgentAppShell(
     val scrollBehavior = MiuixScrollBehavior()
     val backdrop = rememberTopBarBackdrop()
     val topBarColor = topBarContainerColor(backdrop)
-    // Eta Mod：液态玻璃 backdrop（仅首页消息区录制，顶栏按钮与输入栏采样）
+    // Eta Mod：液态玻璃 backdrop——主页 surface 的采样源（焕新「每 surface 一个 backdrop
+    // 提供者」模式的 HomeSurface 实例；侧边栏/设置骨架另有自建源，见 UI-GLASS-ARCHITECTURE.md）。
+    // 未来自定义图片背景落地时，在 AgentAppRoot 层增设根 surface backdrop 录制背景层，
+    // 各 surface 玻璃直接采样（架构锚点，当前未实现）。
     val glassBackdrop = rememberLiquidGlassBackdrop()
     val pageContent: @Composable () -> Unit = {
         Scaffold(
@@ -254,7 +257,7 @@ private class TopBarMenuEntry(
 )
 
 /**
- * 首页顶栏溢出菜单。WindowListPopup 以父布局为锚点，因此与触发按钮包在同一个 Box 中，
+ * 首页顶栏溢出菜单。EtaListPopup 以父布局为锚点，因此与触发按钮包在同一个 Box 中，
  * 弹层从按钮下方右对齐展开。菜单项数据驱动，条件项（停止 Kimi Web、删除会话）不进列表即不渲染。
  */
 @Composable
@@ -287,7 +290,7 @@ private fun TopBarOverflowMenu(
                 contentDescription = stringResource(R.string.action_more),
             )
         }
-        WindowListPopup(
+        EtaListPopup(
             show = showMenu,
             alignment = PopupPositionProvider.Align.End,
             onDismissRequest = { showMenu = false },

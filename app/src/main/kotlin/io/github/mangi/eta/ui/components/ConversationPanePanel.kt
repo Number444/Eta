@@ -45,6 +45,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -80,7 +81,6 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
-import top.yukonga.miuix.kmp.window.WindowListPopup
 
 private object ConversationPanelMetrics {
     val PaneHorizontalPadding = 16.dp
@@ -145,6 +145,11 @@ internal fun ConversationPanePanel(
     val olderGroups = remember(olderConversations) { olderConversations.groupForDrawer() }
     var showOlderConversations by rememberSaveable { mutableStateOf(false) }
 
+    // Eta Mod：侧边栏面板级玻璃采样源（焕新架构改动三）——面板是主页 Scaffold 的兄弟槽位，
+    // 自带 backdrop 并通过 CompositionLocal 遮蔽主页的，面板内消费者只采面板内容。
+    // 本步仅建源，无消费者，视觉零变化。
+    val paneGlassBackdrop = rememberLiquidGlassBackdrop(baseColor = conversationPaneContainerColor())
+
     Surface(
         modifier = modifier
             .width(width)
@@ -152,6 +157,7 @@ internal fun ConversationPanePanel(
         color = conversationPaneContainerColor(),
         contentColor = MiuixTheme.colorScheme.onSurface,
     ) {
+        CompositionLocalProvider(LocalLiquidGlassBackdrop provides paneGlassBackdrop) {
         // 搜索与工具条占据独立布局空间，列表只在中间视口内滚动和回弹。
         Column(modifier = Modifier.fillMaxSize()) {
             PaneFixedRegion {
@@ -177,6 +183,7 @@ internal fun ConversationPanePanel(
                     .fillMaxWidth()
                     .weight(1f)
                     .clipToBounds()
+                    .liquidGlassSource(paneGlassBackdrop)
                     .windowInsetsPadding(
                         WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal),
                     )
@@ -252,6 +259,7 @@ internal fun ConversationPanePanel(
                         .height(ConversationPanelMetrics.BottomInset),
                 )
             }
+        }
         }
     }
 }
@@ -452,10 +460,12 @@ private fun ConversationTextRow(
             }
         }
 
-        WindowListPopup(
+        // Eta Mod：面板在 Scaffold 之外（无 overlay 宿主），弹层必须走 Window 变体。
+        EtaListPopup(
             show = showActionMenu,
             popupPositionProvider = ListPopupDefaults.ContextMenuPositionProvider,
             alignment = PopupPositionProvider.Align.BottomEnd,
+            useWindow = true,
             onDismissRequest = { showActionMenu = false },
         ) {
             val renameText = stringResource(R.string.action_rename)

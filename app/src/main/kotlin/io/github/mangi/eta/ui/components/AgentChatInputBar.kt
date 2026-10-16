@@ -92,7 +92,6 @@ import top.yukonga.miuix.kmp.squircle.squircleBorder
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.LocalDismissState
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowListPopup
 
 private val SendButtonVisualSize = ChatInputActionIconSize
 // Eta Mod：输入栏内控件的玻璃圆为触控区的 3/4，垫在控件底下，不动控件本身
@@ -569,7 +568,7 @@ private fun ThinkingEffortChip(
                 tint = contentColor,
             )
         }
-        WindowListPopup(
+        EtaListPopup(
             show = showPopup && menuEnabled && popupAnchorTopPx > 0,
             popupPositionProvider = popupPositionProvider,
             alignment = PopupPositionProvider.Align.TopStart,

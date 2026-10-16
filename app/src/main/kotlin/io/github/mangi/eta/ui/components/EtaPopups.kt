@@ -1,0 +1,65 @@
+package io.github.mangi.eta.ui.components
+
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
+import top.yukonga.miuix.kmp.basic.ListPopupDefaults
+import top.yukonga.miuix.kmp.basic.PopupPositionProvider
+import top.yukonga.miuix.kmp.overlay.OverlayListPopup
+import top.yukonga.miuix.kmp.window.WindowListPopup
+
+/**
+ * Eta Mod：列表弹层统一收口（UI 焕新架构改动二）。
+ *
+ * 全 app 的 ListPopup 只允许走这里，材质切换（真玻璃/假玻璃）单点生效，
+ * 参数面与 miuix 严格对齐（drop-in，控制 merge 冲突裁决成本）。
+ *
+ * - 默认 overlay 实现：在应用渲染树内，可采样同 surface 的液态玻璃 backdrop（真玻璃）。
+ *   前提：调用点上方必须有 miuix Scaffold 提供 overlay 宿主，否则弹层静默不渲染。
+ * - [useWindow] = true 走独立 Window：无 Scaffold 宿主的区域（侧边栏面板等）使用；
+ *   Window 采不到应用内 backdrop，材质只能是假玻璃（etaPseudoGlass）。
+ *
+ * 本步（架构期）两种实现均为 miuix 原生外观，玻璃材质在焕新阶段二注入。
+ */
+@Composable
+internal fun EtaListPopup(
+    show: Boolean,
+    popupModifier: Modifier = Modifier,
+    popupPositionProvider: PopupPositionProvider = ListPopupDefaults.DropdownPositionProvider,
+    alignment: PopupPositionProvider.Align = PopupPositionProvider.Align.Start,
+    enableWindowDim: Boolean = true,
+    useWindow: Boolean = false,
+    onDismissRequest: (() -> Unit)? = null,
+    onDismissFinished: (() -> Unit)? = null,
+    maxHeight: Dp? = null,
+    minWidth: Dp = ListPopupDefaults.MinWidth,
+    content: @Composable () -> Unit,
+) {
+    if (useWindow) {
+        WindowListPopup(
+            show = show,
+            popupModifier = popupModifier,
+            popupPositionProvider = popupPositionProvider,
+            alignment = alignment,
+            enableWindowDim = enableWindowDim,
+            onDismissRequest = onDismissRequest,
+            onDismissFinished = onDismissFinished,
+            maxHeight = maxHeight,
+            minWidth = minWidth,
+            content = content,
+        )
+    } else {
+        OverlayListPopup(
+            show = show,
+            popupModifier = popupModifier,
+            popupPositionProvider = popupPositionProvider,
+            alignment = alignment,
+            enableWindowDim = enableWindowDim,
+            onDismissRequest = onDismissRequest,
+            onDismissFinished = onDismissFinished,
+            maxHeight = maxHeight,
+            minWidth = minWidth,
+            content = content,
+        )
+    }
+}
