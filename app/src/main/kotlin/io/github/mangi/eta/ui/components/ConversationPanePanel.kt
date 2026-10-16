@@ -671,6 +671,9 @@ private fun OlderConversationsCapsule(
     onClick: () -> Unit,
 ) {
     val hapticFeedback = LocalHapticFeedback.current
+    // Eta Mod：液态玻璃档对齐搜索框/设置钮的假玻璃芯片观感（列表在录制层内，禁真玻璃）；
+    // 关闭时保持原实色胶囊。
+    val liquidGlass = LocalLiquidGlassEnabled.current
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -684,7 +687,13 @@ private fun OlderConversationsCapsule(
             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             modifier = Modifier
                 .clip(CircleShape)
-                .background(MiuixTheme.colorScheme.surfaceContainerHighest)
+                .then(
+                    if (liquidGlass) {
+                        Modifier.etaPseudoGlass(EtaGlassStyles.FloatingButton)
+                    } else {
+                        Modifier.background(MiuixTheme.colorScheme.surfaceContainerHighest)
+                    },
+                )
                 .clickable {
                     hapticFeedback.performHapticFeedback(HapticFeedbackType.KeyboardTap)
                     onClick()
