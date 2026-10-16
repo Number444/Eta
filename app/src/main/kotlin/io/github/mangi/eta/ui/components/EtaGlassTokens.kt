@@ -31,6 +31,9 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  * - overlay 系弹层、主页固定控件 → 真玻璃（[etaGlass]，需同 surface 的 backdrop）；
  * - Window 系弹层（独立 Window 采不到样）→ 假玻璃（[etaPseudoGlass]，半透明+高光描边）；
  * - 长列表项 → [EtaGlassStyles.ListRow] 弱化材质防滚动掉帧。
+ *
+ * 硬约束：Kyant lens 效果只支持 CornerBasedShape/RoundedRectangularShape，
+ * 通用 Shape（如 squircle 路径）会抛 UnsupportedOperationException（v3.3.0-010 弹层闪退事故）。
  */
 internal data class EtaGlassStyle(
     val shape: Shape,

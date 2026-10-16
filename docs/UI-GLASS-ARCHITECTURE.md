@@ -18,6 +18,7 @@
 - 预设：`FloatingButton`（圆钮）、`InputBar`（圆角条）、`Popup`（弹层，对齐 miuix 16dp）、`DialogCard`（弹窗 32dp）、`ListRow`（弱化材质，长列表防掉帧）。
 - `Modifier.etaGlass(style, backdrop, tint)`：真玻璃，backdrop 为 null 时 no-op。
 - `Modifier.etaPseudoGlass(style)`：假玻璃（半透明底 + 顶部高光渐变描边），纯 Compose，独立 Window 可用；仅液态玻璃档启用。
+- 硬约束：Kyant lens 只支持 `CornerBasedShape`/`RoundedRectangularShape`，通用 Shape 抛 `UnsupportedOperationException`（010 弹层闪退事故）——玻璃轮廓只能用圆角/圆形。
 - `LiquidGlass.kt` 的 `liquidGlassCircle`/`liquidGlassRounded` 是预设的薄封装，现存 9 块首页玻璃控件走这里。
 
 ## 多采样源 Surface 模式
@@ -64,7 +65,7 @@
 ## 阶段路线图
 
 1. ~~架构期（本次）：Token 层 + 弹层收口 + 多采样源，零视觉变化。~~
-2. 主页：overlay 弹层注入真玻璃材质（Popup 预设；miuix `ListPopupContent` 的 `surfaceContainer` 硬底需用 MiuixTheme 局部覆写成透明或 fork 薄层解决）。
+2. ~~主页（2026-10-17，v3.3.0-010）：overlay 弹层真玻璃注入。~~ 最终方案 = **内容侧注入**（`EtaGlassPopupContainer` 包住弹层内容，恰好覆盖弹层可视区，盖在容器实色底上），未走 MiuixTheme 覆写——`MiuixPopupHost` 在宿主上下文调起 content，调用点 CompositionLocal 覆写传不进容器层，容器背景无法经主题改透明。轮廓用 16dp 圆角（曾尝试 squircle 对齐容器 clip，但 Kyant lens 只支持 CornerBasedShape，通用 Shape 闪退，已回退；squircle 与圆角在 16dp 下差异亚像素级）。已知结构事实：容器实色底残留在玻璃下方（被完全遮住）；dim 遮罩不在录制层内，玻璃观感比周围略鲜亮（调整手段：Popup tintAlpha）。
 3. 侧边栏：搜索框/设置钮/选中行/长按弹窗套材质（面板内 = 面板 backdrop 真玻璃或假玻璃，按效果定）。
 4. 设置页：返回钮真玻璃（1 处组件）、卡片假玻璃（2 个定义点）、弹窗假玻璃（3 个收口点）。
 5. 自定义图片背景：根 surface backdrop + 各页面背景透明化。

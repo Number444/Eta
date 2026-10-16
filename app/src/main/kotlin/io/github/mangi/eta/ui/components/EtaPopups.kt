@@ -1,11 +1,15 @@
 package io.github.mangi.eta.ui.components
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import top.yukonga.miuix.kmp.basic.ListPopupDefaults
 import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.overlay.OverlayListPopup
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.window.WindowListPopup
 
 /**
@@ -20,6 +24,8 @@ import top.yukonga.miuix.kmp.window.WindowListPopup
  *   Window 采不到应用内 backdrop，材质只能是假玻璃（etaPseudoGlass）。
  *
  * 本步（架构期）两种实现均为 miuix 原生外观，玻璃材质在焕新阶段二注入。
+ * 阶段二已落地：overlay 分支内容外包 [EtaGlassPopupContainer]（真玻璃，
+ * backdrop 为 null 时自动回退原生外观）；Window 分支假玻璃归阶段三。
  */
 @Composable
 internal fun EtaListPopup(
@@ -59,7 +65,46 @@ internal fun EtaListPopup(
             onDismissFinished = onDismissFinished,
             maxHeight = maxHeight,
             minWidth = minWidth,
-            content = content,
-        )
+        ) {
+            EtaGlassPopupContainer { content() }
+        }
+    }
+}
+
+/**
+ * overlay 弹层内容的真玻璃注入容器。
+ *
+ * 弹层尺寸由内容决定（ListPopupColumn 自适应），此 Box 恰好覆盖整个弹层可视区，
+ * 盖在 miuix 容器的实色底之上。轮廓固定 16dp 圆角——Kyant lens 效果只支持
+ * CornerBasedShape/RoundedRectangularShape（通用 Shape 会抛 UnsupportedOperationException，
+ * v3.3.0-010 曾因此闪退），无法用 squircle 与容器 clip 路径逐像素对齐；
+ * squircle 与圆角在 16dp 下的差异为亚像素级，真机观察。
+ *
+ * 注意 miuix 弹层条目（DropdownImpl）默认给每项画不透明 surfaceContainer 底，
+ * 会从内侧盖住玻璃只剩高光（010 第二包事故）；此处经 MiuixTheme 局部覆写把
+ * surfaceContainer 改为透明（条目选中底色原本就等于容器底色，无视觉损失）。
+ *
+ * backdrop 为 null（非液态玻璃档/设备不支持）时不包任何修饰，弹层保持原生外观。
+ */
+@Composable
+private fun EtaGlassPopupContainer(content: @Composable () -> Unit) {
+    val backdrop = LocalLiquidGlassBackdrop.current
+    if (backdrop == null) {
+        content()
+        return
+    }
+    val style = EtaGlassStyles.Popup
+    val colors = MiuixTheme.colorScheme
+    val glassColors = remember(colors) { colors.copy(surfaceContainer = Color.Transparent) }
+    MiuixTheme(colors = glassColors) {
+        Box(
+            Modifier.etaGlass(
+                style = style,
+                backdrop = backdrop,
+                tint = glassColors.surface.copy(alpha = style.tintAlpha),
+            ),
+        ) {
+            content()
+        }
     }
 }

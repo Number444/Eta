@@ -23,6 +23,7 @@
   - 设置页：16 设置页 + 5 供应商页全屏不透明路由；返回钮统一 `MiuixBackButton`（真实使用点仅 3 处）；卡片背景全 app 仅 2 个定义点（`EtaCard` 默认色 + `EtaPreferenceGroupItem.kt:28,34`）；弹窗收口 3 点（`EtaWindowDialog` 22 处调用 / `EtaOverlayDialog` 6 处 / `EtaDropdownPreference` 18 处，改 3 个函数覆盖 46 个弹窗点）
   - 风险点：含 IME 的弹窗（重命名、API key、路径输入）从 Window 迁 overlay 需重点测键盘行为；设置页长列表逐卡 drawBackdrop 有滚动掉帧风险，列表项宜用简化材质，玻璃重头戏留给弹窗与固定控件；性能降级挂现有三档模糊设置（无/默认/液态玻璃）
 - **后续阶段（待第一步完成后细化）**：主页弹窗真玻璃化（overlay 化后立即可采样消息层，收益最大）→ 侧边栏（搜索框/设置钮/选中行/长按弹窗，伪玻璃为主 + 面板独立采样源）→ 设置页（返回钮 1 处、卡片 2 处、弹窗 3 处收口）
+- **第二步：主页弹层真玻璃（2026-10-17 v3.3.0-010 已实施，Four 真机验收通过）**：`EtaListPopup` overlay 分支内容侧注入 `EtaGlassPopupContainer`（盖在 miuix 容器实色底上，恰好覆盖弹层可视区；backdrop 为 null 时零修饰回退原生外观）；轮廓 16dp 圆角——曾上 `EtaSquircleShape` 对齐容器 squircle clip，但 Kyant lens 只支持 CornerBasedShape/RoundedRectangularShape，通用 Shape 抛 UnsupportedOperationException 致全弹层闪退（010 首包事故，已回退删除）；squircle 与圆角 16dp 下差异亚像素级，真机观察。自动命中主页 4 处（顶栏更多/附件+/思考强度/模型列表）；侧栏 window 分支与「输入路径」弹窗不动（后者归设置页阶段随 `EtaOverlayDialog` 统一收口）。已排除方案：MiuixTheme 局部覆写容器背景（`MiuixPopupHost` 在宿主上下文调起 content，调用点 CompositionLocal 覆写传不进容器层）。观察点：玻璃比 dim 后的周围略鲜亮（采样层不含 dim），必要时调 Popup tintAlpha。调用点零改动，merge 冲突面零新增
 
 ## 7.【暂不考虑实现】分享图片进 Eta → 模型识别 → 自主生成「岛」卡片（取餐码/取件码等）
 
