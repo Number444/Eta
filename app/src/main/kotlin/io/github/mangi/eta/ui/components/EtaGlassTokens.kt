@@ -135,3 +135,19 @@ internal fun Modifier.etaPseudoGlass(style: EtaGlassStyle): Modifier = composed 
         .background(backgroundColor, style.shape)
         .border(0.5.dp, borderBrush, style.shape)
 }
+
+/**
+ * 只加假玻璃高光描边：组件底色经自身参数（如 RichTooltip 的 containerColor）改成半透明时，
+ * 用它补顶部亮边缘渐变，与 [etaPseudoGlass] 观感一致。仅液态玻璃档启用。
+ */
+internal fun Modifier.etaPseudoGlassBorder(style: EtaGlassStyle): Modifier = composed {
+    if (!LocalLiquidGlassEnabled.current) return@composed this
+    val dark = isSystemInDarkTheme()
+    val highlightColor = Color.White.copy(
+        alpha = if (dark) style.pseudoBorderAlpha else style.pseudoBorderAlpha * 2f,
+    )
+    val borderBrush = Brush.verticalGradient(
+        colors = listOf(highlightColor, highlightColor.copy(alpha = 0f)),
+    )
+    this.border(0.5.dp, borderBrush, style.shape)
+}
