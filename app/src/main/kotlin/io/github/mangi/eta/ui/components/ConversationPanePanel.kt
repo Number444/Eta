@@ -65,6 +65,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.app.LocalLiquidGlassEnabled
 import io.github.mangi.eta.ui.model.ConversationPaneUiState
 import io.github.mangi.eta.ui.model.ConversationSummaryUi
 import top.yukonga.miuix.kmp.basic.DropdownDefaults
@@ -107,12 +108,18 @@ private object ConversationPanelMetrics {
  * 侧栏与外层推移容器共用的背景色。
  *
  * 深色下聊天区保持 surface（纯黑/近黑），侧栏沿用同一颜色会在展开后与聊天区融为一体；
- * 抬高一档到 surfaceContainer，保证两侧始终可分。浅色维持 surface，避免改变现有观感。
+ * 抬高一档到 surfaceContainer，保证两侧始终可分。
+ * 浅色 + 液态玻璃档换成灰白底（etaGlassPageBaseColor，Four 2026-10-17）：
+ * 纯白底下假玻璃的白色高光不可见；非液态玻璃档维持 surface，不改变现有观感。
  */
 @Composable
 internal fun conversationPaneContainerColor(): Color {
     val colors = MiuixTheme.colorScheme
-    return if (colors.background.luminance() > 0.5f) colors.surface else colors.surfaceContainer
+    return if (colors.background.luminance() > 0.5f) {
+        etaGlassPageBaseColor(colors.surface)
+    } else {
+        colors.surfaceContainer
+    }
 }
 
 @Composable
@@ -289,6 +296,9 @@ private fun PaneActionBar(
     val settingsButtonSize = with(density) {
         if (searchHeightPx > 0) searchHeightPx.toDp() else 44.dp
     }
+    // Eta Mod（焕新阶段三）：液态玻璃档下搜索框/设置钮套假玻璃芯片
+    // （固定区背后无滚动内容可采样，不做真玻璃，Four 已拍板）。
+    val liquidGlass = LocalLiquidGlassEnabled.current
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -310,8 +320,21 @@ private fun PaneActionBar(
                     label = stringResource(R.string.conversation_search_hint),
                     // 深色下侧栏已抬高到 surfaceContainer，搜索框需再高一档才能显出轮廓；
                     // 浅色的 surfaceContainerHigh 与 surfaceContainerHighest 相同，观感不变。
-                    color = MiuixTheme.colorScheme.surfaceContainerHighest,
-                    modifier = Modifier.onFocusChanged { searchFocused = it.isFocused },
+                    // 液态玻璃档改透明，底色由假玻璃提供（InputField 为 CircleShape 胶囊）。
+                    color = if (liquidGlass) {
+                        Color.Transparent
+                    } else {
+                        MiuixTheme.colorScheme.surfaceContainerHighest
+                    },
+                    modifier = Modifier
+                        .then(
+                            if (liquidGlass) {
+                                Modifier.etaPseudoGlass(EtaGlassStyles.InputBar.copy(shape = CircleShape))
+                            } else {
+                                Modifier
+                            },
+                        )
+                        .onFocusChanged { searchFocused = it.isFocused },
                 )
             },
             content = {},
@@ -329,7 +352,13 @@ private fun PaneActionBar(
                     modifier = Modifier
                         .size(settingsButtonSize)
                         .clip(CircleShape)
-                        .background(MiuixTheme.colorScheme.surfaceContainerHighest)
+                        .then(
+                            if (liquidGlass) {
+                                Modifier.etaPseudoGlass(EtaGlassStyles.FloatingButton)
+                            } else {
+                                Modifier.background(MiuixTheme.colorScheme.surfaceContainerHighest)
+                            },
+                        )
                         .clickable(
                             onClickLabel = stringResource(R.string.route_settings),
                             onClick = {
@@ -399,6 +428,10 @@ private fun ConversationTextRow(
 ) {
     var showActionMenu by remember { mutableStateOf(false) }
     val hapticFeedback = LocalHapticFeedback.current
+    // Eta Mod（焕新阶段三）：液态玻璃档下选中行套假玻璃，深浅色均与搜索框/设置钮同浓度
+    // （Four 2026-10-17 验收定稿，默认 surface × 0.72）。
+    // 行在 LazyColumn 录制层内，嵌套禁令下不能用真玻璃（drawBackdrop 会成渲染回路）。
+    val liquidGlass = LocalLiquidGlassEnabled.current
 
     Box(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -406,12 +439,22 @@ private fun ConversationTextRow(
                 .fillMaxWidth()
                 .heightIn(min = ConversationPanelMetrics.RowMinHeight)
                 .clip(RoundedCornerShape(ConversationPanelMetrics.RowCornerRadius))
-                .background(
-                    if (selected) {
-                        // 与侧栏背景保持一档亮度差；浅色下与 surfaceContainerHigh 相同。
-                        MiuixTheme.colorScheme.surfaceContainerHighest
+                .then(
+                    if (liquidGlass) {
+                        if (selected) {
+                            Modifier.etaPseudoGlass(EtaGlassStyles.ListRow)
+                        } else {
+                            Modifier
+                        }
                     } else {
-                        Color.Transparent
+                        Modifier.background(
+                            if (selected) {
+                                // 与侧栏背景保持一档亮度差；浅色下与 surfaceContainerHigh 相同。
+                                MiuixTheme.colorScheme.surfaceContainerHighest
+                            } else {
+                                Color.Transparent
+                            },
+                        )
                     },
                 )
                 .combinedClickable(

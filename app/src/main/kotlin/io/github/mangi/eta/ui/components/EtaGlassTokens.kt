@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.isSpecified
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.backdrops.LayerBackdrop
@@ -29,7 +30,8 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  * 所有玻璃观感参数集中在此，控件/弹层只选预设不手调参数，换材质=改这里一处。
  * 决策矩阵（Four 2026-10-16 定调，详见 docs/UI-GLASS-ARCHITECTURE.md）：
  * - overlay 系弹层、主页固定控件 → 真玻璃（[etaGlass]，需同 surface 的 backdrop）；
- * - Window 系弹层（独立 Window 采不到样）→ 假玻璃（[etaPseudoGlass]，半透明+高光描边）；
+ * - Window 系弹层（独立 Window 采不到样）→ 不透明描边玻璃（原生不透明底 + [etaPseudoGlassBorder]；
+ *   半透明假玻璃实测观感差，Four 2026-10-17 修订）；
  * - 长列表项 → [EtaGlassStyles.ListRow] 弱化材质防滚动掉帧。
  *
  * 硬约束：Kyant lens 效果只支持 CornerBasedShape/RoundedRectangularShape，
@@ -90,6 +92,21 @@ internal object EtaGlassStyles {
     )
 }
 
+/** 浅色液态玻璃档的页面底色（Four 2026-10-17）：约 10% 灰白（6% 实测不可见）。纯白底下假玻璃的白色高光不可见。 */
+internal val EtaGlassLightPageBase = Color(0xFFE6E6EA)
+
+/**
+ * 页面/面板底色入口：仅浅色 + 液态玻璃档返回灰白 [EtaGlassLightPageBase]，
+ * 其余主题档与深色原样返回 [fallback]，不改变现有观感。
+ */
+@Composable
+internal fun etaGlassPageBaseColor(fallback: Color): Color =
+    if (LocalLiquidGlassEnabled.current && MiuixTheme.colorScheme.background.luminance() > 0.5f) {
+        EtaGlassLightPageBase
+    } else {
+        fallback
+    }
+
 /**
  * 真玻璃：backdrop 非 null（液态玻璃档且设备支持）时走 Kyant drawBackdrop；
  * 否则 no-op，界面回退到现有外观。
@@ -120,11 +137,18 @@ internal fun Modifier.etaGlass(
 /**
  * 假玻璃：纯 Compose 半透明底 + 顶部亮边缘渐变描边，不依赖任何 backdrop，
  * 独立 Window（WindowDialog/WindowListPopup）内可用。仅液态玻璃档启用，其余档 no-op。
+ *
+ * [pseudoBackground] 非 null 时直接作为底色（如反色玻璃：浅色系深玻璃、深色系浅玻璃），
+ * 默认 surface × [EtaGlassStyle.pseudoBackgroundAlpha]。
  */
-internal fun Modifier.etaPseudoGlass(style: EtaGlassStyle): Modifier = composed {
+internal fun Modifier.etaPseudoGlass(
+    style: EtaGlassStyle,
+    pseudoBackground: Color? = null,
+): Modifier = composed {
     if (!LocalLiquidGlassEnabled.current) return@composed this
     val dark = isSystemInDarkTheme()
-    val backgroundColor = MiuixTheme.colorScheme.surface.copy(alpha = style.pseudoBackgroundAlpha)
+    val backgroundColor = pseudoBackground
+        ?: MiuixTheme.colorScheme.surface.copy(alpha = style.pseudoBackgroundAlpha)
     val highlightColor = Color.White.copy(
         alpha = if (dark) style.pseudoBorderAlpha else style.pseudoBorderAlpha * 2f,
     )

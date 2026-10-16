@@ -237,7 +237,8 @@ fun ConversationSidePaneScaffold(
                                 val progress = conversationPaneMotion(paneDragState.offset, paneWidthPx).progress
                                 drawRect(Color.Black, alpha = ConversationPaneMetrics.ChatScrimAlpha * progress)
                             }
-                            .background(MiuixTheme.colorScheme.background),
+                            // 浅色 + 液态玻璃档换灰白底，让假玻璃高光可见（其余档原样）。
+                            .background(etaGlassPageBaseColor(MiuixTheme.colorScheme.background)),
                     ) {
                         Box(
                             modifier = Modifier

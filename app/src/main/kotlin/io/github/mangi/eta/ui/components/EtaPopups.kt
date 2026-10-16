@@ -6,6 +6,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
+import io.github.mangi.eta.ui.app.LocalLiquidGlassEnabled
 import top.yukonga.miuix.kmp.basic.ListPopupDefaults
 import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.overlay.OverlayListPopup
@@ -21,11 +22,11 @@ import top.yukonga.miuix.kmp.window.WindowListPopup
  * - 默认 overlay 实现：在应用渲染树内，可采样同 surface 的液态玻璃 backdrop（真玻璃）。
  *   前提：调用点上方必须有 miuix Scaffold 提供 overlay 宿主，否则弹层静默不渲染。
  * - [useWindow] = true 走独立 Window：无 Scaffold 宿主的区域（侧边栏面板等）使用；
- *   Window 采不到应用内 backdrop，材质只能是假玻璃（etaPseudoGlass）。
+ *   Window 采不到应用内 backdrop，材质为不透明描边玻璃（原生底 + etaPseudoGlassBorder）。
  *
- * 本步（架构期）两种实现均为 miuix 原生外观，玻璃材质在焕新阶段二注入。
- * 阶段二已落地：overlay 分支内容外包 [EtaGlassPopupContainer]（真玻璃，
- * backdrop 为 null 时自动回退原生外观）；Window 分支假玻璃归阶段三。
+ * overlay 分支内容外包 [EtaGlassPopupContainer]（真玻璃，
+ * backdrop 为 null 时自动回退原生外观），已随焕新阶段二落地；
+ * Window 分支的不透明描边玻璃已随阶段三落地（半透明假玻璃观感差，2026-10-17 修订）。
  */
 @Composable
 internal fun EtaListPopup(
@@ -42,18 +43,38 @@ internal fun EtaListPopup(
     content: @Composable () -> Unit,
 ) {
     if (useWindow) {
-        WindowListPopup(
-            show = show,
-            popupModifier = popupModifier,
-            popupPositionProvider = popupPositionProvider,
-            alignment = alignment,
-            enableWindowDim = enableWindowDim,
-            onDismissRequest = onDismissRequest,
-            onDismissFinished = onDismissFinished,
-            maxHeight = maxHeight,
-            minWidth = minWidth,
-            content = content,
-        )
+        if (LocalLiquidGlassEnabled.current) {
+            // 焕新阶段三（Four 2026-10-17 修订）：Window 弹层改不透明描边玻璃——
+            // 半透明假玻璃实测观感差，恢复原生不透明底，仅叠假玻璃高光描边。
+            WindowListPopup(
+                show = show,
+                popupModifier = popupModifier,
+                popupPositionProvider = popupPositionProvider,
+                alignment = alignment,
+                enableWindowDim = enableWindowDim,
+                onDismissRequest = onDismissRequest,
+                onDismissFinished = onDismissFinished,
+                maxHeight = maxHeight,
+                minWidth = minWidth,
+            ) {
+                Box(Modifier.etaPseudoGlassBorder(EtaGlassStyles.Popup)) {
+                    content()
+                }
+            }
+        } else {
+            WindowListPopup(
+                show = show,
+                popupModifier = popupModifier,
+                popupPositionProvider = popupPositionProvider,
+                alignment = alignment,
+                enableWindowDim = enableWindowDim,
+                onDismissRequest = onDismissRequest,
+                onDismissFinished = onDismissFinished,
+                maxHeight = maxHeight,
+                minWidth = minWidth,
+                content = content,
+            )
+        }
     } else {
         OverlayListPopup(
             show = show,
