@@ -12,7 +12,7 @@ class AppearanceSettingsTest {
 
         assertEquals(AppearanceThemeMode.SYSTEM, settings.themeMode)
         assertFalse(settings.monetEnabled)
-        assertEquals(AppearanceBlurMode.DEFAULT, settings.blurMode)
+        assertEquals(AppearanceBlurMode.LIQUID_GLASS, settings.blurMode)
         assertTrue(settings.swipeDismissEnabled)
         assertTrue(settings.predictiveBackEnabled)
         assertEquals(DEFAULT_INTERFACE_SCALE, settings.interfaceScale)
@@ -30,15 +30,15 @@ class AppearanceSettingsTest {
         AppearanceBlurMode.entries.forEach { mode ->
             assertEquals(mode, AppearanceBlurMode.fromPersistedValue(mode.persistedValue))
         }
-        assertEquals(AppearanceBlurMode.DEFAULT, AppearanceBlurMode.fromPersistedValue(null))
-        assertEquals(AppearanceBlurMode.DEFAULT, AppearanceBlurMode.fromPersistedValue("unknown"))
+        assertEquals(AppearanceBlurMode.LIQUID_GLASS, AppearanceBlurMode.fromPersistedValue(null))
+        assertEquals(AppearanceBlurMode.LIQUID_GLASS, AppearanceBlurMode.fromPersistedValue("unknown"))
     }
 
     @Test
     fun legacyBlurEnabledMapsToBlurMode() {
         assertEquals(AppearanceBlurMode.NONE, AppearanceBlurMode.fromLegacyBlurEnabled(false))
-        assertEquals(AppearanceBlurMode.DEFAULT, AppearanceBlurMode.fromLegacyBlurEnabled(true))
-        assertEquals(AppearanceBlurMode.DEFAULT, AppearanceBlurMode.fromLegacyBlurEnabled(null))
+        assertEquals(AppearanceBlurMode.LIQUID_GLASS, AppearanceBlurMode.fromLegacyBlurEnabled(true))
+        assertEquals(AppearanceBlurMode.LIQUID_GLASS, AppearanceBlurMode.fromLegacyBlurEnabled(null))
     }
 
     @Test

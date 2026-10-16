@@ -13,7 +13,7 @@ data class AppearanceSettings(
     val paletteStyle: AppearancePaletteStyle = AppearancePaletteStyle.TONAL_SPOT,
     val accentColor: AppearanceAccentColor = AppearanceAccentColor.SYSTEM,
     val pureBlackEnabled: Boolean = false,
-    val blurMode: AppearanceBlurMode = AppearanceBlurMode.DEFAULT,
+    val blurMode: AppearanceBlurMode = AppearanceBlurMode.LIQUID_GLASS,
     val swipeDismissEnabled: Boolean = true,
     val predictiveBackEnabled: Boolean = true,
     val interfaceScale: Float = DEFAULT_INTERFACE_SCALE,
@@ -43,11 +43,11 @@ enum class AppearanceBlurMode(val persistedValue: String) {
 
     companion object {
         fun fromPersistedValue(value: String?): AppearanceBlurMode =
-            entries.firstOrNull { it.persistedValue == value } ?: DEFAULT
+            entries.firstOrNull { it.persistedValue == value } ?: LIQUID_GLASS
 
-        /** 老版本只有布尔开关：开/未设置 → 默认模糊，关 → 无模糊。 */
+        /** 老版本只有布尔开关：关 → 无模糊，开/未设置 → 液态玻璃（当前默认）。 */
         fun fromLegacyBlurEnabled(enabled: Boolean?): AppearanceBlurMode =
-            if (enabled == false) NONE else DEFAULT
+            if (enabled == false) NONE else LIQUID_GLASS
     }
 }
 
