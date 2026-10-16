@@ -45,7 +45,6 @@ import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.repository.ProviderBalanceStore
 import io.github.mangi.eta.data.repository.ProviderRepository
-import io.github.mangi.eta.ui.app.LocalLiquidGlassEnabled
 import io.github.mangi.eta.ui.model.AgentContextUsageUi
 import io.github.mangi.eta.ui.model.AgentModelOptionUi
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
@@ -315,16 +314,9 @@ internal fun AgentContextUsageButton(
         R.string.context_usage_description,
         summary.replace('\n', ' '),
     )
-    // Eta Mod：液态玻璃档下 tooltip 走假玻璃（它经 Compose Popup 独立 Window 渲染，
-    // 采不到应用内 backdrop）——containerColor 半透明 + 高光描边。
-    val tooltipColors = if (LocalLiquidGlassEnabled.current) {
-        TooltipDefaults.richTooltipColors(
-            containerColor = MiuixTheme.colorScheme.surface
-                .copy(alpha = EtaGlassStyles.Popup.pseudoBackgroundAlpha),
-        )
-    } else {
-        TooltipDefaults.richTooltipColors()
-    }
+    // Eta Mod（2026-10-17 修订）：tooltip 改不透明描边玻璃——原生不透明底 + 高光描边
+    // （它经 Compose Popup 独立 Window 渲染，采不到应用内 backdrop；半透明实测观感差）。
+    val tooltipColors = TooltipDefaults.richTooltipColors()
     TooltipBox(
         positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
         tooltip = {
