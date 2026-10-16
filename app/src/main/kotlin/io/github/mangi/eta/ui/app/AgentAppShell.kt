@@ -37,6 +37,7 @@ import io.github.mangi.eta.ui.components.LocalLiquidGlassBackdrop
 import io.github.mangi.eta.ui.components.MiuixBackButton
 import io.github.mangi.eta.ui.components.TopBarBackdrop
 import io.github.mangi.eta.ui.components.captureForTopBar
+import io.github.mangi.eta.ui.components.etaGlassPageBaseColor
 import io.github.mangi.eta.ui.components.hapticClick
 import io.github.mangi.eta.ui.components.liquidGlassCircle
 import io.github.mangi.eta.ui.components.rememberLiquidGlassBackdrop
@@ -101,7 +102,10 @@ fun AgentAppShell(
     // 提供者」模式的 HomeSurface 实例；侧边栏/设置骨架另有自建源，见 UI-GLASS-ARCHITECTURE.md）。
     // 未来自定义图片背景落地时，在 AgentAppRoot 层增设根 surface backdrop 录制背景层，
     // 各 surface 玻璃直接采样（架构锚点，当前未实现）。
-    val glassBackdrop = rememberLiquidGlassBackdrop()
+    // 基色对齐阶段三灰白化的聊天区底色，否则真玻璃采到的底与可见底不一致。
+    val glassBackdrop = rememberLiquidGlassBackdrop(
+        baseColor = etaGlassPageBaseColor(MiuixTheme.colorScheme.background),
+    )
     val pageContent: @Composable () -> Unit = {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
@@ -206,7 +210,8 @@ private fun AgentTopBar(
                 )
             }
         } else {
-            MiuixBackButton(onClick = onBack)
+            // 壳内非主页路由（Tools/Skills 等）没有液态玻璃采样源，关掉玻璃保持原样。
+            MiuixBackButton(onClick = onBack, enableGlass = false)
         }
     }
     val actions: @Composable RowScope.() -> Unit = {

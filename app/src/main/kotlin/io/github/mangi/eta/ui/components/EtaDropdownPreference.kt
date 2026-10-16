@@ -17,12 +17,12 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.basic.DropdownArrowEndAction
-import top.yukonga.miuix.kmp.basic.DropdownDefaults
 import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.ListPopupColumn
+import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.popup.OverlayDropdownPopup
-import top.yukonga.miuix.kmp.popup.WindowDropdownPopup
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -80,25 +80,31 @@ internal fun EtaDropdownPreference(
         }
         Row {
             DropdownArrowEndAction(actionColor = color)
-            if (useWindow) {
-                WindowDropdownPopup(
-                    entry = entry,
-                    show = expanded && available,
-                    onDismiss = { expanded = false },
-                    onDismissFinished = { holding = false },
-                    maxHeight = null,
-                    dropdownColors = DropdownDefaults.dropdownColors(),
-                )
-            } else {
-                OverlayDropdownPopup(
-                    entry = entry,
-                    show = expanded && available,
-                    onDismiss = { expanded = false },
-                    onDismissFinished = { holding = false },
-                    maxHeight = null,
-                    dropdownColors = DropdownDefaults.dropdownColors(),
-                    renderInRootScaffold = true,
-                )
+            // Eta Mod（焕新阶段四）：弹层收口到 EtaListPopup——window 变体不透明描边玻璃、
+            // overlay 变体真玻璃，材质单点生效；miuix WindowDropdownPopup 无修饰符入口。
+            EtaListPopup(
+                show = expanded && available,
+                alignment = PopupPositionProvider.Align.End,
+                useWindow = useWindow,
+                onDismissRequest = { expanded = false },
+                onDismissFinished = { holding = false },
+                maxHeight = null,
+            ) {
+                ListPopupColumn {
+                    entry.items.forEachIndexed { index, item ->
+                        DropdownImpl(
+                            item = item,
+                            optionSize = entry.items.size,
+                            isSelected = item.selected,
+                            index = index,
+                            onSelectedIndexChange = {
+                                haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                                expanded = false
+                                item.onClick?.invoke()
+                            },
+                        )
+                    }
+                }
             }
         }
     }

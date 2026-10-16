@@ -8,9 +8,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.Dp
@@ -22,6 +26,8 @@ import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
 import io.github.mangi.eta.ui.app.LocalLiquidGlassEnabled
+import top.yukonga.miuix.kmp.squircle.addSquircleRect
+import top.yukonga.miuix.kmp.squircle.isSquircleEnabled
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
@@ -174,4 +180,53 @@ internal fun Modifier.etaPseudoGlassBorder(style: EtaGlassStyle): Modifier = com
         colors = listOf(highlightColor, highlightColor.copy(alpha = 0f)),
     )
     this.border(0.5.dp, borderBrush, style.shape)
+}
+
+/**
+ * squircle 版假玻璃高光描边：miuix squircleSurface 容器（EtaCard/弹窗）专用，
+ * 轮廓与容器填充完全贴合（miuix 自带 squircleBorder 只支持纯色，这里支持渐变 Brush）。
+ * 绘在内容之上（onDrawWithContent）——miuix 的 Card/Dialog 都把 user modifier 排在
+ * 内部 squircleSurface 之前，本修饰符放在调用方 modifier 上即可压在填充上。
+ * 仅液态玻璃档启用；squircle 被关闭时经 addSquircleRect 自动回退圆角矩形。
+ */
+internal fun Modifier.etaSquircleGlassBorder(
+    cornerRadius: Dp,
+    style: EtaGlassStyle = EtaGlassStyles.Popup,
+): Modifier = composed {
+    if (!LocalLiquidGlassEnabled.current) return@composed this
+    val dark = isSystemInDarkTheme()
+    val squircleEnabled = isSquircleEnabled()
+    val highlightColor = Color.White.copy(
+        alpha = if (dark) style.pseudoBorderAlpha else style.pseudoBorderAlpha * 2f,
+    )
+    val borderBrush = Brush.verticalGradient(
+        colors = listOf(highlightColor, highlightColor.copy(alpha = 0f)),
+    )
+    this.drawWithCache {
+        val widthPx = 0.5.dp.toPx()
+        val cornerRadiusPx = cornerRadius.toPx()
+        val halfStroke = widthPx / 2f
+        val innerW = size.width - widthPx
+        val innerH = size.height - widthPx
+        val path = Path()
+        val drawable = widthPx > 0f && innerW > 0f && innerH > 0f
+        if (drawable) {
+            val innerCornerRadius = (cornerRadiusPx - halfStroke).coerceAtLeast(0f)
+            path.addSquircleRect(
+                width = innerW,
+                height = innerH,
+                cornerRadius = innerCornerRadius,
+                squircleEnabled = squircleEnabled,
+            )
+        }
+        val stroke = Stroke(width = widthPx)
+        onDrawWithContent {
+            drawContent()
+            if (drawable) {
+                translate(halfStroke, halfStroke) {
+                    drawPath(path = path, brush = borderBrush, style = stroke)
+                }
+            }
+        }
+    }
 }

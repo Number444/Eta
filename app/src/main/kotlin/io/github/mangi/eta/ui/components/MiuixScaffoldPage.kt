@@ -22,6 +22,7 @@ import io.github.mangi.eta.ui.layout.horizontalCutoutPadding
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
@@ -44,12 +45,15 @@ fun MiuixScaffoldPage(
         val topBarColor = topBarContainerColor(backdrop)
         // Eta Mod：设置骨架级玻璃采样源（焕新架构改动三）——31 个二级页一处注入，
         // 采样内容=滚动列表，消费者（顶栏控件等固定元素）在列表之外，不触嵌套禁令。
-        // 本步仅建源，无消费者，视觉零变化。
-        val glassBackdrop = rememberLiquidGlassBackdrop()
+        // 阶段四：浅色液态玻璃档页面底色灰白化（etaGlassPageBaseColor），
+        // 采样纹理基色同步，否则真玻璃返回钮采到的底与可见底不一致。
+        val pageBaseColor = etaGlassPageBaseColor(MiuixTheme.colorScheme.surface)
+        val glassBackdrop = rememberLiquidGlassBackdrop(baseColor = pageBaseColor)
 
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides glassBackdrop) {
         Scaffold(
             modifier = modifier.fillMaxSize(),
+            containerColor = pageBaseColor,
             topBar = {
                 TopBarBackdrop(backdrop) {
                     AdaptiveTopAppBar(
@@ -112,11 +116,13 @@ fun MiuixScaffold(
         val backdrop = rememberTopBarBackdrop()
         val topBarColor = topBarContainerColor(backdrop)
         // Eta Mod：设置骨架级玻璃采样源（焕新架构改动三），同 MiuixScaffoldPage。
-        val glassBackdrop = rememberLiquidGlassBackdrop()
+        val pageBaseColor = etaGlassPageBaseColor(MiuixTheme.colorScheme.surface)
+        val glassBackdrop = rememberLiquidGlassBackdrop(baseColor = pageBaseColor)
 
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides glassBackdrop) {
         Scaffold(
             modifier = modifier.fillMaxSize(),
+            containerColor = pageBaseColor,
             topBar = {
                 TopBarBackdrop(backdrop) {
                     AdaptiveTopAppBar(

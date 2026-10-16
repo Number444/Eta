@@ -58,6 +58,7 @@ import io.github.mangi.eta.ui.SettingsModelScreen
 import io.github.mangi.eta.ui.SettingsPermissionsScreen
 import io.github.mangi.eta.ui.SettingsScreen
 import io.github.mangi.eta.ui.SettingsToolsScreen
+import io.github.mangi.eta.ui.components.EtaWindowDialog
 import io.github.mangi.eta.ui.components.MiuixDialogActions
 import io.github.mangi.eta.ui.model.AgentHomeAction
 import io.github.mangi.eta.ui.model.AgentMemoryAction
@@ -103,8 +104,6 @@ import top.yukonga.miuix.kmp.nav.core.NavDisplayEffects
 import top.yukonga.miuix.kmp.nav.core.rememberNavBackStack
 import top.yukonga.miuix.kmp.nav.core.rememberNavSystemCornerRadius
 import top.yukonga.miuix.kmp.nav.transition.NavSwipeDirection
-import top.yukonga.miuix.kmp.layout.DialogDefaults
-import top.yukonga.miuix.kmp.window.WindowDialog
 
 /**
  * Agent App 根组件：持有本地导航栈，并把 Screen actions 交给 [AgentAppState]。
@@ -779,11 +778,10 @@ fun AgentAppRoot(
     }
 
     characterStore.notice?.let { notice ->
-        WindowDialog(
+        EtaWindowDialog(
             show = true,
             title = "角色",
             summary = notice,
-            cornerRadius = DialogDefaults.CornerRadius,
             onDismissRequest = characterStore::dismissNotice,
         ) {
             top.yukonga.miuix.kmp.basic.TextButton(
@@ -794,9 +792,8 @@ fun AgentAppRoot(
 
     conversationRenameTarget?.let { conversation ->
         var renameInput by remember(conversation.id) { mutableStateOf(conversation.title) }
-        WindowDialog(
+        EtaWindowDialog(
             show = true,
-            cornerRadius = DialogDefaults.CornerRadius,
             title = stringResource(R.string.conversation_rename_title),
             onDismissRequest = { conversationRenameTarget = null },
         ) {
@@ -823,9 +820,8 @@ fun AgentAppRoot(
     }
 
     conversationDeleteTarget?.let { conversation ->
-        WindowDialog(
+        EtaWindowDialog(
             show = true,
-            cornerRadius = DialogDefaults.CornerRadius,
             title = stringResource(R.string.conversation_delete_title),
             summary = stringResource(R.string.conversation_delete_message),
             onDismissRequest = { conversationDeleteTarget = null },
@@ -843,9 +839,8 @@ fun AgentAppRoot(
     }
 
     messageDeleteTarget?.let { target ->
-        WindowDialog(
+        EtaWindowDialog(
             show = true,
-            cornerRadius = DialogDefaults.CornerRadius,
             title = stringResource(R.string.conversation_delete_message_title),
             summary = if (target.laterTurnCount == 0) {
                 stringResource(R.string.conversation_delete_message_body)
@@ -871,9 +866,8 @@ fun AgentAppRoot(
     }
 
     messageRegenerateTarget?.let { target ->
-        WindowDialog(
+        EtaWindowDialog(
             show = true,
-            cornerRadius = DialogDefaults.CornerRadius,
             title = stringResource(R.string.conversation_regenerate_title),
             summary = if (target.laterTurnCount == 0) {
                 stringResource(R.string.conversation_regenerate_current_turn)

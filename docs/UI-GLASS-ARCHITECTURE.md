@@ -19,6 +19,7 @@
 - 预设：`FloatingButton`（圆钮）、`InputBar`（圆角条）、`Popup`（弹层，对齐 miuix 16dp）、`DialogCard`（弹窗 32dp）、`ListRow`（弱化材质，长列表防掉帧）。
 - `Modifier.etaGlass(style, backdrop, tint)`：真玻璃，backdrop 为 null 时 no-op。
 - `Modifier.etaPseudoGlass(style, pseudoBackground?)`：假玻璃（半透明底 + 顶部高光渐变描边），纯 Compose，独立 Window 可用；仅液态玻璃档启用。`pseudoBackground` 非 null 时直接作底色（反色玻璃用：选中行浅色系深玻璃/深色系浅玻璃）。
+- `Modifier.etaPseudoGlassBorder(style)`：只加高光描边（圆角/圆形轮廓）；`Modifier.etaSquircleGlassBorder(cornerRadius, style)`：squircle 版高光描边，轮廓与 miuix squircleSurface 容器（卡片/弹窗）完全贴合，绘在内容之上（onDrawWithContent），squircle 关闭时自动回退圆角矩形。
 - 硬约束：Kyant lens 只支持 `CornerBasedShape`/`RoundedRectangularShape`，通用 Shape 抛 `UnsupportedOperationException`（010 弹层闪退事故）——玻璃轮廓只能用圆角/圆形。
 - `LiquidGlass.kt` 的 `liquidGlassCircle`/`liquidGlassRounded` 是预设的薄封装，现存 9 块首页玻璃控件走这里。
 
@@ -30,7 +31,7 @@
 |---|---|---|---|
 | 主页 | `AgentAppShell.kt`（HomeSurface） | 消息列表/空态（`AgentChatBody.kt`） | 顶栏双按钮、输入栏 7 控件 |
 | 侧边栏面板 | `ConversationPanePanel.kt` | 会话 LazyColumn | （阶段二：搜索框/设置钮等） |
-| 设置骨架 | `MiuixScaffoldPage.kt`（MiuixScaffoldPage + MiuixScaffold 两处，31 个二级页全覆盖） | 内容 LazyColumn / 内容 Box | （阶段三：顶栏返回钮等固定元素；卡片在录制层内，只能假玻璃） |
+| 设置骨架 | `MiuixScaffoldPage.kt`（MiuixScaffoldPage + MiuixScaffold 两处，31 个二级页全覆盖） | 内容 LazyColumn / 内容 Box | 阶段四：顶栏返回钮真玻璃；卡片在录制层内，只能假玻璃 |
 
 未来自定义图片背景：在 `AgentAppRoot` 层增设根 surface backdrop 录制背景层，各 surface 玻璃直接采样（`AgentAppShell.kt` 有注释锚点）。
 
@@ -45,7 +46,7 @@
 
 - overlay（主页 Scaffold 内）：顶栏溢出菜单、附件菜单、思考强度、模型选择（`AgentAppShell` / `AgentChatFileAttachments` / `AgentChatInputBar` / `AgentChatModelControls`）。
 - useWindow（面板在 Scaffold 之外）：侧边栏会话长按菜单（`ConversationPanePanel.kt`）。
-- 弹窗：路径输入（`AgentChatFileAttachments`）→ `EtaOverlayDialog`（Scaffold 内，IME 行为需真机盯）；根级 5 弹窗（角色通知/重命名/删除会话/删除消息/重新生成，`AgentAppRoot.kt`）在 NavDisplay 之外无宿主，**保持 WindowDialog 不动**，阶段二套假玻璃时统一收进 `EtaWindowDialog`。
+- 弹窗：路径输入（`AgentChatFileAttachments`）→ `EtaOverlayDialog`（Scaffold 内，IME 行为需真机盯）；根级 5 弹窗（角色通知/重命名/删除会话/删除消息/重新生成，`AgentAppRoot.kt`）在 NavDisplay 之外无宿主，**保持 WindowDialog 系**，阶段四已统一收进 `EtaWindowDialog`（不透明描边玻璃）。
 
 ## 真玻璃 vs 假玻璃决策矩阵
 
@@ -68,5 +69,5 @@
 1. ~~架构期（本次）：Token 层 + 弹层收口 + 多采样源，零视觉变化。~~
 2. ~~主页（2026-10-17，v3.3.0-010）：overlay 弹层真玻璃注入。~~ 最终方案 = **内容侧注入**（`EtaGlassPopupContainer` 包住弹层内容，恰好覆盖弹层可视区，盖在容器实色底上），未走 MiuixTheme 覆写——`MiuixPopupHost` 在宿主上下文调起 content，调用点 CompositionLocal 覆写传不进容器层，容器背景无法经主题改透明。轮廓用 16dp 圆角（曾尝试 squircle 对齐容器 clip，但 Kyant lens 只支持 CornerBasedShape，通用 Shape 闪退，已回退；squircle 与圆角在 16dp 下差异亚像素级）。已知结构事实：容器实色底残留在玻璃下方（被完全遮住）；dim 遮罩不在录制层内，玻璃观感比周围略鲜亮（调整手段：Popup tintAlpha）。
 3. ~~侧边栏（2026-10-17，v3.3.0-011）：搜索框/设置钮/选中行/长按弹窗套材质。~~ 搜索框+设置钮 = 假玻璃芯片（固定区无滚动内容可采样，Four 拍板不做布局重构；InputField color=Transparent 官方支持自绘背景）；选中行 = 反色假玻璃（深色系浅玻璃 white 20%、浅色系深玻璃 black 25%，行在录制层内真玻璃不可行）；长按弹窗 = window 分支假玻璃——Compose Popup 子组合继承调用点 CompositionLocal，`MiuixTheme` 覆写 surfaceContainer=透明消掉容器硬底+条目底，再套 `etaPseudoGlass(Popup)`。2026-10-17 验收修订（Four）：选中行深浅色均与芯片同浓度（默认 surface×0.72，浅色黑 15% 方案弃用）；长按弹窗改不透明描边玻璃（原生不透明底 + `etaPseudoGlassBorder`）；浅色液态玻璃档主页+侧边栏底色改灰白 `EtaGlassLightPageBase`（约 10% 灰，6% 实测不可见，`etaGlassPageBaseColor` 收口，`conversationPaneContainerColor` 与 `ConversationSidePaneScaffold` 聊天区底两处生效），控件级底部阴影方案弃用。
-4. 设置页：返回钮真玻璃（1 处组件）、卡片假玻璃（2 个定义点）、弹窗假玻璃（3 个收口点）。
+4. 设置页（2026-10-17，v3.3.0-012）：返回钮真玻璃（`MiuixBackButton` 读就近 backdrop + 44dp 圆，壳内非主页路由无采样源传 `enableGlass=false` 保持原样）；卡片假玻璃（`EtaCard` 默认色半透明 + squircle 高光描边，`EtaPreferenceGroupItem` 只换半透明底不描边防条目间穿帮）；弹窗统一不透明描边玻璃（`EtaWindowDialog`/`EtaOverlayDialog` 加 `etaSquircleGlassBorder`，Four 拍板 overlay 弹窗不做真玻璃：模态 dim 后模糊收益小 + IME 弹窗少一层渲染风险）；`EtaDropdownPreference` 从 miuix WindowDropdownPopup/OverlayDropdownPopup 迁到 `EtaListPopup`（miuix 版无修饰符入口，DropdownEntriesPopupContent 是 internal 不可复用，用 DropdownImpl 重建条目）；根级 5 弹窗收进 `EtaWindowDialog`。配套：浅色液态玻璃档灰白底扩展到设置骨架 Scaffold（surface 系），三处 backdrop 采样纹理基色同步灰白（否则真玻璃采到的底与可见底不一致）。新增 `etaSquircleGlassBorder`（miuix squircleBorder 只支持纯色，此为渐变 Brush 版，onDrawWithContent 压在填充上）。
 5. 自定义图片背景：根 surface backdrop + 各页面背景透明化。

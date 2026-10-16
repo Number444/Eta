@@ -61,7 +61,10 @@ internal fun EtaWindowDialog(
 ) {
     EtaPreferenceTheme {
         WindowDialog(
-            show = show, title = title, summary = summary, modifier = modifier,
+            show = show, title = title, summary = summary,
+            // Eta Mod（焕新阶段四）：Window 弹窗不透明描边玻璃——原生不透明底，
+            // 描边压在 squircleSurface 填充上（miuix user modifier 先于内部填充）。
+            modifier = modifier.etaSquircleGlassBorder(DialogDefaults.CornerRadius, EtaGlassStyles.DialogCard),
             backgroundColor = MiuixTheme.colorScheme.surfaceContainer,
             onDismissRequest = onDismissRequest, onDismissFinished = onDismissFinished,
             cornerRadius = DialogDefaults.CornerRadius,
@@ -85,7 +88,10 @@ internal fun EtaOverlayDialog(
 ) {
     EtaPreferenceTheme {
         OverlayDialog(
-            show = show, title = title, summary = summary, modifier = modifier,
+            show = show, title = title, summary = summary,
+            // Eta Mod（焕新阶段四）：同 EtaWindowDialog，统一不透明描边玻璃（Four 拍板，
+            // 模态弹窗底下有 dim，真玻璃模糊收益小，含 IME 弹窗少一层渲染风险）。
+            modifier = modifier.etaSquircleGlassBorder(DialogDefaults.CornerRadius, EtaGlassStyles.DialogCard),
             backgroundColor = MiuixTheme.colorScheme.surfaceContainer,
             onDismissRequest = onDismissRequest, onDismissFinished = onDismissFinished,
             cornerRadius = DialogDefaults.CornerRadius,
