@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import io.github.mangi.eta.data.model.AppearanceAccentColor
+import io.github.mangi.eta.data.model.AppearanceBlurMode
 import io.github.mangi.eta.data.model.AppearancePaletteStyle
 import io.github.mangi.eta.data.model.AppearanceSettings
 import io.github.mangi.eta.data.model.AppearanceThemeMode
@@ -89,7 +90,8 @@ fun AgentAppTheme(
         }
         CompositionLocalProvider(
             LocalAppearanceSettings provides appearance,
-            LocalBlurEnabled provides appearance.blurEnabled,
+            LocalBlurEnabled provides (appearance.blurMode != AppearanceBlurMode.NONE),
+            LocalLiquidGlassEnabled provides (appearance.blurMode == AppearanceBlurMode.LIQUID_GLASS),
             LocalPlatformDensity provides platformDensity,
             LocalDensity provides appDensity,
         ) {

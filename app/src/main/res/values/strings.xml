@@ -198,7 +198,9 @@
   <string name="appearance_pure_black">Pure black background</string>
   <string name="appearance_pure_black_summary">Use a pure black background in dark mode</string>
   <string name="appearance_blur">Blur effects</string>
-  <string name="appearance_blur_summary">Enable blur on top bars, the chat input surface, and similar areas</string>
+  <string name="appearance_blur_mode_none">No blur</string>
+  <string name="appearance_blur_mode_default">Default blur</string>
+  <string name="appearance_blur_mode_liquid_glass">Liquid glass</string>
   <string name="appearance_swipe_dismiss">Swipe back gesture</string>
   <string name="appearance_swipe_dismiss_summary">Swipe horizontally anywhere on a page to return</string>
   <string name="appearance_predictive_back">Predictive back gesture</string>

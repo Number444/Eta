@@ -6,4 +6,5 @@ import io.github.mangi.eta.data.model.AppearanceSettings
 
 internal val LocalAppearanceSettings = staticCompositionLocalOf { AppearanceSettings() }
 internal val LocalBlurEnabled = staticCompositionLocalOf { true }
+internal val LocalLiquidGlassEnabled = staticCompositionLocalOf { false }
 internal val LocalPlatformDensity = staticCompositionLocalOf<Density?> { null }

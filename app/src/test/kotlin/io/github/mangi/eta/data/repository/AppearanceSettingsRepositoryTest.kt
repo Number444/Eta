@@ -3,6 +3,7 @@ package io.github.mangi.eta.data.repository
 import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.data.datastore.SettingsDataStore
 import io.github.mangi.eta.data.model.AppearanceAccentColor
+import io.github.mangi.eta.data.model.AppearanceBlurMode
 import io.github.mangi.eta.data.model.AppearanceSettings
 import io.github.mangi.eta.data.model.AppearanceThemeMode
 import java.util.UUID
@@ -54,11 +55,11 @@ class AppearanceSettingsRepositoryTest {
         val before = AppearanceSettingsRepository.settings()
         try {
             AppearanceSettingsRepository.update { it.copy(monetEnabled = true) }
-            AppearanceSettingsRepository.update { it.copy(blurEnabled = false) }
+            AppearanceSettingsRepository.update { it.copy(blurMode = AppearanceBlurMode.NONE) }
 
             val actual = AppearanceSettingsRepository.settings()
             assertEquals(true, actual.monetEnabled)
-            assertEquals(false, actual.blurEnabled)
+            assertEquals(AppearanceBlurMode.NONE, actual.blurMode)
         } finally {
             AppearanceSettingsRepository.update(before)
         }

@@ -2,7 +2,7 @@
 
 > 本 fork：`my-mods` 分支，applicationId `io.github.mangi.eta.mod`
 > 远端：`origin` = Number444/Eta（推送目标），`upstream` = Mangi-11/Eta（官方源）
-> 当前版本：3.3.0-008（versionCode 2026101407；单轮计时独立行排版定稿。v3.3.0-008 起首个 3.3.0 系公开发布，2026-10-14 由艾薇受 Four 委托执行 Release）
+> 当前版本：3.3.0-009（versionCode 2026101601；液态玻璃自 Eta-alpha 试验仓移植定稿，Four 真机验收通过）
 
 > 已完成归档（2026-10-08 精简）：1. merge 上游 v3.2.0（30 commits，16 冲突手工裁决，出包真机回归通过）；2. 更新检查/关于页链接指向 Number444/Eta（`isNewer` 支持 `-NNN` 修订号）；3. 删官方搜索只留 Exa（官方服务本机超时不可用）；4. 消息操作行按钮放大 1.4 倍；5. 分享成图按新 markdown 层重写（含 `ShareCardRenderTest` 渲染基线）；6. merge 上游 v3.3.0（2026-10-13 完成：21 commits，7 冲突裁决 + `AgentAppState` 四功能块移植；暗礁=双方 `MIGRATION_21_22` 撞车，上游 `model_id` 迁移顺延 22_23、DB 升 v23；48 个单测失败对撞全为 Windows 环境基线零回归，出包真机冒烟通过）。详细过程见 git 历史。
 
@@ -48,6 +48,15 @@
 - 单轮计时落库：`AgentMessageUi` 加 `runDurationMs`/`runFinishedAtMillis`；`launchConversationRun` 记 elapsedRealtime，非 rewriting 的 `applyRunResult` 调 `stampRunTiming`；DB v23→v24（`MIGRATION_23_24` 两条 ALTER TABLE ADD COLUMN）
 - 排版定稿（008，Four 拍板）：按钮行纯净，计时独占一行在按钮行下方贴左，格式 `HH:mm · 用时: x.x秒`（≥60 秒为 `x分x秒`），footnote1 + 75% 灰
 - 未来上游若升 DB v24，merge 时我方 migration 顺延重排（撞车先例：MIGRATION_21_22）
+
+## 11. ~~液态玻璃（Kyant0 Backdrop）自 Eta-alpha 试验仓移植~~（2026-10-16 v3.3.0-009 实装，Four 真机验收通过）
+
+- 来源：`D:\Agent Space\Eta-alpha`（独立试验仓，交接文档 `HANDOVER-LIQUID-GLASS.md`）；alpha 基线与移植时正式版 HEAD（2c1d1c9）全树一致，A+C 类补丁 `git apply` 零冲突落地；B 类 alpha 共存改动（applicationIdSuffix/manifest 占位符/AgentRuntimeWire packageName）按交接约定不移植
+- 三档模糊：`blurEnabled: Boolean` → `blurMode: AppearanceBlurMode`（NONE/DEFAULT/LIQUID_GLASS，字符串持久化）；DataStore 新旧键同步写、读时无新键按旧布尔映射（迁移逻辑提为 `AppearanceBlurMode.fromLegacyBlurEnabled()` 可单测 helper），回滚旧版不丢设置
+- 玻璃基建 `ui/components/LiquidGlass.kt`（`io.github.kyant0:backdrop:2.0.1`，Apache-2.0）：`LocalLiquidGlassEnabled` + `isRuntimeShaderSupported()` 双门控，null 时全退化；采样源只包消息内容层，玻璃控件全为其兄弟节点（glass-on-glass 崩溃条件已规避）；液态玻璃档关闭 miuix 底部磨砂为有意互斥
+- 玻璃落点 9 块：顶栏 2 按钮（44dp 圆）+ 输入栏 6 控件（含发送按钮，`LiquidGlassCircleBehind` 垫层不动控件本体）+ 刻度胶囊（spring 1f/300f 放大动效，底边上收量随动画 lerp）
+- alpha 遗留坑已补：两个单测文件残留 `blurEnabled` 引用（alpha 侧从未编译测试源码），移植时同步修正并新增枚举 round-trip + 旧布尔映射两条单测；全量单测 48 失败全为 Windows 环境基线零回归
+- 性能待观察项：输入框聚焦掉帧在 alpha debug 包出现过，009 release 包 Four 验收未回报异常，持续观察
 
 ## 备注
 

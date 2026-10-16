@@ -1,6 +1,7 @@
 package io.github.mangi.eta.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -8,11 +9,15 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitHorizontalTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.drag
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -24,6 +29,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
@@ -37,6 +43,12 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.lerp
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
 import io.github.mangi.eta.agent.model.AgentFileReferencePolicy
 import io.github.mangi.eta.agent.model.AgentFileReferencePromptCodec
 import io.github.mangi.eta.ui.model.AgentMessageUi
@@ -196,6 +208,8 @@ internal fun TurnTickRail(
     val ghostTickHeightPx = with(density) { GhostTickHeight.toPx() }
 
     var railWidthPx by remember { mutableFloatStateOf(0f) }
+    // Eta Mod：胶囊玻璃当前宽度（px），Canvas 画虚刻度填充时需要读到
+    var capsuleWidthPx by remember { mutableFloatStateOf(0f) }
     // >=0 表示正在刮擦（手指驱动的浮点轮次）；<0 表示跟随列表视口。
     var scrubTurn by remember { mutableFloatStateOf(-1f) }
     var scrubTarget by remember { mutableIntStateOf(-1) }
@@ -205,6 +219,16 @@ internal fun TurnTickRail(
         animationSpec = tween(durationMillis = 140),
         label = "turnTickTouch",
     )
+    // Eta Mod：刻度区动态胶囊玻璃——默认居中、宽度为当前显示刻度长度的两倍；
+    // 按下/拖动时放大至与输入框同宽（即刻度条全宽），松手弹回。
+    // 曲线沿用 Kyant0 LiquidBottomTabs 指示器的 spring(dampingRatio=1f, stiffness=300f)。
+    val glassBackdrop = LocalLiquidGlassBackdrop.current
+    val capsuleExpand by animateFloatAsState(
+        targetValue = if (touching) 1f else 0f,
+        animationSpec = spring(dampingRatio = 1f, stiffness = 300f),
+        label = "turnTickCapsule",
+    )
+    val capsuleTint = MiuixTheme.colorScheme.surface.copy(alpha = 0.07f)
 
     val currentTicks by rememberUpdatedState(ticks)
     val currentOnTap by rememberUpdatedState(onTap)
@@ -231,11 +255,44 @@ internal fun TurnTickRail(
     val primaryColor = MiuixTheme.colorScheme.primary
     val tickColor = MiuixTheme.colorScheme.onSurfaceVariantSummary
 
-    Canvas(
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(TurnTickRailHeight)
-            .onSizeChanged { railWidthPx = it.width.toFloat() }
+            .height(TurnTickRailHeight),
+    ) {
+        if (glassBackdrop != null && railWidthPx > 0f) {
+            val visibleBandPx = (currentTicks.size * slotPx).coerceAtMost(railWidthPx)
+            val restWidthPx = (visibleBandPx * 2f).coerceAtMost(railWidthPx)
+            // 高度随放大同步增长：刻度以底部为基线向上生长，胶囊只向上扩展；
+            // 上收量随放大动画：缩小时贴刻度条底（完整包住刻度），放大时上收 5dp（不越过输入框顶），高度 24dp → 36dp
+            val capsuleW = lerp(restWidthPx, railWidthPx, capsuleExpand)
+            capsuleWidthPx = capsuleW
+            val capsuleH = with(density) { lerp(24.dp.toPx(), 36.dp.toPx(), capsuleExpand) }
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = (5f * capsuleExpand).dp)
+                    .width(with(density) { capsuleW.toDp() })
+                    // requiredHeight：父 Box 限高 28dp，普通 height 会被钳制，胶囊放大时需要突破
+                    .requiredHeight(with(density) { capsuleH.toDp() })
+                    .drawBackdrop(
+                        backdrop = glassBackdrop,
+                        shape = { RoundedCornerShape(percent = 50) },
+                        effects = {
+                            vibrancy()
+                            blur(10.dp.toPx())
+                            lens(6.dp.toPx(), 10.dp.toPx())
+                        },
+                        highlight = { Highlight.Default },
+                        shadow = null,
+                        onDrawSurface = { drawRect(capsuleTint) },
+                    ),
+            )
+        }
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .onSizeChanged { railWidthPx = it.width.toFloat() }
             .pointerInput(slotPx) {
                 awaitEachGesture {
                     val down = awaitFirstDown()
@@ -298,28 +355,44 @@ internal fun TurnTickRail(
         val scale = 1f + (TOUCH_SCALE - 1f) * touchAnim
         val baseline = size.height - tickBottomPadPx
 
-        // 虚刻度：真实刻度带两端的延伸占位（更低一级，不可选中），按住淡入、松手淡出。
-        if (touchAnim > 0.01f && count > 0) {
-            val ghostWidth = ghostTickWidthPx * scale
-            val ghostHeight = ghostTickHeightPx * scale
-            val bandStart = center + (0f - turn) * slotPx
-            val leftSlots = ((bandStart - slotPx) / slotPx).toInt().coerceIn(0, 12)
-            fun drawGhost(x: Float) {
-                var alpha = GHOST_TICK_ALPHA * touchAnim
-                if (windowed) {
-                    alpha *= (x / edgeFadePx).coerceIn(0f, 1f)
-                    alpha *= ((size.width - x) / edgeFadePx).coerceIn(0f, 1f)
-                }
-                if (alpha <= 0.004f) return
-                drawRoundRect(
-                    color = tickColor,
-                    topLeft = Offset(x - ghostWidth / 2f, baseline - ghostHeight),
-                    size = Size(ghostWidth, ghostHeight),
-                    cornerRadius = CornerRadius(ghostWidth / 2f),
-                    alpha = alpha,
-                )
+        // 虚刻度：真实刻度带两端之外的延伸占位（更低一级，不可选中，纯视觉）。
+        // Eta Mod：胶囊玻璃存在时，无论是否按下都把胶囊内的空缺填满虚刻度（两侧同格网）；
+        // 无玻璃时保持原行为：仅按住期间在刻度带左侧淡入。
+        val ghostWidth = ghostTickWidthPx * scale
+        val ghostHeight = ghostTickHeightPx * scale
+        val bandStart = center + (0f - turn) * slotPx
+        val bandEnd = center + (count - 1f - turn) * slotPx
+        fun drawGhost(x: Float, alphaScale: Float, fadeLeft: Float, fadeRight: Float) {
+            var alpha = GHOST_TICK_ALPHA * alphaScale
+            alpha *= ((x - fadeLeft) / edgeFadePx).coerceIn(0f, 1f)
+            alpha *= ((fadeRight - x) / edgeFadePx).coerceIn(0f, 1f)
+            if (alpha <= 0.004f) return
+            drawRoundRect(
+                color = tickColor,
+                topLeft = Offset(x - ghostWidth / 2f, baseline - ghostHeight),
+                size = Size(ghostWidth, ghostHeight),
+                cornerRadius = CornerRadius(ghostWidth / 2f),
+                alpha = alpha,
+            )
+        }
+        if (capsuleWidthPx > 0f && count > 0) {
+            // 胶囊内填充：沿同一刻度格网，画在真实刻度带未覆盖的胶囊空缺处
+            val capsuleLeft = center - capsuleWidthPx / 2f
+            val capsuleRight = center + capsuleWidthPx / 2f
+            val kMin = kotlin.math.ceil((capsuleLeft - center) / slotPx + turn).toInt()
+            val kMax = kotlin.math.floor((capsuleRight - center) / slotPx + turn).toInt()
+            for (k in kMin..kMax) {
+                if (k in 0 until count) continue
+                drawGhost(center + (k - turn) * slotPx, 1f, capsuleLeft, capsuleRight)
             }
-            for (k in 1..leftSlots) drawGhost(bandStart - k * slotPx)
+        } else if (touchAnim > 0.01f && count > 0) {
+            val leftSlots = ((bandStart - slotPx) / slotPx).toInt().coerceIn(0, 12)
+            for (k in 1..leftSlots) {
+                val x = bandStart - k * slotPx
+                val fadeLeft = if (windowed) 0f else Float.NEGATIVE_INFINITY
+                val fadeRight = if (windowed) size.width else Float.POSITIVE_INFINITY
+                drawGhost(x, touchAnim, fadeLeft, fadeRight)
+            }
         }
 
         for (i in 0 until count) {
@@ -355,6 +428,7 @@ internal fun TurnTickRail(
                 cornerRadius = CornerRadius(tickWidth / 2f),
                 alpha = alpha,
             )
+        }
         }
     }
 }

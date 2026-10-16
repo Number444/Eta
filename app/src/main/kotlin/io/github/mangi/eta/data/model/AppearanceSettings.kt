@@ -13,7 +13,7 @@ data class AppearanceSettings(
     val paletteStyle: AppearancePaletteStyle = AppearancePaletteStyle.TONAL_SPOT,
     val accentColor: AppearanceAccentColor = AppearanceAccentColor.SYSTEM,
     val pureBlackEnabled: Boolean = false,
-    val blurEnabled: Boolean = true,
+    val blurMode: AppearanceBlurMode = AppearanceBlurMode.DEFAULT,
     val swipeDismissEnabled: Boolean = true,
     val predictiveBackEnabled: Boolean = true,
     val interfaceScale: Float = DEFAULT_INTERFACE_SCALE,
@@ -32,6 +32,22 @@ enum class AppearanceThemeMode(val persistedValue: String) {
     companion object {
         fun fromPersistedValue(value: String?): AppearanceThemeMode =
             entries.firstOrNull { it.persistedValue == value } ?: SYSTEM
+    }
+}
+
+@Serializable
+enum class AppearanceBlurMode(val persistedValue: String) {
+    NONE("none"),
+    DEFAULT("default"),
+    LIQUID_GLASS("liquid_glass");
+
+    companion object {
+        fun fromPersistedValue(value: String?): AppearanceBlurMode =
+            entries.firstOrNull { it.persistedValue == value } ?: DEFAULT
+
+        /** 老版本只有布尔开关：开/未设置 → 默认模糊，关 → 无模糊。 */
+        fun fromLegacyBlurEnabled(enabled: Boolean?): AppearanceBlurMode =
+            if (enabled == false) NONE else DEFAULT
     }
 }
 

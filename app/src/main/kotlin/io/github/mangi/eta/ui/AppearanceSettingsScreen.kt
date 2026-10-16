@@ -23,6 +23,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AppearanceAccentColor
+import io.github.mangi.eta.data.model.AppearanceBlurMode
 import io.github.mangi.eta.data.model.AppearancePaletteStyle
 import io.github.mangi.eta.data.model.AppearanceSettings
 import io.github.mangi.eta.data.model.AppearanceThemeMode
@@ -90,6 +91,12 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
         stringResource(R.string.appearance_palette_monochrome),
         stringResource(R.string.appearance_palette_fidelity),
         stringResource(R.string.appearance_palette_content),
+    )
+    val blurModes = AppearanceBlurMode.entries
+    val blurModeLabels = listOf(
+        stringResource(R.string.appearance_blur_mode_none),
+        stringResource(R.string.appearance_blur_mode_default),
+        stringResource(R.string.appearance_blur_mode_liquid_glass),
     )
     val accentColors = AppearanceAccentColor.entries
     val accentLabels = listOf(
@@ -182,14 +189,17 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
         }
         item(key = "appearance_interface_card") {
             EtaPreferenceGroup(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp)) {
-                EtaSwitchPreference(
+                EtaOverlayDropdownPreference(
                     title = stringResource(R.string.appearance_blur),
-                    summary = stringResource(R.string.appearance_blur_summary),
-                    checked = appearance.blurEnabled && blurSupported,
-                    onCheckedChange = { enabled ->
-                        update { current -> current.copy(blurEnabled = enabled) }
-                    },
+                    summary = blurModeLabels[appearance.blurMode.ordinal],
+                    items = blurModeLabels,
+                    selectedIndex = appearance.blurMode.ordinal,
                     enabled = blurSupported,
+                    onSelectedIndexChange = { index ->
+                        blurModes.getOrNull(index)?.let { mode ->
+                            update { current -> current.copy(blurMode = mode) }
+                        }
+                    },
                 )
                 EtaPreferenceDivider(hasLeading = false)
                 EtaSwitchPreference(

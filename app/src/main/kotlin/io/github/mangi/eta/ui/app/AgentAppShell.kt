@@ -18,6 +18,7 @@ import androidx.compose.material.icons.rounded.HistoryToggleOff
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,10 +32,13 @@ import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.components.AdaptiveTopAppBar
 import io.github.mangi.eta.ui.components.ConversationSidePaneScaffold
+import io.github.mangi.eta.ui.components.LocalLiquidGlassBackdrop
 import io.github.mangi.eta.ui.components.MiuixBackButton
 import io.github.mangi.eta.ui.components.TopBarBackdrop
 import io.github.mangi.eta.ui.components.captureForTopBar
 import io.github.mangi.eta.ui.components.hapticClick
+import io.github.mangi.eta.ui.components.liquidGlassCircle
+import io.github.mangi.eta.ui.components.rememberLiquidGlassBackdrop
 import io.github.mangi.eta.ui.components.rememberTopBarBackdrop
 import io.github.mangi.eta.ui.components.topBarContainerColor
 import io.github.mangi.eta.ui.model.ConversationPaneUiState
@@ -93,6 +97,8 @@ fun AgentAppShell(
     val scrollBehavior = MiuixScrollBehavior()
     val backdrop = rememberTopBarBackdrop()
     val topBarColor = topBarContainerColor(backdrop)
+    // Eta Mod：液态玻璃 backdrop（仅首页消息区录制，顶栏按钮与输入栏采样）
+    val glassBackdrop = rememberLiquidGlassBackdrop()
     val pageContent: @Composable () -> Unit = {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
@@ -135,6 +141,7 @@ fun AgentAppShell(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
+        CompositionLocalProvider(LocalLiquidGlassBackdrop provides glassBackdrop) {
         if (conversationPaneState != null && currentRoute is AppRoute.Home) {
             ConversationSidePaneScaffold(
                 state = conversationPaneState,
@@ -153,6 +160,7 @@ fun AgentAppShell(
             }
         } else {
             pageContent()
+        }
         }
     }
 }
@@ -176,9 +184,18 @@ private fun AgentTopBar(
     onOpenBrowser: () -> Unit,
 ) {
     val isHome = route is AppRoute.Home
+    // Eta Mod：首页顶栏按钮液态玻璃遮罩（模糊开关关闭时自动回退无效果）
+    val glassBackdrop = LocalLiquidGlassBackdrop.current
+    val glassTint = MiuixTheme.colorScheme.surface.copy(alpha = 0.07f)
     val navigationIcon: @Composable () -> Unit = {
         if (isHome) {
-            IconButton(onClick = hapticClick(onClick = onOpenConversationPane)) {
+            IconButton(
+                onClick = hapticClick(onClick = onOpenConversationPane),
+                modifier = Modifier
+                    // Eta Mod：顶栏按钮放大到侧边栏设置按钮尺寸（44dp 圆）
+                    .size(44.dp)
+                    .liquidGlassCircle(glassBackdrop, tint = glassTint),
+            ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Outlined.ShortText,
                     modifier = Modifier.size(24.dp),
@@ -254,8 +271,16 @@ private fun TopBarOverflowMenu(
     onOpenBrowser: () -> Unit,
 ) {
     var showMenu by remember { mutableStateOf(false) }
+    val glassBackdrop = LocalLiquidGlassBackdrop.current
+    val glassTint = MiuixTheme.colorScheme.surface.copy(alpha = 0.07f)
     Box {
-        IconButton(onClick = hapticClick { onRefreshKimiWeb(); showMenu = true }) {
+        IconButton(
+            onClick = hapticClick { onRefreshKimiWeb(); showMenu = true },
+            modifier = Modifier
+                // Eta Mod：顶栏按钮放大到侧边栏设置按钮尺寸（44dp 圆）
+                .size(44.dp)
+                .liquidGlassCircle(glassBackdrop, tint = glassTint),
+        ) {
             Icon(
                 imageVector = Icons.Outlined.MoreHoriz,
                 modifier = Modifier.size(24.dp),

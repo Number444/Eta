@@ -95,6 +95,8 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.window.WindowListPopup
 
 private val SendButtonVisualSize = ChatInputActionIconSize
+// Eta Mod：输入栏内控件的玻璃圆为触控区的 3/4，垫在控件底下，不动控件本身
+private val GlassCircleSize = ChatInputActionSize * 3 / 4
 // Eta Mod：输入栏控件整体 ×1.2（触控 40→48、图标 24→28.8），私有图标按比例跟随。
 private val SendIconSize = 19.2.dp
 private val StopIconSize = 12.dp
@@ -140,6 +142,9 @@ internal fun AgentChatInputBar(
     modifier: Modifier = Modifier,
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
+    // Eta Mod：液态玻璃 backdrop（LocalLiquidGlassEnabled 门控；null 时全部退化为现状）
+    val glassBackdrop = LocalLiquidGlassBackdrop.current
+    val glassButtonTint = MiuixTheme.colorScheme.surface.copy(alpha = 0.07f)
     val focusRequester = remember { FocusRequester() }
     val textFieldState = rememberTextFieldState(initialText = input)
     val dictation = rememberSpeechInput { recognized ->
@@ -250,19 +255,38 @@ internal fun AgentChatInputBar(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .dropShadow(
-                        shape = InputContainerShape,
-                        shadow = Shadow(
-                            radius = 8.dp,
-                            color = Color.Black,
-                            alpha = 0.08f,
-                        ),
+                    // Eta Mod：液态玻璃开启时，容器材质由 drawBackdrop 提供（自带投影与高亮），
+                    // 原 dropShadow + squircleSurface 底色会遮住玻璃，须移除；边框保留。
+                    .then(
+                        if (glassBackdrop == null) {
+                            Modifier.dropShadow(
+                                shape = InputContainerShape,
+                                shadow = Shadow(
+                                    radius = 8.dp,
+                                    color = Color.Black,
+                                    alpha = 0.08f,
+                                ),
+                            )
+                        } else {
+                            Modifier
+                        }
                     )
-                    .squircleSurface(
-                        // Eta Mod：磨砂模式下卡片底色改半透明，让底下经模糊的消息透进来。
-                        color = MiuixTheme.colorScheme.surfaceContainer
-                            .copy(alpha = if (frosted) 0.55f else 1f),
+                    .liquidGlassRounded(
+                        backdrop = glassBackdrop,
                         cornerRadius = 20.dp,
+                        tint = MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.12f),
+                    )
+                    .then(
+                        if (glassBackdrop == null) {
+                            Modifier.squircleSurface(
+                                // Eta Mod：磨砂模式下卡片底色改半透明，让底下经模糊的消息透进来。
+                                color = MiuixTheme.colorScheme.surfaceContainer
+                                    .copy(alpha = if (frosted) 0.55f else 1f),
+                                cornerRadius = 20.dp,
+                            )
+                        } else {
+                            Modifier
+                        }
                     )
                     .squircleBorder(
                         width = 0.5.dp,
@@ -309,108 +333,147 @@ internal fun AgentChatInputBar(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                         if (isEditingMessage) {
-                            IconButton(
-                                onClick = hapticClick(onClick = onCancelMessageEdit),
-                                minWidth = ChatInputActionSize,
-                                minHeight = ChatInputActionSize,
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Close,
-                                    contentDescription = stringResource(R.string.ui_cancel_edit_c698df),
-                                    modifier = Modifier.size(ChatInputActionIconSize),
-                                    tint = MiuixTheme.colorScheme.onSurface,
-                                )
+                            Box(contentAlignment = Alignment.Center) {
+                                LiquidGlassCircleBehind(glassBackdrop, glassButtonTint, GlassCircleSize)
+                                IconButton(
+                                    onClick = hapticClick(onClick = onCancelMessageEdit),
+                                    minWidth = ChatInputActionSize,
+                                    minHeight = ChatInputActionSize,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Close,
+                                        contentDescription = stringResource(R.string.ui_cancel_edit_c698df),
+                                        modifier = Modifier.size(ChatInputActionIconSize),
+                                        tint = MiuixTheme.colorScheme.onSurface,
+                                    )
+                                }
                             }
                         } else {
-                            AgentAttachmentPickerButton(
-                                popupAnchorTopPx = inputContainerTopPx,
-                                popupMaxHeight = thinkingPopupMaxHeight,
-                                onAttachImage = onAttachImage,
-                                onAttachFiles = onAttachFiles,
-                                onAttachFolder = onAttachFolder,
-                                onAttachFilePath = onAttachFilePath,
-                            )
+                            Box(contentAlignment = Alignment.Center) {
+                                LiquidGlassCircleBehind(glassBackdrop, glassButtonTint, GlassCircleSize)
+                                AgentAttachmentPickerButton(
+                                    popupAnchorTopPx = inputContainerTopPx,
+                                    popupMaxHeight = thinkingPopupMaxHeight,
+                                    onAttachImage = onAttachImage,
+                                    onAttachFiles = onAttachFiles,
+                                    onAttachFolder = onAttachFolder,
+                                    onAttachFilePath = onAttachFilePath,
+                                )
+                            }
 
                             Spacer(modifier = Modifier.width(2.dp))
 
                             if (availableReasoningEfforts.isNotEmpty()) {
-                                ThinkingEffortChip(
-                                    effort = reasoningEffort,
-                                    options = availableReasoningEfforts,
-                                    enabled = !isStreaming,
-                                    popupAnchorTopPx = inputContainerTopPx,
-                                    popupMaxHeight = thinkingPopupMaxHeight,
-                                    onEffortChange = onReasoningEffortChange,
-                                )
+                                Box(contentAlignment = Alignment.Center) {
+                                    LiquidGlassCircleBehind(glassBackdrop, glassButtonTint, GlassCircleSize)
+                                    ThinkingEffortChip(
+                                        effort = reasoningEffort,
+                                        options = availableReasoningEfforts,
+                                        enabled = !isStreaming,
+                                        popupAnchorTopPx = inputContainerTopPx,
+                                        popupMaxHeight = thinkingPopupMaxHeight,
+                                        onEffortChange = onReasoningEffortChange,
+                                    )
+                                }
                             }
                         }
 
                         Spacer(modifier = Modifier.weight(1f))
 
                         if (showContextUsage) {
-                            AgentContextUsageButton(usage = contextUsage, onCompact = onCompactContext, canCompact = canCompactContext && !isStreaming)
+                            Box(contentAlignment = Alignment.Center) {
+                                LiquidGlassCircleBehind(glassBackdrop, glassButtonTint, GlassCircleSize)
+                                AgentContextUsageButton(
+                                    usage = contextUsage,
+                                    onCompact = onCompactContext,
+                                    canCompact = canCompactContext && !isStreaming,
+                                )
+                            }
 
                             Spacer(modifier = Modifier.width(2.dp))
                         }
 
-                        SpeechDictationButton(dictation, enabled = !isStreaming)
+                        Box(contentAlignment = Alignment.Center) {
+                            LiquidGlassCircleBehind(glassBackdrop, glassButtonTint, GlassCircleSize)
+                            SpeechDictationButton(
+                                dictation,
+                                enabled = !isStreaming,
+                            )
+                        }
 
                         Spacer(modifier = Modifier.width(2.dp))
 
-                        AgentModelPickerButton(
-                            state = modelPickerState,
-                            isStreaming = isStreaming,
-                            popupAnchorTopPx = inputContainerTopPx,
-                            popupMaxHeight = thinkingPopupMaxHeight,
-                            onModelSelected = onModelSelected,
-                        )
+                        Box(contentAlignment = Alignment.Center) {
+                            LiquidGlassCircleBehind(glassBackdrop, glassButtonTint, GlassCircleSize)
+                            AgentModelPickerButton(
+                                state = modelPickerState,
+                                isStreaming = isStreaming,
+                                popupAnchorTopPx = inputContainerTopPx,
+                                popupMaxHeight = thinkingPopupMaxHeight,
+                                onModelSelected = onModelSelected,
+                            )
+                        }
 
-                        IconButton(
-                            onClick = hapticClick(
-                                onClick = when {
-                                    queueMode -> {
-                                        {
-                                            dictation.cancel()
-                                            val queuedText = textFieldState.text.toString()
-                                            textFieldState.clearText()
-                                            onQueueMessage(queuedText)
-                                        }
-                                    }
-                                    isStreaming -> onStop
-                                    else -> {
-                                        {
-                                            if (canSend) {
+                        // 保留统一的点击区域，仅让可见圆形与相邻操作图标保持同一尺寸。
+                        val sendButtonColor by animateColorAsState(
+                            targetValue = when {
+                                queueMode -> MiuixTheme.colorScheme.primary
+                                isStreaming -> MiuixTheme.colorScheme.onSurface
+                                canSend -> MiuixTheme.colorScheme.primary
+                                else -> MiuixTheme.colorScheme.surfaceContainerHigh
+                            },
+                            animationSpec = tween(durationMillis = 160),
+                            label = "send_button_color",
+                        )
+                        Box(contentAlignment = Alignment.Center) {
+                            // Eta Mod：发送按钮的玻璃圆与其余控件同为 36dp，垫在控件底下
+                            LiquidGlassCircleBehind(
+                                glassBackdrop,
+                                tint = sendButtonColor.copy(alpha = 0.75f),
+                                size = GlassCircleSize,
+                            )
+                            IconButton(
+                                onClick = hapticClick(
+                                    onClick = when {
+                                        queueMode -> {
+                                            {
                                                 dictation.cancel()
-                                                val submittedText = textFieldState.text.toString()
+                                                val queuedText = textFieldState.text.toString()
                                                 textFieldState.clearText()
-                                                onSubmit(submittedText)
+                                                onQueueMessage(queuedText)
                                             }
                                         }
-                                    }
-                                },
-                            ),
-                            enabled = isStreaming || canSend,
-                            minWidth = ChatInputActionSize,
-                            minHeight = ChatInputActionSize,
-                        ) {
-                            // 保留统一的点击区域，仅让可见圆形与相邻操作图标保持同一尺寸。
-                            val sendButtonColor by animateColorAsState(
-                                targetValue = when {
-                                    queueMode -> MiuixTheme.colorScheme.primary
-                                    isStreaming -> MiuixTheme.colorScheme.onSurface
-                                    canSend -> MiuixTheme.colorScheme.primary
-                                    else -> MiuixTheme.colorScheme.surfaceContainerHigh
-                                },
-                                animationSpec = tween(durationMillis = 160),
-                                label = "send_button_color",
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .size(SendButtonVisualSize)
-                                    .clip(CircleShape)
-                                    .background(sendButtonColor),
-                                contentAlignment = Alignment.Center,
+                                        isStreaming -> onStop
+                                        else -> {
+                                            {
+                                                if (canSend) {
+                                                    dictation.cancel()
+                                                    val submittedText = textFieldState.text.toString()
+                                                    textFieldState.clearText()
+                                                    onSubmit(submittedText)
+                                                }
+                                            }
+                                        }
+                                    },
+                                ),
+                                enabled = isStreaming || canSend,
+                                minWidth = ChatInputActionSize,
+                                minHeight = ChatInputActionSize,
                             ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(SendButtonVisualSize)
+                                        .then(
+                                            if (glassBackdrop != null) {
+                                                Modifier
+                                            } else {
+                                                Modifier
+                                                    .clip(CircleShape)
+                                                    .background(sendButtonColor)
+                                            }
+                                        ),
+                                    contentAlignment = Alignment.Center,
+                                ) {
                                 AnimatedContent(
                                     targetState = when {
                                         queueMode -> SendButtonMode.Queue
@@ -453,6 +516,7 @@ internal fun AgentChatInputBar(
                                         },
                                     )
                                 }
+                            }
                             }
                         }
                 }

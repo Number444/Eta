@@ -335,7 +335,9 @@ private fun AgentChatScaffold(
     modifier: Modifier = Modifier,
 ) {
     val surfaceColor = MiuixTheme.colorScheme.surface
-    val frostEnabled = hasMessages && LocalBlurEnabled.current && isRuntimeShaderSupported()
+    // Eta Mod：液态玻璃启用时取代 miuix 底部磨砂（同一开关门控），避免两套采样叠加
+    val glassBackdrop = LocalLiquidGlassBackdrop.current
+    val frostEnabled = hasMessages && glassBackdrop == null && LocalBlurEnabled.current && isRuntimeShaderSupported()
     val messageBackdrop = rememberLayerBackdrop {
         // Backdrop 必须包含不透明底色，否则文字边缘模糊到透明区域时会出现黑边。
         drawRect(surfaceColor)
@@ -447,6 +449,8 @@ private fun AgentChatScaffold(
                 onSuggestionClick = onSuggestionClick,
                 modifier = Modifier
                     .fillMaxSize()
+                    // Eta Mod：空态也录制玻璃采样层（顶栏按钮在其坐标上取样）
+                    .liquidGlassSource(glassBackdrop)
                     // 空状态不进顶栏模糊采样区，整体保持在顶栏下方。
                     .padding(top = topPadding, bottom = bottomPadding),
             )
@@ -473,6 +477,7 @@ private fun AgentChatScaffold(
                 currentBrowserMessageId = currentBrowserMessageId,
                 modifier = Modifier
                     .fillMaxSize()
+                    .liquidGlassSource(glassBackdrop)
                     .then(if (frostEnabled) Modifier.layerBackdrop(messageBackdrop) else Modifier),
             )
         }
@@ -999,6 +1004,9 @@ private fun AgentChatBottomBar(
 ) {
     // 底部栏实测高度：刻度气泡用它定位（浮层不参与布局，纯位移）。
     var dockHeightPx by remember { mutableIntStateOf(0) }
+    // Eta Mod：液态玻璃接管底部模糊——玻璃开启时磨砂带与输入区底色全部透明，
+    // 模糊由输入栏容器自身的 drawBackdrop 提供。
+    val glassBackdrop = LocalLiquidGlassBackdrop.current
     Box(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier
@@ -1045,13 +1053,19 @@ private fun AgentChatBottomBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(ChatBottomFrostWithRailHeight)
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                MiuixTheme.colorScheme.surface,
-                            ),
-                        )
+                    .then(
+                        if (glassBackdrop == null) {
+                            Modifier.background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        MiuixTheme.colorScheme.surface,
+                                    ),
+                                )
+                            )
+                        } else {
+                            Modifier
+                        }
                     ),
             ) {
                 Box(
@@ -1069,13 +1083,19 @@ private fun AgentChatBottomBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(16.dp)
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                MiuixTheme.colorScheme.surface,
-                            ),
-                        )
+                    .then(
+                        if (glassBackdrop == null) {
+                            Modifier.background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        MiuixTheme.colorScheme.surface,
+                                    ),
+                                )
+                            )
+                        } else {
+                            Modifier
+                        }
                     ),
             )
         }
@@ -1085,7 +1105,10 @@ private fun AgentChatBottomBar(
                 // Eta Mod：输入区整体磨砂——消息本就绘制在输入区下方，直接对同一
                 // backdrop 采样；模糊不可用时回退纯色表面。
                 .then(
-                    if (messageBackdrop != null) {
+                    if (glassBackdrop != null) {
+                        // Eta Mod：玻璃开启时输入区透明，模糊由输入栏玻璃的 drawBackdrop 承担
+                        Modifier
+                    } else if (messageBackdrop != null) {
                         Modifier.textureBlur(
                             backdrop = messageBackdrop,
                             shape = RectangleShape,
