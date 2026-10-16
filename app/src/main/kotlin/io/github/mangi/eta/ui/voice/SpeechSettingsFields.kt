@@ -303,7 +303,6 @@ internal fun SpeechVoiceSection(store: SpeechSettingsStore) {
                     DropdownItem(text = stringResource(preset.name), summary = stringResource(preset.summary))
                 } + DropdownItem(text = stringResource(R.string.speech_voice_custom)),
                 selectedIndex = if (custom) presets.size else presetIndex,
-                useWindow = false,
                 onSelectedIndexChange = { index ->
                     val preset = presets.getOrNull(index)
                     editingCustom = preset == null

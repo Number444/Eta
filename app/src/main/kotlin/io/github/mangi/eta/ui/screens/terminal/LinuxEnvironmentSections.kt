@@ -15,11 +15,11 @@ import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.terminal.LinuxDistribution
 import io.github.mangi.eta.agent.terminal.LinuxExecutionBackend
 import io.github.mangi.eta.ui.components.EtaCard
+import io.github.mangi.eta.ui.components.EtaDropdownPreference
 import io.github.mangi.eta.ui.components.EtaPreference
 import io.github.mangi.eta.ui.components.EtaPreferenceDivider
 import io.github.mangi.eta.ui.components.EtaPreferenceGroup
 import io.github.mangi.eta.ui.components.EtaTextButton
-import io.github.mangi.eta.ui.components.EtaWindowSpinnerPreference
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
@@ -94,7 +94,7 @@ internal fun LinuxEnvironmentConfiguration(
     val distributions = LinuxDistribution.entries
     val backends = listOf(LinuxExecutionBackend.PROOT, LinuxExecutionBackend.CHROOT)
     EtaPreferenceGroup(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        EtaWindowSpinnerPreference(
+        EtaDropdownPreference(
             title = stringResource(R.string.linux_distribution_title),
             items = distributions.map {
                 DropdownItem(
@@ -113,7 +113,7 @@ internal fun LinuxEnvironmentConfiguration(
         )
         if (rootGranted || backend == LinuxExecutionBackend.CHROOT) {
             EtaPreferenceDivider(hasLeading = false)
-            EtaWindowSpinnerPreference(
+            EtaDropdownPreference(
                 title = stringResource(R.string.capability_linux_backend),
                 items = backends.map {
                     DropdownItem(

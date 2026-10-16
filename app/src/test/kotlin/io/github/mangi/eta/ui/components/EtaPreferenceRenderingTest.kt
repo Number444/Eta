@@ -39,7 +39,7 @@ class EtaPreferenceRenderingTest {
         Column {
             EtaSwitchPreference(title = "默认启用思考", summary = "测试摘要", checked = true, onCheckedChange = {})
             EtaRadioButtonPreference(title = "默认开场白", selected = true, onClick = {})
-            EtaWindowSpinnerPreference(
+            EtaDropdownPreference(
                 title = "选择主题", items = listOf(top.yukonga.miuix.kmp.basic.DropdownItem(text = "跟随系统")),
                 selectedIndex = 0, onSelectedIndexChange = {},
             )

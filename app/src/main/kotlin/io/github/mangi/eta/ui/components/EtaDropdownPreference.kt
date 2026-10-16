@@ -35,7 +35,9 @@ internal fun EtaDropdownPreference(
     modifier: Modifier = Modifier,
     bottomAction: (@Composable () -> Unit)? = null,
     enabled: Boolean = true,
-    useWindow: Boolean = true,
+    // Eta Mod（焕新阶段四，Four 定调）：下拉弹层全真玻璃化——默认 overlay 变体（真玻璃）；
+    // 仅剩侧栏长按菜单等特殊场景经 EtaListPopup 显式走 window 变体（不透明描边玻璃）。
+    useWindow: Boolean = false,
     onSelectedIndexChange: (Int) -> Unit,
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
@@ -111,21 +113,6 @@ internal fun EtaDropdownPreference(
 }
 
 @Composable
-internal fun EtaWindowSpinnerPreference(
-    title: String,
-    items: List<DropdownItem>,
-    selectedIndex: Int,
-    summary: String? = null,
-    startAction: (@Composable () -> Unit)? = null,
-    enabled: Boolean = true,
-    onSelectedIndexChange: (Int) -> Unit,
-) = EtaDropdownPreference(
-    title = title, items = items, selectedIndex = selectedIndex, summary = summary,
-    startAction = startAction, enabled = enabled, useWindow = true,
-    onSelectedIndexChange = onSelectedIndexChange,
-)
-
-@Composable
 internal fun EtaOverlayDropdownPreference(
     title: String,
     items: List<String>,
@@ -136,6 +123,6 @@ internal fun EtaOverlayDropdownPreference(
     onSelectedIndexChange: (Int) -> Unit,
 ) = EtaDropdownPreference(
     title = title, items = items.map { DropdownItem(text = it) }, selectedIndex = selectedIndex,
-    summary = summary, startAction = startAction, enabled = enabled, useWindow = false,
+    summary = summary, startAction = startAction, enabled = enabled,
     onSelectedIndexChange = onSelectedIndexChange,
 )

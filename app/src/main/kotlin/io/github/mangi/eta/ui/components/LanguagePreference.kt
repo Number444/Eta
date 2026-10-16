@@ -52,7 +52,6 @@ internal fun LanguagePreference(iconTint: Color = MiuixTheme.colorScheme.onBackg
     EtaDropdownPreference(
         title = stringResource(R.string.settings_language),
         items = labels.map { DropdownItem(text = it) },
-        useWindow = false,
         selectedIndex = selectedIndex,
         startAction = { EtaPreferenceIcon(icon = Icons.Rounded.Language, tint = iconTint) },
         onSelectedIndexChange = { index ->
