@@ -2,9 +2,19 @@
 
 > 本 fork：`my-mods` 分支，applicationId `io.github.mangi.eta.mod`
 > 远端：`origin` = Number444/Eta（推送目标），`upstream` = Mangi-11/Eta（官方源）
-> 当前版本：3.3.0-015（versionCode 2026101706；液态玻璃全面焕新验收通过，015 同版本换包：默认模糊档改液态玻璃，commit bfcd78e）
+> 当前版本：3.3.0-016（versionCode 2026101707；DeepSeek Search 接入 + 搜索引擎可切换架构，见事项13）
 
 > 已完成归档（2026-10-08 精简）：1. merge 上游 v3.2.0（30 commits，16 冲突手工裁决，出包真机回归通过）；2. 更新检查/关于页链接指向 Number444/Eta（`isNewer` 支持 `-NNN` 修订号）；3. 删官方搜索只留 Exa（官方服务本机超时不可用）；4. 消息操作行按钮放大 1.4 倍；5. 分享成图按新 markdown 层重写（含 `ShareCardRenderTest` 渲染基线）；6. merge 上游 v3.3.0（2026-10-13 完成：21 commits，7 冲突裁决 + `AgentAppState` 四功能块移植；暗礁=双方 `MIGRATION_21_22` 撞车，上游 `model_id` 迁移顺延 22_23、DB 升 v23；48 个单测失败对撞全为 Windows 环境基线零回归，出包真机冒烟通过）。详细过程见 git 历史。
+
+## 13. DeepSeek Search 接入 + 搜索引擎可切换架构（2026-10-17 实施）
+
+- **起因**：DeepSeek 开放 Search/Fetch API（[官方文档](https://api-docs.deepseek.com/guides/search)），Kimi Code 已配置的 deepseek key 实测 200 可用；Search $0.75/千次成功请求，`need_content=false` 时 `summary`（600-800 字）官方定位即"给模型读"
+- **架构调整（为后续更多搜索接口铺路）**：原实现零抽象硬编码 Exa，本次引入 `agent/tool/AgentSearchProvider.kt` 枚举抽象（prefValue/displayName/apiKeyPrefKey + `buildRequest`/`parseResults` 两分支），统一映射 `results[{title,url,published,text}]`；截断预算（1000 字/条、25000 总量）与打包格式留在 `AgentWebSearchTool` 不变。新增引擎 = 枚举值 + 两分支 + Prefs key + 设置页入口
+- **对模型透明**：工具名 `web_search`、参数 schema（query/num_results）不变；description 与 prompt 去 Exa 化；`exaConfigured()` → `searchConfigured()`
+- **配置**：新增 `AGENT_SEARCH_PROVIDER`（缺省/未知回退 exa，兼容存量）+ `AGENT_DEEPSEEK_API_KEY`，两 key 独立保存切换不丢；设置→工具新增「搜索引擎」下拉（EtaOverlayDropdownPreference）+ 当前引擎 key 入口；`ExaApiKeyDialog` 泛化为 `ApiKeyDialog(title,...)`
+- **映射决策**：DeepSeek `date→published`、`summary→text`（空则回退 snippet）、`need_content` 固定 false、query 超长截 128 字符；DeepSeek Fetch API 本次不接（已有 fetch_url 工具）
+- **测试**：新增 `AgentSearchProviderTest`（解析映射/回退/请求构造/query 截断）；既有 web_search 断言均基于"无 key 不注册"，行为不变
+- **出包**：v3.3.0-016（手机未连接只出包不装机）；commit/push 待 Four 指令
 
 ## 12. App 全面 UI 焕新计划：液态玻璃（2026-10-16 Four 拍板启动，进行中）
 

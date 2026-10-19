@@ -121,7 +121,7 @@ internal class AgentLocalTools(
         )
     }
 
-    /** Eta Mod：web_search 只走 Exa，注册条件在 AgentWebSearchToolCatalog.exaConfigured()。 */
+    /** Eta Mod：web_search 走 AgentSearchProvider 抽象引擎，注册条件在 AgentWebSearchToolCatalog.searchConfigured()。 */
     private val terminalController = RootShellTerminalController(
         logger = logger,
         rootAvailable = rootAvailable,

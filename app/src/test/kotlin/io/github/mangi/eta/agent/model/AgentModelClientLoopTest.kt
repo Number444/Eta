@@ -67,7 +67,7 @@ class AgentModelClientLoopTest {
                         val names = (0 until request.tools.length()).map {
                             request.tools.getJSONObject(it).getJSONObject("function").getString("name")
                         }
-                        // Eta Mod：本地 web_search 只走 Exa（测试环境未配置 Key，恒不注册）；
+                        // Eta Mod：本地 web_search 走搜索引擎通道（测试环境未配置 Key，恒不注册）；
                         // 官方免 Key 搜索已移除，prompt 也不再提及本地 web_search。
                         assertFalse("web_search" in names)
                         assertEquals(browser, "fetch_url" in names)

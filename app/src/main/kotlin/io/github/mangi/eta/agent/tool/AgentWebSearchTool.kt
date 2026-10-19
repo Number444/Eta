@@ -1,24 +1,19 @@
 package io.github.mangi.eta.agent.tool
 
 import io.github.mangi.eta.agent.model.AgentHttpClient
-import io.github.mangi.eta.config.Prefs
 import java.io.IOException
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 
 /**
  * 网页搜索工具执行器（Eta Mod）。
  *
- * 先支持 Exa：POST https://api.exa.ai/search，x-api-key 头鉴权。
- * Key 与供应商同款——明文存放在本地 Agent 配置，仅本进程读取。
+ * 搜索引擎由 [AgentSearchProvider] 抽象（当前支持 Exa / DeepSeek），请求构造与响应
+ * 解析委派给引擎实现；本类负责参数校验、截断预算与喂模型的统一打包格式。
  * 同步阻塞执行：与终端等工具一致，跑在 Agent 循环的后台线程上。
  */
 internal object AgentWebSearchTool {
 
-    private const val EXA_SEARCH_URL = "https://api.exa.ai/search"
     private const val DEFAULT_RESULTS = 15
     private const val MIN_RESULTS = 5
     private const val MAX_RESULTS = 25
@@ -32,34 +27,25 @@ internal object AgentWebSearchTool {
         if (query.isEmpty()) {
             return errorResult("INVALID_ARGUMENTS", "query 不能为空")
         }
-        val apiKey = Prefs.getLocalString(Prefs.Keys.AGENT_EXA_API_KEY).trim()
-        if (apiKey.isBlank()) {
-            return errorResult("WEB_SEARCH_NOT_CONFIGURED", "未配置 Exa API Key，请在设置-工具中填写")
+        val provider = AgentSearchProvider.current()
+        if (!provider.isConfigured()) {
+            return errorResult(
+                "WEB_SEARCH_NOT_CONFIGURED",
+                "未配置 ${provider.displayName} API Key，请在设置-工具中填写",
+            )
         }
         val numResults = args.optInt("num_results", DEFAULT_RESULTS).coerceIn(MIN_RESULTS, MAX_RESULTS)
-        val payload = JSONObject()
-            .put("query", query)
-            .put("numResults", numResults)
-            .put("type", "auto")
-            .put(
-                "contents",
-                JSONObject().put("text", JSONObject().put("maxCharacters", PER_RESULT_TEXT_CHARS)),
-            )
-        val request = Request.Builder()
-            .url(EXA_SEARCH_URL)
-            .header("x-api-key", apiKey)
-            .post(payload.toString().toRequestBody("application/json".toMediaType()))
-            .build()
+        val request = provider.buildRequest(query, numResults, PER_RESULT_TEXT_CHARS)
         return try {
             AgentHttpClient.client.newCall(request).execute().use { response ->
                 val body = response.body.string()
                 if (!response.isSuccessful) {
                     errorResult(
                         "WEB_SEARCH_HTTP_${response.code}",
-                        body.take(300).ifBlank { "Exa 请求失败（HTTP ${response.code}）" },
+                        body.take(300).ifBlank { "${provider.displayName} 请求失败（HTTP ${response.code}）" },
                     )
                 } else {
-                    formatResults(body)
+                    formatResults(provider, body)
                 }
             }
         } catch (failure: IOException) {
@@ -69,10 +55,9 @@ internal object AgentWebSearchTool {
         }
     }
 
-    private fun formatResults(body: String): String {
-        val raw = runCatching { JSONObject(body) }.getOrNull()
-            ?: return errorResult("WEB_SEARCH_BAD_RESPONSE", "Exa 返回了无法解析的响应")
-        val items = raw.optJSONArray("results") ?: JSONArray()
+    private fun formatResults(provider: AgentSearchProvider, body: String): String {
+        val items = provider.parseResults(body)
+            ?: return errorResult("WEB_SEARCH_BAD_RESPONSE", "${provider.displayName} 返回了无法解析的响应")
         val results = JSONArray()
         var budget = TOTAL_TEXT_BUDGET_CHARS
         for (index in 0 until items.length()) {
@@ -85,7 +70,7 @@ internal object AgentWebSearchTool {
                 JSONObject()
                     .put("title", item.optString("title").trim())
                     .put("url", item.optString("url").trim())
-                    .put("published", item.optString("publishedDate").trim())
+                    .put("published", item.optString("published").trim())
                     .put("text", text),
             )
             if (budget <= 0) break

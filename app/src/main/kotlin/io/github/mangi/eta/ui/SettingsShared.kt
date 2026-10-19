@@ -181,9 +181,10 @@ internal fun maskSecretSummary(secret: String): String =
         "${secret.take(4)}${"*".repeat(secret.length - 8)}${secret.takeLast(4)}"
     }
 
-/** Exa API Key 输入弹窗：密码式输入 + 可见性切换，与供应商 key 输入同款。 */
+/** API Key 输入弹窗：密码式输入 + 可见性切换，与供应商 key 输入同款（Exa / DeepSeek 等搜索引擎共用）。 */
 @Composable
-internal fun ExaApiKeyDialog(
+internal fun ApiKeyDialog(
+    title: String,
     initial: String,
     onDismiss: () -> Unit,
     onSave: (String) -> Unit,
@@ -192,8 +193,8 @@ internal fun ExaApiKeyDialog(
     var visible by remember { mutableStateOf(false) }
     EtaWindowDialog(
         show = true,
-        title = "Exa API Key",
-        summary = stringResource(R.string.settings_exa_api_key_summary),
+        title = title,
+        summary = stringResource(R.string.settings_search_api_key_summary),
         onDismissRequest = onDismiss,
     ) {
         TextField(

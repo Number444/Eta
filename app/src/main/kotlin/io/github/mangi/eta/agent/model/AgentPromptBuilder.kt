@@ -130,9 +130,9 @@ internal object AgentPromptBuilder {
             ))
         }
         if (config.browserTools) {
-            // Eta Mod：本地 web_search 只走 Exa；未配置 API Key 或开关关闭时不向模型提及该工具。
+            // Eta Mod：本地 web_search 走 AgentSearchProvider 抽象引擎；未配置 API Key 或开关关闭时不向模型提及该工具。
             val localSearchAvailable = !config.usesHostedWebSearch &&
-                config.webSearchTools && AgentWebSearchToolCatalog.exaConfigured()
+                config.webSearchTools && AgentWebSearchToolCatalog.searchConfigured()
             messages.put(
                 systemMessage(
                     (if (config.usesHostedWebSearch) {

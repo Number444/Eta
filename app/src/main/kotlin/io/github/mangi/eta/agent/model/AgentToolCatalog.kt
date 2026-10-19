@@ -29,13 +29,14 @@ internal object AgentToolCatalog {
                 sensitiveReadTools = deviceSensitiveReadTools,
                 sensitiveActionTools = deviceSensitiveActionTools,
             )
-            // Eta Mod：官方免 Key 搜索在本机不可用（连续超时），web_search 只走 Exa（需已配置 API Key）；
+            // Eta Mod：官方免 Key 搜索在本机不可用（连续超时），web_search 走 AgentSearchProvider
+            // 抽象的引擎（Exa / DeepSeek，需已配置 API Key）；
             // 上游 AgentWebToolCatalog 不再注册官方 web_search，仅保留 fetch_url。
             if (browserTools) {
                 AgentWebToolCatalog.appendTo(tools, includeSearch = false)
                 AgentBrowserToolCatalog.appendTo(tools)
             }
-            if (webSearchTools && localWebSearch && AgentWebSearchToolCatalog.exaConfigured()) AgentWebSearchToolCatalog.appendTo(tools)
+            if (webSearchTools && localWebSearch && AgentWebSearchToolCatalog.searchConfigured()) AgentWebSearchToolCatalog.appendTo(tools)
             AgentSkillToolCatalog.appendTo(
                 tools,
                 githubDiscovery = skillGitHubDiscovery,
