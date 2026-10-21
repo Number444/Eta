@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -148,9 +149,9 @@ private fun EtaGlassPopupContainer(content: @Composable () -> Unit) {
 /**
  * Eta Mod：miuix OverlayBottomSheet 的真玻璃收口（内容侧注入，同 [EtaGlassPopupContainer] 手法）。
  *
- * miuix 抽屉把背景画在整个列（把手区 + 标题 + 内容）上，且把手区（45dp）无法交给调用方，
+ * miuix 抽屉把背景画在整个列（把手区 + 标题 + 内容）上，且把手区（42dp）无法交给调用方，
  * 玻璃只能注入内容区。真玻璃路径：容器背景与把手置透明、标题交给内容侧复刻
- * （title4 + Medium + onSurface，与原生一致），内容列包一层顶部 28dp 圆角的玻璃；
+ * （title4 + Medium + onSurface + 居中，与原生一致），内容列包一层顶部 28dp 圆角的玻璃；
  * 原生把手区保持透明不可见，玻璃内顶部补一颗同样式的视觉把手。
  * 抽屉整体高度因此比原生高出一个把手区，视觉上是玻璃面板上沿即为抽屉上沿。
  *
@@ -211,8 +212,8 @@ private fun EtaGlassSheetContainer(
                 tint = colors.surface.copy(alpha = style.tintAlpha),
             ),
     ) {
-        // 视觉把手：原生把手随透明背景隐藏（手势区仍在玻璃上方 45dp 透明带内），
-        // 这里在玻璃上补一颗，保持抽屉的可拖拽暗示。
+        // 视觉把手：原生把手随透明背景隐藏（手势区仍在玻璃上方 42dp 透明带内），
+        // 这里在玻璃上补一颗同款（45×4dp、圆角 2dp、alpha 0.2），保持抽屉的可拖拽暗示。
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -221,9 +222,9 @@ private fun EtaGlassSheetContainer(
         ) {
             Box(
                 modifier = Modifier
-                    .size(width = 36.dp, height = 4.dp)
-                    .clip(CircleShape)
-                    .background(colors.onSurfaceVariantSummary.copy(alpha = 0.4f)),
+                    .size(width = 45.dp, height = 4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(colors.onSurfaceVariantSummary.copy(alpha = 0.2f)),
             )
         }
         if (title != null) {
@@ -232,7 +233,9 @@ private fun EtaGlassSheetContainer(
                 style = MiuixTheme.textStyles.title4,
                 fontWeight = FontWeight.Medium,
                 color = colors.onSurface,
+                textAlign = TextAlign.Center,
                 modifier = Modifier
+                    .fillMaxWidth()
                     .padding(horizontal = 24.dp)
                     .padding(bottom = 12.dp),
             )

@@ -676,14 +676,15 @@ private fun AgentMessageBlock(
             enter = fadeIn(tween(160)) + expandVertically(tween(160)),
             exit = fadeOut(tween(120)) + shrinkVertically(tween(120)),
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    // Eta Mod：操作按钮放大到上游 1.4 倍（图标 21dp/触控 42dp），抵消居中留白与工作过程标题对齐。
-                    .offset(x = -6.dp)
-                    .padding(top = 2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+            Column {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        // Eta Mod：操作按钮放大到上游 1.4 倍（图标 21dp/触控 42dp），抵消居中留白与工作过程标题对齐。
+                        .offset(x = -6.dp)
+                        .padding(top = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                 AnswerActionButton(
                     icon = if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
                     contentDescription = stringResource(
@@ -788,8 +789,9 @@ private fun AgentMessageBlock(
                         )
                     }
                 }
+                }
+                TurnTimingRow(message)
             }
-            TurnTimingRow(message)
         }
     }
 }
