@@ -12,6 +12,7 @@ import io.github.mangi.eta.agent.model.AgentModelFailure
 import io.github.mangi.eta.agent.model.AgentHttpClient
 import io.github.mangi.eta.agent.memory.AgentMemoryContext
 import io.github.mangi.eta.agent.memory.AgentMemoryContextBuilder
+import io.github.mangi.eta.agent.memory.ConversationMemoryPins
 import io.github.mangi.eta.agent.roleplay.CharacterMemoryTools
 import io.github.mangi.eta.agent.roleplay.RoleplayRunContext
 import io.github.mangi.eta.agent.mcp.McpRunSnapshot
@@ -35,6 +36,7 @@ import io.github.mangi.eta.ui.components.modelOrProviderBrandLogoRes
 import io.github.mangi.eta.R
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
+import org.json.JSONObject
 
 /**
  * 单次 Runtime run 的阻塞执行器。
@@ -68,7 +70,7 @@ internal class AgentRuntimeRunExecutor(
         request: AgentRuntimeWire.RunRequest,
     ): Outcome {
         val runController = session.controller
-        val archivedEvents = mutableListOf<AgentEvent>()
+        val archivedEvents = AgentRunArchiveStore.createEventBuffer(request.handoff)
         var entrySurfaceGuard: EntrySurfaceGuard? = null
         var toolExecutor: AutoCloseable? = null
         var toolsBinding: AgentRunController.ResourceBinding? = null
@@ -77,6 +79,8 @@ internal class AgentRuntimeRunExecutor(
         var checkpointRecorder: AgentRunCheckpointRecorder? = null
         val timing = AgentRunTiming(AndroidAgentLogger)
 
+        // 失败清理需要在 try 外拿到会话 id。
+        var memoryConversationId: String? = null
         val result = try {
             val contextWindow = request.config.knownContextWindow
             // Eta Mod：小米超级岛上岛（压缩等内部任务不上岛）；任何异常都不影响主流程。
@@ -117,6 +121,7 @@ internal class AgentRuntimeRunExecutor(
                 ?.let { AgentUiHandoffPayload.from(it.payload) }
             val conversationId = uiPayload?.conversationId
                 ?.takeIf { it.isNotBlank() }
+            memoryConversationId = conversationId
             val roleplayContext = conversationId?.let { id ->
                 runBlocking { RoleplayRunContext.resolve(appContext, id, contextWindow, memoryEnabled) }
             }
@@ -135,7 +140,8 @@ internal class AgentRuntimeRunExecutor(
             }
             val memoryContext = if (memoryEnabled) {
                 runCatching {
-                    AgentMemoryContextBuilder.build(
+                    ConversationMemoryPins.contextFor(
+                        conversationId = conversationId,
                         snapshot = AgentMemoryRepository.snapshot(),
                         contextWindow = request.config.contextWindow,
                     )
@@ -256,7 +262,13 @@ internal class AgentRuntimeRunExecutor(
                     historyTool.execute(call)
                 } else if (call.name in CharacterMemoryTools.NAMES && characterMemoryTools != null) {
                     characterMemoryTools.execute(call)
-                } else routingExecutor.execute(call)
+                } else routingExecutor.execute(call).also { result ->
+                    if (call.name == "memory_write") {
+                        runCatching { JSONObject(result.content) }.getOrNull()
+                            ?.takeIf { it.optBoolean("ok") }
+                            ?.let { ConversationMemoryPins.recordOwnWrite(conversationId, it.optString("revision")) }
+                    }
+                }
             }
             val completedResponse = AgentModelClient.complete(
                 config = request.config,
@@ -269,6 +281,8 @@ internal class AgentRuntimeRunExecutor(
                 rewriteReply = request.operation == AgentRuntimeWire.OP_REWRITE_REPLY,
                 compactOnly = request.operation == AgentRuntimeWire.OP_COMPACT,
                 onContextSnapshot = { snapshot ->
+                    // 压缩会把历史里的记忆写入摘要掉，下一轮需要重新注入最新记忆。
+                    ConversationMemoryPins.forget(conversationId)
                     val committed = snapshot.copy(operationId = request.runId)
                     AgentRunCheckpointStore.saveContext(appContext, request.runId, committed)
                     session.updateContext(committed)
@@ -310,6 +324,8 @@ internal class AgentRuntimeRunExecutor(
                 rewriteTargetMessageId = request.rewriteTargetMessageId,
             )
         } catch (throwable: Throwable) {
+            // 失败时历史是否完整落盘不确定，放弃固定的记忆快照；记忆未变时重新注入的内容逐字节相同。
+            ConversationMemoryPins.forget(memoryConversationId)
             cancelled = runController.isCancelled || throwable is AgentRunCancelledException
             val modelFailure = throwable as? AgentModelExecutionException
             val message = if (cancelled) {
@@ -394,7 +410,7 @@ internal class AgentRuntimeRunExecutor(
 
         if (cancelled && session.isTerminal) {
             runCatching {
-                persistArtifacts(snapshotRequest(request), result, archivedEvents)
+                persistArtifacts(snapshotRequest(request), result, archivedEvents.orEmpty())
             }.onFailure { throwable ->
                 AndroidAgentLogger.error(
                     "Agent runtime cancelled result persistence failed: " +
@@ -422,7 +438,7 @@ internal class AgentRuntimeRunExecutor(
                         "Agent runtime checkpoint seal failed: type=${throwable.safeLogType()}"
                     )
                 }
-            runCatching { persistArtifacts(completedRequest, result, archivedEvents) }
+            runCatching { persistArtifacts(completedRequest, result, archivedEvents.orEmpty()) }
                 .onFailure { throwable ->
                     AndroidAgentLogger.error(
                         "Agent runtime artifact persistence failed: type=${throwable.safeLogType()}"
@@ -441,13 +457,13 @@ internal class AgentRuntimeRunExecutor(
     private fun acceptEvent(
         session: AgentRuntimeSession,
         event: AgentEvent,
-        archivedEvents: MutableList<AgentEvent>,
+        archivedEvents: MutableList<AgentEvent>?,
         entrySurfaceGuard: EntrySurfaceGuard?,
         checkpointRecorder: AgentRunCheckpointRecorder?,
     ) {
         checkpointRecorder?.accept(event)
         if (!session.emit(event)) return
-        archivedEvents += event
+        archivedEvents?.add(event)
         if (event is AgentEvent.ModelRetryScheduled) {
             AndroidAgentLogger.warn("Agent runtime event: ${event.toLogLine()}")
         } else if (event !is AgentEvent.AssistantBlockDelta) {

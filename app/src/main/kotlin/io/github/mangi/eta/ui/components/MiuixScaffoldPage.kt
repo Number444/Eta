@@ -22,6 +22,7 @@ import io.github.mangi.eta.ui.layout.horizontalCutoutPadding
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
@@ -37,6 +38,7 @@ fun MiuixScaffoldPage(
     modifier: Modifier = Modifier,
     actions: @Composable RowScope.() -> Unit = {},
     listState: LazyListState = rememberLazyListState(),
+    compactTitle: Boolean = false,
     content: LazyListScope.() -> Unit,
 ) {
     EtaPreferenceTheme {
@@ -56,13 +58,24 @@ fun MiuixScaffoldPage(
             containerColor = pageBaseColor,
             topBar = {
                 TopBarBackdrop(backdrop) {
-                    AdaptiveTopAppBar(
-                        title = title,
-                        color = topBarColor,
-                        navigationIcon = { MiuixBackButton(onClick = onBack) },
-                        actions = actions,
-                        scrollBehavior = scrollBehavior,
-                    )
+                    // 页面自带主视觉（如角色详情）时用紧凑标题，避免大标题与主视觉重复。
+                    if (compactTitle) {
+                        SmallTopAppBar(
+                            title = title,
+                            color = topBarColor,
+                            navigationIcon = { MiuixBackButton(onClick = onBack) },
+                            actions = actions,
+                            scrollBehavior = scrollBehavior,
+                        )
+                    } else {
+                        AdaptiveTopAppBar(
+                            title = title,
+                            color = topBarColor,
+                            navigationIcon = { MiuixBackButton(onClick = onBack) },
+                            actions = actions,
+                            scrollBehavior = scrollBehavior,
+                        )
+                    }
                 }
             },
         ) { innerPadding ->

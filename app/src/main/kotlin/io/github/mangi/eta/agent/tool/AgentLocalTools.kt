@@ -1,6 +1,7 @@
 package io.github.mangi.eta.agent.tool
 
 import android.content.Context
+import android.graphics.Rect
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
@@ -22,6 +23,7 @@ import io.github.mangi.eta.agent.model.AgentSensitiveToolPolicy
 import io.github.mangi.eta.agent.model.AgentTerminalToolCatalog
 import io.github.mangi.eta.agent.model.AgentFileToolCatalog
 import io.github.mangi.eta.agent.overlay.AgentHapticFeedback
+import io.github.mangi.eta.agent.overlay.AgentOverlayClearance
 import io.github.mangi.eta.agent.overlay.GestureIndicator
 import io.github.mangi.eta.agent.runtime.AgentAppContext
 import io.github.mangi.eta.agent.skill.SkillCompatibilityChecker
@@ -450,9 +452,11 @@ internal class AgentLocalTools(
             y = args.getInt("y"),
             coordinateSpace = args.optString("coordinate_space")
         )
-        AgentHapticFeedback.perform(context, AgentHapticFeedback.Type.TAP)
-        showTap(point.x, point.y)
-        return deviceController.tap(point.x, point.y)
+        return clearOverlay(point) {
+            AgentHapticFeedback.perform(context, AgentHapticFeedback.Type.TAP)
+            showTap(point.x, point.y)
+            deviceController.tap(point.x, point.y)
+        }
     }
 
     private fun tapArea(args: JSONObject): String {
@@ -467,9 +471,11 @@ internal class AgentLocalTools(
             x = ((first.x.toLong() + second.x.toLong()) / 2L).toInt(),
             y = ((first.y.toLong() + second.y.toLong()) / 2L).toInt(),
         )
-        AgentHapticFeedback.perform(context, AgentHapticFeedback.Type.TAP)
-        showTap(point.x, point.y)
-        return deviceController.tap(point.x, point.y)
+        return clearOverlay(point) {
+            AgentHapticFeedback.perform(context, AgentHapticFeedback.Type.TAP)
+            showTap(point.x, point.y)
+            deviceController.tap(point.x, point.y)
+        }
     }
 
     private fun tapElement(args: JSONObject): String {
@@ -479,7 +485,9 @@ internal class AgentLocalTools(
         if (node == null) {
             return errorResult("INVALID_NODE_INDEX", "观察快照中不存在节点 index=$index")
         }
-        val result = deviceController.tapElement(observation, index)
+        val result = clearOverlay(ScreenPoint(node.centerX, node.centerY)) {
+            deviceController.tapElement(observation, index)
+        }
         if (result.isOkJson()) {
             AgentHapticFeedback.perform(context, AgentHapticFeedback.Type.TAP)
             showTap(node.centerX, node.centerY)
@@ -495,7 +503,9 @@ internal class AgentLocalTools(
         if (node == null) {
             return errorResult("INVALID_NODE_INDEX", "观察快照中不存在节点 index=$index")
         }
-        val result = deviceController.longPressElement(observation, index, durationMs)
+        val result = clearOverlay(ScreenPoint(node.centerX, node.centerY)) {
+            deviceController.longPressElement(observation, index, durationMs)
+        }
         if (result.isOkJson()) {
             AgentHapticFeedback.perform(context, AgentHapticFeedback.Type.LONG_PRESS)
             showLongPress(node.centerX, node.centerY, durationMs)
@@ -510,9 +520,11 @@ internal class AgentLocalTools(
             coordinateSpace = args.optString("coordinate_space")
         )
         val durationMs = args.optInt("duration_ms", 800)
-        AgentHapticFeedback.perform(context, AgentHapticFeedback.Type.LONG_PRESS)
-        showLongPress(point.x, point.y, durationMs)
-        return deviceController.longPress(point.x, point.y, durationMs)
+        return clearOverlay(point) {
+            AgentHapticFeedback.perform(context, AgentHapticFeedback.Type.LONG_PRESS)
+            showLongPress(point.x, point.y, durationMs)
+            deviceController.longPress(point.x, point.y, durationMs)
+        }
     }
 
     private fun swipe(args: JSONObject): String {
@@ -527,15 +539,17 @@ internal class AgentLocalTools(
             coordinateSpace = args.optString("coordinate_space")
         )
         val durationMs = args.optInt("duration_ms", 500)
-        AgentHapticFeedback.perform(context, AgentHapticFeedback.Type.SWIPE)
-        showSwipe(start.x, start.y, end.x, end.y, durationMs)
-        return deviceController.swipe(
-            start.x,
-            start.y,
-            end.x,
-            end.y,
-            durationMs
-        )
+        return clearOverlay(start, end) {
+            AgentHapticFeedback.perform(context, AgentHapticFeedback.Type.SWIPE)
+            showSwipe(start.x, start.y, end.x, end.y, durationMs)
+            deviceController.swipe(
+                start.x,
+                start.y,
+                end.x,
+                end.y,
+                durationMs
+            )
+        }
     }
 
     private fun scrollElement(args: JSONObject): String {
@@ -792,7 +806,7 @@ internal class AgentLocalTools(
             .put("root_available", state.isGranted).put("status", state.status.name.lowercase(Locale.ROOT))
             .put("checking", state.isChecking).put("su_present", state.suPresent)
             .put("uid", if (state.isGranted) 0 else JSONObject.NULL)
-            .put("message", if (state.isGranted) "已确认 Root 授权；需要特权时显式传 identity=root" else
+            .put("message", if (state.isGranted) "已确认 Root 授权；后续新命令默认使用 Root" else
                 "尚未确认 Root 授权；请根据 status 检查授权或检测结果，默认 user 不表示终端不支持 Root")
             .toString()
     }
@@ -1373,6 +1387,17 @@ internal class AgentLocalTools(
         val prefix: String?,
         val candidatesByPath: Map<String, String>,
     )
+
+    /** 手势经过状态胶囊时让它暂时穿透并淡出；滑动按起止点包围盒判断。 */
+    private fun <T> clearOverlay(vararg points: ScreenPoint, gesture: () -> T): T {
+        val area = Rect(
+            points.minOf { it.x },
+            points.minOf { it.y },
+            points.maxOf { it.x } + 1,
+            points.maxOf { it.y } + 1,
+        )
+        return AgentOverlayClearance.around(area, gesture)
+    }
 
     private fun showTap(x: Int, y: Int) {
         GestureIndicator.showTap(context, x, y)

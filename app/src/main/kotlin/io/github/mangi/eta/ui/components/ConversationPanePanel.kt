@@ -50,9 +50,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.DpSize
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
@@ -63,6 +62,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.app.LocalLiquidGlassEnabled
@@ -473,6 +473,15 @@ private fun ConversationTextRow(
                 ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            conversation.characterName?.let { name ->
+                CharacterAvatar(
+                    name = name,
+                    avatarPath = conversation.characterAvatarPath,
+                    size = 36.dp,
+                    shape = CircleShape,
+                )
+                Spacer(Modifier.width(12.dp))
+            }
             Column(modifier = Modifier.weight(1f)) {
             val title = conversation.title.ifBlank { conversation.preview }
             Text(
