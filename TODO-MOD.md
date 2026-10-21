@@ -2,9 +2,23 @@
 
 > 本 fork：`my-mods` 分支，applicationId `io.github.mangi.eta.mod`
 > 远端：`origin` = Number444/Eta（推送目标），`upstream` = Mangi-11/Eta（官方源）
-> 当前版本：3.3.0-016（versionCode 2026101707；DeepSeek Search 接入 + 搜索引擎可切换架构，见事项13）
+> 当前版本：3.3.1-001（versionCode 2026102101；merge 上游 v3.3.1+3fix，见归档第 7 条）
 
-> 已完成归档（2026-10-08 精简）：1. merge 上游 v3.2.0（30 commits，16 冲突手工裁决，出包真机回归通过）；2. 更新检查/关于页链接指向 Number444/Eta（`isNewer` 支持 `-NNN` 修订号）；3. 删官方搜索只留 Exa（官方服务本机超时不可用）；4. 消息操作行按钮放大 1.4 倍；5. 分享成图按新 markdown 层重写（含 `ShareCardRenderTest` 渲染基线）；6. merge 上游 v3.3.0（2026-10-13 完成：21 commits，7 冲突裁决 + `AgentAppState` 四功能块移植；暗礁=双方 `MIGRATION_21_22` 撞车，上游 `model_id` 迁移顺延 22_23、DB 升 v23；48 个单测失败对撞全为 Windows 环境基线零回归，出包真机冒烟通过）。详细过程见 git 历史。
+> 已完成归档（2026-10-08 精简，2026-10-21 追加第 7 条）：1. merge 上游 v3.2.0（30 commits，16 冲突手工裁决，出包真机回归通过）；2. 更新检查/关于页链接指向 Number444/Eta（`isNewer` 支持 `-NNN` 修订号）；3. 删官方搜索只留 Exa（官方服务本机超时不可用）；4. 消息操作行按钮放大 1.4 倍；5. 分享成图按新 markdown 层重写（含 `ShareCardRenderTest` 渲染基线）；6. merge 上游 v3.3.0（2026-10-13 完成：21 commits，7 冲突裁决 + `AgentAppState` 四功能块移植；暗礁=双方 `MIGRATION_21_22` 撞车，上游 `model_id` 迁移顺延 22_23、DB 升 v23；48 个单测失败对撞全为 Windows 环境基线零回归，出包真机冒烟通过）；7. merge 上游 v3.3.1+3fix（2026-10-21 完成：17 commits / ~150 文件，21 冲突文件 ~49 hunks 全裁决——三子代理语义对撞先行；关键适配：`setCapsuleYielded` 恢复逻辑归一到我方常驻 FLAG_NOT_TOUCHABLE 基线（仅补充输入态例外）、`AnswerActionButton` 新操作行体系保留我方 42dp/21dp+分享按钮+触感、刻度条四滚动点分页 +1 偏移、`AgentModelClient` 前缀缓存重构上重贴 webSearchTools/compactConfig/suppressReasoning、我方 stdin 测试补丁被上游 -4 退出码方案覆盖而放弃；DB 零迁移撞车（上游停 v22）；单测 49 失败对撞零回归（新增 1 个上游 PTY 测试 Windows 环境失败入基线）；merge 后玻璃尾巴：新模型选择器 EtaListPopup + 厂商余额移植、新增 `EtaGlassBottomSheet` 真玻璃覆盖模型抽屉与远端模型导入抽屉、朗读开关套玻璃）。详细过程见 git 历史。
+
+## 14. 首次安装引导向导（Compose 原生绘制，2026-10-19 调研存档并定方向，未开工）
+
+- **关键事实：Eta 目前没有任何 onboarding**——`MainActivity.kt:66` 首次启动直接进主页，无欢迎页/向导/「已完成初始化」标记位；未配置模型仅在发消息时弹错误（`AgentAppState.kt:1252`）；权限（悬浮窗/无障碍/通知）全靠设置页手动点。故本事项是**从零新建引导功能**，非改造现有流程
+- **方向（2026-10-19 Four 拍板）：Compose 原生绘制，放弃 HTML/WebView 方案**。比较结论：Compose 无机型适配成本、无 JS 桥安全面、无 WebView 冷启动开销（首次初始化数百 ms 恰好打在「第一印象」场景）、液态玻璃材质继承 `EtaGlassTokens` 无割裂；HTML 唯一优势（改文案不发版/花哨动效）在本场景兑现不了价值
+- **实施要点**：
+  - 新增 `AppRoute.Onboarding` 路由 + 「已完成引导」prefs key + `MainActivity` 开头一行判断，不碰现有架构
+  - 向导外壳 = 步骤指示 + 步骤状态机（新写的唯一大件）
+  - **provider/API key/模型表单直接复用现有 Composable**：`ModelProviderListScreen`/`ModelProviderDetailScreen`/`ProviderConfigDraft`——不重写表单，只包向导壳
+  - 材质直接继承 `EtaGlassTokens` 五套预设 + miuix，视觉体系零新增
+  - 权限申请步骤留原生：复用 `SettingsPermissionsScreen` 现有 intent 逻辑（悬浮窗/无障碍/通知均 WebView 无法承载，且本来就在原生侧）
+  - 落地存储现成：provider/API key/默认模型全走 `SettingsDataStore`（`data/datastore/SettingsDataStore.kt:47`），Repository 一次调用写完（`RuntimeConfigRepository.setSelection` :52/:63）
+- **提醒**：API key 现状明文存 DataStore（无 EncryptedSharedPreferences），引导方案安全水位与现状持平、不恶化
+- 下一步（待 Four 指令）：出实施计划（向导步骤划分、状态机设计、复用件的接入方式）
 
 ## 13. DeepSeek Search 接入 + 搜索引擎可切换架构（2026-10-17 实施）
 
