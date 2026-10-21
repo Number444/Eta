@@ -1,5 +1,6 @@
 package io.github.mangi.eta.ui.components
 
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -27,6 +28,7 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -53,6 +55,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.data.repository.ProviderBalanceStore
+import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.ui.model.AgentModelOptionUi
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
 import io.github.mangi.eta.ui.model.filterGroups
@@ -65,8 +69,6 @@ import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.overlay.OverlayBottomSheet
-import top.yukonga.miuix.kmp.overlay.OverlayListPopup
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -87,6 +89,15 @@ internal fun AgentModelPickerButton(
     var showSheet by remember { mutableStateOf(false) }
     // 每次打开面板换一个 key，搜索词、筛选与滚动位置都从头开始。
     var sheetSession by remember { mutableIntStateOf(0) }
+    // Eta Mod：弹层/抽屉展开时刷新余额缓存（TTL 5 分钟），失败静默不显示。
+    val providerBalances by ProviderBalanceStore.balances.collectAsState()
+    LaunchedEffect(showPopup, showSheet) {
+        if (showPopup || showSheet) {
+            Log.d("EtaBalance", "picker opened, triggering refresh")
+            runCatching { ProviderBalanceStore.refresh(ProviderRepository.allProviders()) }
+                .onFailure { Log.w("EtaBalance", "refresh failed: ${it.javaClass.simpleName}: ${it.message}") }
+        }
+    }
     val selected = state.selectedModel
     val enabled = !isStreaming && !state.isChanging && state.providerGroups.isNotEmpty()
     LaunchedEffect(enabled) {
@@ -129,7 +140,8 @@ internal fun AgentModelPickerButton(
             )
         }
 
-        OverlayListPopup(
+        // Eta Mod：弹层收口到 EtaListPopup（overlay 变体真玻璃，主页 Scaffold 有宿主）。
+        EtaListPopup(
             show = showPopup && popupAnchorTopPx > 0,
             popupPositionProvider = popupPositionProvider,
             alignment = PopupPositionProvider.Align.TopEnd,
@@ -139,6 +151,7 @@ internal fun AgentModelPickerButton(
         ) {
             ModelQuickList(
                 state = state,
+                providerBalances = providerBalances,
                 onModelSelected = { modelId ->
                     showPopup = false
                     onModelSelected(modelId)
@@ -146,7 +159,8 @@ internal fun AgentModelPickerButton(
             )
         }
 
-        OverlayBottomSheet(
+        // Eta Mod：抽屉经 EtaGlassBottomSheet 内容侧注入真玻璃（backdrop 缺失时回退原生）。
+        EtaGlassBottomSheet(
             show = showSheet,
             title = stringResource(R.string.model_picker_title),
             onDismissRequest = { showSheet = false },
@@ -155,6 +169,7 @@ internal fun AgentModelPickerButton(
             key(sheetSession) {
                 ModelSheetContent(
                     state = state,
+                    providerBalances = providerBalances,
                     onModelSelected = { modelId ->
                         showSheet = false
                         onModelSelected(modelId)
@@ -168,6 +183,7 @@ internal fun AgentModelPickerButton(
 @Composable
 private fun ModelQuickList(
     state: AgentModelPickerUiState,
+    providerBalances: Map<String, String>,
     onModelSelected: (String) -> Unit,
 ) {
     val select = rememberConfirmedSelection(onModelSelected)
@@ -180,7 +196,12 @@ private fun ModelQuickList(
             .padding(top = if (showLabels) 0.dp else 6.dp, bottom = 6.dp),
     ) {
         state.providerGroups.forEach { group ->
-            if (showLabels) ModelProviderLabel(group.providerName)
+            if (showLabels) {
+                ModelProviderLabel(
+                    name = group.providerName,
+                    balance = providerBalances[group.providerId]?.takeIf { it.isNotBlank() },
+                )
+            }
             group.models.forEach { model ->
                 ModelPickerRow(
                     model = model,
@@ -207,6 +228,7 @@ private sealed interface ModelSheetEntry {
 @Composable
 private fun ModelSheetContent(
     state: AgentModelPickerUiState,
+    providerBalances: Map<String, String>,
     onModelSelected: (String) -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
@@ -299,7 +321,12 @@ private fun ModelSheetContent(
             }
             items(entries, key = ModelSheetEntry::key, contentType = { it::class }) { entry ->
                 when (entry) {
-                    is ModelSheetEntry.Header -> ModelProviderLabel(entry.name, horizontalPadding = 24.dp)
+                    is ModelSheetEntry.Header -> ModelProviderLabel(
+                        name = entry.name,
+                        // Eta Mod：厂商行余额（有数据才显示），筛选单一厂商时表头隐藏、余额随筛选芯片语义省略。
+                        balance = providerBalances[entry.providerId]?.takeIf { it.isNotBlank() },
+                        horizontalPadding = 24.dp,
+                    )
                     is ModelSheetEntry.Option -> ModelPickerRow(
                         model = entry.model,
                         selected = entry.model.id == selectedId,
@@ -341,18 +368,33 @@ private fun rememberConfirmedSelection(onConfirm: (String) -> Unit): ConfirmedSe
 }
 
 @Composable
-private fun ModelProviderLabel(name: String, horizontalPadding: Dp = 20.dp) {
-    Text(
-        text = name,
-        style = MiuixTheme.textStyles.footnote1,
-        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
+private fun ModelProviderLabel(name: String, balance: String? = null, horizontalPadding: Dp = 20.dp) {
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = horizontalPadding)
             .padding(top = 14.dp, bottom = 4.dp),
-    )
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = name,
+            style = MiuixTheme.textStyles.footnote1,
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+        // Eta Mod：余额紧随厂商名，间隔一个空格宽，使用主题强调色。
+        if (balance != null) {
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = balance,
+                style = MiuixTheme.textStyles.footnote1,
+                color = MiuixTheme.colorScheme.primary,
+                maxLines = 1,
+            )
+        }
+    }
 }
 
 @Composable

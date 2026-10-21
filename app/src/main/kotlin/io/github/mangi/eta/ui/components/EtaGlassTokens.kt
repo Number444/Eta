@@ -89,6 +89,17 @@ internal object EtaGlassStyles {
         lensAmount = 14.dp,
     )
 
+    /**
+     * 底部抽屉（EtaGlassBottomSheet 内容侧注入）：顶部 28dp 圆角对齐
+     * miuix BottomSheetDefaults.cornerRadius，底边贴屏幕无圆角；模糊/折射参数与 Popup 一致。
+     */
+    val BottomSheet = EtaGlassStyle(
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        blurRadius = 12.dp,
+        lensHeight = 8.dp,
+        lensAmount = 12.dp,
+    )
+
     /** 长列表项弱化材质：轻模糊弱折射，避免整列 drawBackdrop 滚动掉帧。 */
     val ListRow = EtaGlassStyle(
         shape = RoundedCornerShape(12.dp),

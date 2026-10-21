@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.Model
+import io.github.mangi.eta.ui.components.EtaGlassBottomSheet
 import io.github.mangi.eta.ui.components.EtaTextButton
 import io.github.mangi.eta.ui.model.ModelSearchQuery
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
@@ -38,7 +39,6 @@ import top.yukonga.miuix.kmp.basic.Checkbox
 import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.overlay.OverlayBottomSheet
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -58,7 +58,8 @@ internal fun RemoteModelImportSheet(
     onDismissRequest: () -> Unit,
     onConfirm: (RemoteModelImport, Set<String>) -> Unit,
 ) {
-    OverlayBottomSheet(
+    // Eta Mod：内容侧注入真玻璃（EtaGlassBottomSheet；backdrop 缺失时回退原生抽屉）。
+    EtaGlassBottomSheet(
         show = pending != null,
         title = stringResource(R.string.remote_model_import_title),
         onDismissRequest = onDismissRequest,

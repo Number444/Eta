@@ -1,14 +1,29 @@
 package io.github.mangi.eta.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
+import com.kyant.backdrop.backdrops.LayerBackdrop
 import io.github.mangi.eta.ui.app.LocalLiquidGlassEnabled
 import top.yukonga.miuix.kmp.basic.ListPopupDefaults
 import top.yukonga.miuix.kmp.basic.PopupPositionProvider
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.overlay.OverlayBottomSheet
 import top.yukonga.miuix.kmp.overlay.OverlayListPopup
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.window.WindowListPopup
@@ -127,5 +142,101 @@ private fun EtaGlassPopupContainer(content: @Composable () -> Unit) {
         ) {
             content()
         }
+    }
+}
+
+/**
+ * Eta Mod：miuix OverlayBottomSheet 的真玻璃收口（内容侧注入，同 [EtaGlassPopupContainer] 手法）。
+ *
+ * miuix 抽屉把背景画在整个列（把手区 + 标题 + 内容）上，且把手区（45dp）无法交给调用方，
+ * 玻璃只能注入内容区。真玻璃路径：容器背景与把手置透明、标题交给内容侧复刻
+ * （title4 + Medium + onSurface，与原生一致），内容列包一层顶部 28dp 圆角的玻璃；
+ * 原生把手区保持透明不可见，玻璃内顶部补一颗同样式的视觉把手。
+ * 抽屉整体高度因此比原生高出一个把手区，视觉上是玻璃面板上沿即为抽屉上沿。
+ *
+ * 崩溃红线：抽屉内容内不得再出现 drawBackdrop 消费者（glass-on-glass SIGSEGV），
+ * 列表项等保持非玻璃；滚动内容采样同 surface 的 backdrop（主页 HomeSurface /
+ * 设置骨架均有提供者，overlay 宿主在提供者之内）。
+ *
+ * backdrop 为 null（非液态玻璃档/设备不支持）时零修饰回退原生 OverlayBottomSheet。
+ */
+@Composable
+internal fun EtaGlassBottomSheet(
+    show: Boolean,
+    title: String?,
+    onDismissRequest: (() -> Unit)?,
+    insideMargin: DpSize,
+    onDismissFinished: (() -> Unit)? = null,
+    content: @Composable () -> Unit,
+) {
+    val backdrop = LocalLiquidGlassBackdrop.current
+    if (backdrop == null) {
+        OverlayBottomSheet(
+            show = show,
+            title = title,
+            onDismissRequest = onDismissRequest,
+            onDismissFinished = onDismissFinished,
+            insideMargin = insideMargin,
+            content = content,
+        )
+        return
+    }
+    OverlayBottomSheet(
+        show = show,
+        title = null,
+        backgroundColor = Color.Transparent,
+        dragHandleColor = Color.Transparent,
+        onDismissRequest = onDismissRequest,
+        onDismissFinished = onDismissFinished,
+        insideMargin = insideMargin,
+    ) {
+        EtaGlassSheetContainer(title = title, backdrop = backdrop, content = content)
+    }
+}
+
+@Composable
+private fun EtaGlassSheetContainer(
+    title: String?,
+    backdrop: LayerBackdrop,
+    content: @Composable () -> Unit,
+) {
+    val style = EtaGlassStyles.BottomSheet
+    val colors = MiuixTheme.colorScheme
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .etaGlass(
+                style = style,
+                backdrop = backdrop,
+                tint = colors.surface.copy(alpha = style.tintAlpha),
+            ),
+    ) {
+        // 视觉把手：原生把手随透明背景隐藏（手势区仍在玻璃上方 45dp 透明带内），
+        // 这里在玻璃上补一颗，保持抽屉的可拖拽暗示。
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(24.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(width = 36.dp, height = 4.dp)
+                    .clip(CircleShape)
+                    .background(colors.onSurfaceVariantSummary.copy(alpha = 0.4f)),
+            )
+        }
+        if (title != null) {
+            Text(
+                text = title,
+                style = MiuixTheme.textStyles.title4,
+                fontWeight = FontWeight.Medium,
+                color = colors.onSurface,
+                modifier = Modifier
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 12.dp),
+            )
+        }
+        content()
     }
 }
