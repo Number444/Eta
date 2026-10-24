@@ -140,3 +140,5 @@ PendingIntent.getService 直发测试服务（生产停止键同款模式，穿�
 
 （三轮诊断工具——岛通知诊断 T20-T24 / 岛映射诊断 T30-T35 / 岛插入悬浮窗测试——使命完成，
 2026-10-14 随 v3.3.0-004 清理，本文档保留全部结论。）
+
+**v3.3.3 行为修订（Four 拍板）**：岛「补充」仍复用上述悬浮窗输入链路，但提交不再进入 steering；Runtime Service 经 `MSG_INTERRUPT_REQUEST` 回传 AppState，先按官方 `QueuedMessageUi(immediateInterrupt=true)` 入队，再取消当前 run 并由官方队列续发。回传失败或目标会话已销毁时不取消原任务。本文此前 steering 描述保留为历史实现记录。

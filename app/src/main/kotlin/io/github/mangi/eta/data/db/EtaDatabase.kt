@@ -26,7 +26,7 @@ import androidx.room.migration.Migration
         CharacterEntity::class,
         UserPersonaEntity::class,
     ],
-    version = 24,
+    version = 25,
     exportSchema = false,
 )
 internal abstract class EtaDatabase : RoomDatabase() {
@@ -67,6 +67,7 @@ internal abstract class EtaDatabase : RoomDatabase() {
                         MIGRATION_21_22,
                         MIGRATION_22_23,
                         MIGRATION_23_24,
+                        MIGRATION_24_25,
                     )
                     .addCallback(object : Callback() {
                         override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) { createTextChunkCleanup(db) }
@@ -85,10 +86,8 @@ internal abstract class EtaDatabase : RoomDatabase() {
             }
         }
 
-        // Eta Mod：账户余额查询配置（余额 API 地址 + JSON 点号路径）。
         internal val MIGRATION_21_22 = Migration(21, 22) { database ->
-            database.execSQL("ALTER TABLE model_providers ADD COLUMN balance_url TEXT NOT NULL DEFAULT ''")
-            database.execSQL("ALTER TABLE model_providers ADD COLUMN balance_json_path TEXT NOT NULL DEFAULT ''")
+            ensureBalanceColumns(database)
         }
 
         internal val MIGRATION_19_20 = Migration(19, 20) { database ->
@@ -119,13 +118,44 @@ internal abstract class EtaDatabase : RoomDatabase() {
         }
 
         internal val MIGRATION_22_23 = Migration(22, 23) { database ->
-            database.execSQL("ALTER TABLE conversations ADD COLUMN model_id TEXT")
+            ensureColumn(database, "conversations", "model_id", "TEXT")
+            ensureColumn(database, "model_providers", "auth_mode", "TEXT NOT NULL DEFAULT 'api_key'")
         }
 
-        // Eta Mod：单轮消息「用时 + 完成时刻」列（可空，旧消息无数据自然不显示）。
         internal val MIGRATION_23_24 = Migration(23, 24) { database ->
-            database.execSQL("ALTER TABLE conversation_messages ADD COLUMN run_duration_ms INTEGER")
-            database.execSQL("ALTER TABLE conversation_messages ADD COLUMN run_finished_at INTEGER")
+            ensureTimingColumns(database)
+        }
+
+        // Mod 与官方曾给 v22/v23 分配不同 schema，v25 收敛所有已发布升级路径。
+        internal val MIGRATION_24_25 = Migration(24, 25) { database ->
+            ensureColumn(database, "conversations", "model_id", "TEXT")
+            ensureBalanceColumns(database)
+            ensureColumn(database, "model_providers", "auth_mode", "TEXT NOT NULL DEFAULT 'api_key'")
+            ensureTimingColumns(database)
+        }
+
+        private fun ensureBalanceColumns(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+            ensureColumn(database, "model_providers", "balance_url", "TEXT NOT NULL DEFAULT ''")
+            ensureColumn(database, "model_providers", "balance_json_path", "TEXT NOT NULL DEFAULT ''")
+        }
+
+        private fun ensureTimingColumns(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+            ensureColumn(database, "conversation_messages", "run_duration_ms", "INTEGER")
+            ensureColumn(database, "conversation_messages", "run_finished_at", "INTEGER")
+        }
+
+        private fun ensureColumn(
+            database: androidx.sqlite.db.SupportSQLiteDatabase,
+            table: String,
+            column: String,
+            definition: String,
+        ) {
+            val exists = database.query("PRAGMA table_info($table)").use { cursor ->
+                val nameIndex = cursor.getColumnIndex("name")
+                generateSequence { if (cursor.moveToNext()) cursor.getString(nameIndex) else null }
+                    .any { it == column }
+            }
+            if (!exists) database.execSQL("ALTER TABLE $table ADD COLUMN $column $definition")
         }
 
         private fun createTextChunkCleanup(database: androidx.sqlite.db.SupportSQLiteDatabase) {

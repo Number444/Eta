@@ -147,17 +147,18 @@ internal fun AgentChatBody(
     availableReasoningEfforts: List<ReasoningEffort>,
     pendingImages: List<PendingImageUi>,
     pendingFileReferences: List<PendingFileReferenceUi>,
-    messageEdit: MessageEditUiState?,
     queuedMessages: List<QueuedMessageUi> = emptyList(),
-    onQueueMessage: (String) -> Unit = {},
-    onInsertQueued: (String) -> Unit = {},
-    onEditQueued: (String) -> Unit = {},
-    onDeleteQueued: (String) -> Unit = {},
+    inputSyncVersion: Int = 0,
+    messageEdit: MessageEditUiState?,
     onReasoningEffortChange: (ReasoningEffort) -> Unit,
     onCompactContext: () -> Unit,
     canCompactContext: Boolean,
     onModelSelected: (String) -> Unit,
     onSubmit: (String) -> Unit,
+    onInterruptAndSubmit: (String) -> Unit = onSubmit,
+    onSteerQueuedMessage: (String) -> Unit = {},
+    onRecallQueuedMessage: (String, String) -> Unit = { _, _ -> },
+    onRemoveQueuedMessage: (String) -> Unit = {},
     onStop: () -> Unit,
     onAttachImage: (String) -> Unit,
     onRemoveImage: (String) -> Unit,
@@ -252,6 +253,8 @@ internal fun AgentChatBody(
             availableReasoningEfforts = availableReasoningEfforts,
             pendingImages = pendingImages,
             pendingFileReferences = pendingFileReferences,
+            queuedMessages = queuedMessages,
+            inputSyncVersion = inputSyncVersion,
             messageEdit = messageEdit,
             showEmptySuggestions = !isKeyboardVisible,
             keepBottomAnchored = keepBottomAnchored,
@@ -263,6 +266,17 @@ internal fun AgentChatBody(
                 keepBottomAnchored = true
                 onSubmit(text)
             },
+            onInterruptAndSubmit = { text ->
+                sentFromKeyboard = true
+                keepBottomAnchored = true
+                onInterruptAndSubmit(text)
+            },
+            onSteerQueuedMessage = { id ->
+                keepBottomAnchored = true
+                onSteerQueuedMessage(id)
+            },
+            onRecallQueuedMessage = onRecallQueuedMessage,
+            onRemoveQueuedMessage = onRemoveQueuedMessage,
             onReasoningEffortChange = onReasoningEffortChange,
             onCompactContext = onCompactContext,
             canCompactContext = canCompactContext,
@@ -274,11 +288,6 @@ internal fun AgentChatBody(
             onAttachFolder = onAttachFolder,
             onAttachFilePath = onAttachFilePath,
             onRemoveFileReference = onRemoveFileReference,
-            queuedMessages = queuedMessages,
-            onQueueMessage = onQueueMessage,
-            onInsertQueued = onInsertQueued,
-            onEditQueued = onEditQueued,
-            onDeleteQueued = onDeleteQueued,
             onEditMessage = onEditMessage,
             onCancelMessageEdit = onCancelMessageEdit,
             onDeleteMessage = onDeleteMessage,
@@ -315,16 +324,17 @@ private fun AgentChatScaffold(
     availableReasoningEfforts: List<ReasoningEffort>,
     pendingImages: List<PendingImageUi>,
     pendingFileReferences: List<PendingFileReferenceUi>,
-    messageEdit: MessageEditUiState?,
     queuedMessages: List<QueuedMessageUi>,
-    onQueueMessage: (String) -> Unit,
-    onInsertQueued: (String) -> Unit,
-    onEditQueued: (String) -> Unit,
-    onDeleteQueued: (String) -> Unit,
+    inputSyncVersion: Int,
+    messageEdit: MessageEditUiState?,
     showEmptySuggestions: Boolean,
     keepBottomAnchored: Boolean,
     onBottomAnchorChanged: (Boolean) -> Unit,
     onSubmit: (String) -> Unit,
+    onInterruptAndSubmit: (String) -> Unit,
+    onSteerQueuedMessage: (String) -> Unit,
+    onRecallQueuedMessage: (String, String) -> Unit,
+    onRemoveQueuedMessage: (String) -> Unit,
     onReasoningEffortChange: (ReasoningEffort) -> Unit,
     onCompactContext: () -> Unit,
     canCompactContext: Boolean,
@@ -439,13 +449,14 @@ private fun AgentChatScaffold(
                 availableReasoningEfforts = availableReasoningEfforts,
                 pendingImages = pendingImages,
                 pendingFileReferences = pendingFileReferences,
-                messageEdit = messageEdit,
                 queuedMessages = queuedMessages,
-                onQueueMessage = onQueueMessage,
-                onInsertQueued = onInsertQueued,
-                onEditQueued = onEditQueued,
-                onDeleteQueued = onDeleteQueued,
+                inputSyncVersion = inputSyncVersion,
+                messageEdit = messageEdit,
                 onSubmit = onSubmit,
+                onInterruptAndSubmit = onInterruptAndSubmit,
+                onSteerQueuedMessage = onSteerQueuedMessage,
+                onRecallQueuedMessage = onRecallQueuedMessage,
+                onRemoveQueuedMessage = onRemoveQueuedMessage,
                 onReasoningEffortChange = onReasoningEffortChange,
                 onCompactContext = onCompactContext,
                 canCompactContext = canCompactContext,
@@ -1062,13 +1073,14 @@ private fun AgentChatBottomBar(
     availableReasoningEfforts: List<ReasoningEffort>,
     pendingImages: List<PendingImageUi>,
     pendingFileReferences: List<PendingFileReferenceUi>,
-    messageEdit: MessageEditUiState?,
     queuedMessages: List<QueuedMessageUi>,
-    onQueueMessage: (String) -> Unit,
-    onInsertQueued: (String) -> Unit,
-    onEditQueued: (String) -> Unit,
-    onDeleteQueued: (String) -> Unit,
+    inputSyncVersion: Int,
+    messageEdit: MessageEditUiState?,
     onSubmit: (String) -> Unit,
+    onInterruptAndSubmit: (String) -> Unit,
+    onSteerQueuedMessage: (String) -> Unit,
+    onRecallQueuedMessage: (String, String) -> Unit,
+    onRemoveQueuedMessage: (String) -> Unit,
     onReasoningEffortChange: (ReasoningEffort) -> Unit,
     onCompactContext: () -> Unit,
     canCompactContext: Boolean,
@@ -1223,16 +1235,6 @@ private fun AgentChatBottomBar(
                     )
                 }
             }
-            if (queuedMessages.isNotEmpty()) {
-                QueuedMessagesPanel(
-                    messages = queuedMessages,
-                    canInsert = isStreaming,
-                    onInsert = onInsertQueued,
-                    onEdit = onEditQueued,
-                    onDelete = onDeleteQueued,
-                    modifier = Modifier.padding(bottom = 8.dp),
-                )
-            }
             AgentChatInputBar(
                 input = input,
                 modelPickerState = modelPickerState,
@@ -1245,16 +1247,21 @@ private fun AgentChatBottomBar(
                 availableReasoningEfforts = availableReasoningEfforts,
                 pendingImages = pendingImages,
                 pendingFileReferences = pendingFileReferences,
+                queuedMessages = queuedMessages,
+                inputSyncVersion = inputSyncVersion,
                 isEditingMessage = messageEdit != null,
                 editHasLaterTurns = messageEdit?.hasLaterTurns == true,
                 preserveFollowingMessages = messageEdit?.preserveFollowingMessages == true,
                 onSubmit = onSubmit,
+                onInterruptAndSubmit = onInterruptAndSubmit,
+                onSteerQueuedMessage = onSteerQueuedMessage,
+                onRecallQueuedMessage = onRecallQueuedMessage,
+                onRemoveQueuedMessage = onRemoveQueuedMessage,
                 onReasoningEffortChange = onReasoningEffortChange,
                 onCompactContext = onCompactContext,
                 canCompactContext = canCompactContext,
                 onModelSelected = onModelSelected,
                 onStop = onStop,
-                onQueueMessage = onQueueMessage,
                 onAttachImage = onAttachImage,
                 onRemoveImage = onRemoveImage,
                 onAttachFiles = onAttachFiles,
@@ -1287,83 +1294,6 @@ private val ChatBottomFrostHeight = 36.dp
 private val ChatBottomFrostWithRailHeight = 50.dp
 
 private const val MIN_TURN_TICKS = 3
-
-/**
- * Eta Mod：排队消息面板——输入框上方的悬浮卡片，与输入框同风格（圆角 20dp、surfaceContainer），
- * 每条排队消息一行：左侧文本摘要，右侧插入/编辑/删除三个操作按钮。
- */
-@Composable
-private fun QueuedMessagesPanel(
-    messages: List<QueuedMessageUi>,
-    canInsert: Boolean,
-    onInsert: (String) -> Unit,
-    onEdit: (String) -> Unit,
-    onDelete: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        messages.forEach { item ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(MiuixTheme.colorScheme.surfaceContainer)
-                    .padding(start = 16.dp, top = 4.dp, end = 6.dp, bottom = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = item.text,
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurface,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                if (canInsert) {
-                    IconButton(
-                        onClick = hapticClick { onInsert(item.id) },
-                        minWidth = 32.dp,
-                        minHeight = 32.dp,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.ArrowUpward,
-                            contentDescription = stringResource(R.string.queue_insert_now),
-                            modifier = Modifier.size(16.dp),
-                            tint = MiuixTheme.colorScheme.primary,
-                        )
-                    }
-                }
-                IconButton(
-                    onClick = hapticClick { onEdit(item.id) },
-                    minWidth = 32.dp,
-                    minHeight = 32.dp,
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Edit,
-                        contentDescription = stringResource(R.string.queue_edit),
-                        modifier = Modifier.size(16.dp),
-                        tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
-                    )
-                }
-                IconButton(
-                    onClick = hapticClick { onDelete(item.id) },
-                    minWidth = 32.dp,
-                    minHeight = 32.dp,
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Delete,
-                        contentDescription = stringResource(R.string.queue_delete),
-                        modifier = Modifier.size(16.dp),
-                        tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
-                    )
-                }
-            }
-        }
-    }
-}
 
 private const val BOTTOM_FOLLOW_RESPONSE_SECONDS = 0.085f
 private const val BOTTOM_FOLLOW_MAX_FRAME_SECONDS = 0.05f

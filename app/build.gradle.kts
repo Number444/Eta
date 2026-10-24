@@ -40,8 +40,13 @@ android {
         targetSdk = 37
         // versionCode 规则：yyyyMMdd + 两位当日序号（01 起），发版时随 versionName 一起手动递增。
         // versionName 规则（Eta Mod）：官方版本号-三位 Mod 版本号，如 3.2.0-001；跟随上游时左段升级、右段归零重排。
-        versionCode = 2026102101
-        versionName = "3.3.1-001"
+        versionCode = 2026102402
+        versionName = "3.3.3-002"
+
+        ndk {
+            // 同时过滤本地与依赖 AAR 的原生库，确保 APK 仅包含 ARM64。
+            abiFilters += "arm64-v8a"
+        }
     }
 
     signingConfigs {
@@ -81,7 +86,7 @@ android {
     }
 
     buildFeatures {
-        buildConfig = false
+        buildConfig = true
         compose = true
     }
 
@@ -173,6 +178,7 @@ dependencies {
 
     // OkHttp：替代 HttpURLConnection，支持 SSE
     implementation(libs.okhttp)
+    implementation(libs.nimbus.jose.jwt)
     implementation(libs.okhttp.sse)
 
     // Kotlinx Serialization：Provider 设置与运行时配置 JSON

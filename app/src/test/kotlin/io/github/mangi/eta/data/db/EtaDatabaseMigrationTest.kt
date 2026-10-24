@@ -7,6 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import io.github.mangi.eta.data.model.ModelSource
+import io.github.mangi.eta.data.model.ProviderAuthModes
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -21,7 +22,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [36])
 class EtaDatabaseMigrationTest {
     @Test
-    fun migration6To22PreservesDataAndMovesCompleteConversationContext() {
+    fun migration6To25PreservesDataAndMovesCompleteConversationContext() {
         val context = RuntimeEnvironment.getApplication() as Context
         val databaseName = "migration-${UUID.randomUUID()}.db"
         createVersion6Database(context, databaseName)
@@ -57,6 +58,7 @@ class EtaDatabaseMigrationTest {
                 EtaDatabase.MIGRATION_21_22,
                 EtaDatabase.MIGRATION_22_23,
                 EtaDatabase.MIGRATION_23_24,
+                EtaDatabase.MIGRATION_24_25,
             )
             .build()
         try {
@@ -124,6 +126,8 @@ class EtaDatabaseMigrationTest {
             assertEquals(false, provider.hostedWebSearchEnabled)
             assertEquals("", provider.balanceUrl)
             assertEquals("", provider.balanceJsonPath)
+            assertEquals(ProviderAuthModes.API_KEY, provider.authMode)
+            assertEquals("fixture-existing-api-key", provider.apiKey)
             assertEquals(false, migratedMessage.isEdited)
             assertEquals(emptyList<RuntimeInFlightRunWithEvents>(), inFlightRuns)
             assertEquals(listOf("mcp-1"), mcpServers.map { it.id })
@@ -139,6 +143,103 @@ class EtaDatabaseMigrationTest {
             database.close()
             context.deleteDatabase(databaseName)
         }
+    }
+
+    @Test
+    fun migration21To25ConvergesModAndOfficialLineages() {
+        val balanceColumns = setOf("balance_url", "balance_json_path")
+        val timingColumns = setOf("run_duration_ms", "run_finished_at")
+        val lineages = listOf(
+            21 to emptySet(),
+            22 to balanceColumns,
+            22 to setOf("model_id"),
+            23 to (balanceColumns + "model_id"),
+            23 to setOf("model_id", "auth_mode"),
+            24 to (balanceColumns + "model_id" + timingColumns),
+        )
+        lineages.forEachIndexed { index, (startVersion, existingColumns) ->
+            verifyDivergentLineage(index, startVersion, existingColumns)
+        }
+    }
+
+    private fun verifyDivergentLineage(
+        index: Int,
+        startVersion: Int,
+        existingColumns: Set<String>,
+    ) {
+        val context = RuntimeEnvironment.getApplication() as Context
+        val databaseName = "migration-lineage-$index-${UUID.randomUUID()}.db"
+        val configuration = SupportSQLiteOpenHelper.Configuration.builder(context)
+            .name(databaseName)
+            .callback(object : SupportSQLiteOpenHelper.Callback(startVersion) {
+                override fun onCreate(db: SupportSQLiteDatabase) {
+                    db.execSQL("CREATE TABLE conversations (id TEXT NOT NULL PRIMARY KEY, title TEXT NOT NULL)")
+                    db.execSQL("CREATE TABLE model_providers (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL)")
+                    db.execSQL("CREATE TABLE conversation_messages (id TEXT NOT NULL PRIMARY KEY, content TEXT NOT NULL)")
+                    existingColumns.forEach { column ->
+                        db.execSQL(
+                            "ALTER TABLE ${lineageTable(column)} ADD COLUMN $column ${lineageDefinition(column)}"
+                        )
+                    }
+                    db.execSQL("INSERT INTO model_providers (id, name) VALUES ('provider', '保留的数据')")
+                }
+
+                override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+            })
+            .build()
+        val helper = FrameworkSQLiteOpenHelperFactory().create(configuration)
+        try {
+            val database = helper.writableDatabase
+            listOf(
+                EtaDatabase.MIGRATION_21_22,
+                EtaDatabase.MIGRATION_22_23,
+                EtaDatabase.MIGRATION_23_24,
+                EtaDatabase.MIGRATION_24_25,
+            ).filter { it.startVersion >= startVersion }
+                .forEach { it.migrate(database) }
+
+            val expected = setOf(
+                "model_id",
+                "auth_mode",
+                "balance_url",
+                "balance_json_path",
+                "run_duration_ms",
+                "run_finished_at",
+            )
+            val actual = listOf("conversations", "model_providers", "conversation_messages")
+                .flatMap { table -> lineageColumns(database, table) }
+                .toSet()
+            assertEquals("lineage $index 应收敛到 v25 字段并集", expected, actual.intersect(expected))
+            val retainedName = database.query("SELECT name FROM model_providers WHERE id = 'provider'").use {
+                check(it.moveToFirst())
+                it.getString(0)
+            }
+            assertEquals("保留的数据", retainedName)
+        } finally {
+            helper.close()
+            context.deleteDatabase(databaseName)
+        }
+    }
+
+    private fun lineageColumns(database: SupportSQLiteDatabase, table: String): Set<String> =
+        database.query("PRAGMA table_info($table)").use { cursor ->
+            val nameIndex = cursor.getColumnIndex("name")
+            buildSet {
+                while (cursor.moveToNext()) add(cursor.getString(nameIndex))
+            }
+        }
+
+    private fun lineageTable(column: String): String = when (column) {
+        "model_id" -> "conversations"
+        "run_duration_ms", "run_finished_at" -> "conversation_messages"
+        else -> "model_providers"
+    }
+
+    private fun lineageDefinition(column: String): String = when (column) {
+        "model_id" -> "TEXT"
+        "run_duration_ms", "run_finished_at" -> "INTEGER"
+        "auth_mode" -> "TEXT NOT NULL DEFAULT 'api_key'"
+        else -> "TEXT NOT NULL DEFAULT ''"
     }
 
     private fun createVersion6Database(
@@ -199,7 +300,7 @@ class EtaDatabaseMigrationTest {
                             "INSERT INTO model_providers " +
                                 "(id, type, name, base_url, api_key, is_enabled, is_built_in, sort_order, " +
                                 "system_prompt, custom_headers_json, custom_body_json, created_at, endpoint_mode, anthropic_version) " +
-                                "VALUES ('provider-1', 'openai_compatible', 'Provider', 'https://example.com/v1', '', 1, 0, 0, " +
+                                "VALUES ('provider-1', 'openai_compatible', 'Provider', 'https://example.com/v1', 'fixture-existing-api-key', 1, 0, 0, " +
                                 "NULL, '[]', '[]', 1, 'chat_completions', '2023-06-01')"
                         )
                         db.execSQL(providerModelInsert("built-in-id", "built-in", 1, 0))

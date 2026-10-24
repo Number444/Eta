@@ -41,7 +41,8 @@ internal class AgentRuntimeClient(
 
     fun run(
         request: AgentRuntimeWire.RunRequest,
-        onEvent: (AgentEvent) -> Unit
+        onInterruptRequest: (String, String) -> Unit = { _, _ -> },
+        onEvent: (AgentEvent) -> Unit,
     ): AgentRuntimeWire.RunResult {
         val resultLatch = CountDownLatch(1)
         val resultRef = AgentResultMailbox()
@@ -56,6 +57,7 @@ internal class AgentRuntimeClient(
                 onRequestIngested = {
                     preparedImagesRef.getAndSet(null)?.close()
                 },
+                onInterruptRequest = onInterruptRequest,
             )
         )
 
@@ -116,16 +118,6 @@ internal class AgentRuntimeClient(
         withRuntimeMessenger(Unit) { serviceMessenger ->
             val msg = Message.obtain(null, AgentRuntimeWire.MSG_CANCEL)
             msg.data = AgentRuntimeWire.ackBundle(runId)
-            serviceMessenger.send(msg)
-        }
-    }
-
-    /** Eta Mod：向运行中的 run 发送用户补充消息（插入）；runId 不匹配活跃 run 时服务端忽略。 */
-    fun sendSupplement(runId: String, text: String) {
-        if (runId.isBlank() || text.isBlank()) return
-        withRuntimeMessenger(Unit) { serviceMessenger ->
-            val msg = Message.obtain(null, AgentRuntimeWire.MSG_SUPPLEMENT)
-            msg.data = AgentRuntimeWire.supplementBundle(runId, text)
             serviceMessenger.send(msg)
         }
     }
@@ -225,6 +217,7 @@ internal class AgentRuntimeClient(
     fun attachRun(
         runId: String,
         onReplay: ((List<AgentEvent>) -> Unit)? = null,
+        onInterruptRequest: (String, String) -> Unit = { _, _ -> },
         onEvent: (AgentEvent) -> Unit,
     ): AttachOutcome {
         if (runId.isBlank()) return AttachOutcome.NotActive
@@ -246,6 +239,7 @@ internal class AgentRuntimeClient(
                     attachLatch.countDown()
                     terminalLatch.countDown()
                 },
+                onInterruptRequest = onInterruptRequest,
             )
         )
         val lease = AgentRuntimeConnection.acquire(context, logger)
@@ -303,6 +297,7 @@ internal class AgentRuntimeClient(
         private val onEvent: (AgentEvent) -> Unit,
         private val onResult: (Bundle) -> Unit,
         private val onRequestIngested: () -> Unit,
+        private val onInterruptRequest: (String, String) -> Unit = { _, _ -> },
     ) : Handler(Looper.getMainLooper()) {
         override fun handleMessage(msg: Message) {
             when (msg.what) {
@@ -315,6 +310,13 @@ internal class AgentRuntimeClient(
                 }
 
                 AgentRuntimeWire.MSG_REQUEST_INGESTED -> onRequestIngested()
+                AgentRuntimeWire.MSG_INTERRUPT_REQUEST -> {
+                    val data = msg.data ?: return
+                    onInterruptRequest(
+                        AgentRuntimeWire.runIdFromBundle(data),
+                        AgentRuntimeWire.interruptTextFromBundle(data),
+                    )
+                }
             }
         }
     }
@@ -344,6 +346,7 @@ internal class AgentRuntimeClient(
         onEvent: (AgentEvent) -> Unit,
         onAttachResponse: (Boolean) -> Unit,
         private val onResult: (Bundle) -> Unit,
+        private val onInterruptRequest: (String, String) -> Unit,
     ) : Handler(Looper.getMainLooper()) {
         private val delivery = AgentRuntimeAttachDelivery(
             onReplay = onReplay,
@@ -360,6 +363,13 @@ internal class AgentRuntimeClient(
                     if (delivery.beginResult()) onResult(msg.data ?: return)
                 AgentRuntimeWire.MSG_ATTACH_RUN_RESPONSE ->
                     delivery.attachResponse(AgentRuntimeWire.attachRunSucceeded(msg.data ?: return))
+                AgentRuntimeWire.MSG_INTERRUPT_REQUEST -> {
+                    val data = msg.data ?: return
+                    onInterruptRequest(
+                        AgentRuntimeWire.runIdFromBundle(data),
+                        AgentRuntimeWire.interruptTextFromBundle(data),
+                    )
+                }
             }
         }
     }

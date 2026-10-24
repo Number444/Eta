@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
@@ -70,14 +69,11 @@ import io.github.mangi.eta.ui.model.SystemNoticeMessageUi
 import io.github.mangi.eta.ui.components.AnswerActionSize
 import io.github.mangi.eta.ui.components.ChatInputActionIconSize
 import io.github.mangi.eta.ui.components.ChatInputActionSize
-import io.github.mangi.eta.ui.components.LocalLiquidGlassBackdrop
 import io.github.mangi.eta.ui.components.hapticClick
-import io.github.mangi.eta.ui.components.liquidGlassCircle
 import io.github.mangi.eta.ui.components.EtaTextButton
 import io.github.mangi.eta.ui.components.StatusError
 import kotlin.math.sqrt
 import kotlin.random.Random
-import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
@@ -321,32 +317,6 @@ internal fun SpeechAutoReadAloud(messages: List<AgentChatMessageUi>, isStreaming
     LaunchedEffect(enabled) {
         if (wasEnabled && !enabled) controller.stop()
         wasEnabled = enabled
-    }
-}
-
-/** 顶栏的自动朗读开关；未配置播报服务时不显示。 */
-@Composable
-internal fun SpeechAutoReadToggle() {
-    val scope = rememberCoroutineScope()
-    val settings by remember { SpeechSettingsRepository.settingsFlow() }.collectAsState(initial = null)
-    val current = settings ?: return
-    if (current.tts == TtsProvider.NONE) return
-    val on = current.chatAutoSpeak
-    // Eta Mod：与顶栏其余按钮一致的液态玻璃圆钮（无采样源时 liquidGlassCircle 自动无效果）。
-    val glassBackdrop = LocalLiquidGlassBackdrop.current
-    val glassTint = MiuixTheme.colorScheme.surface.copy(alpha = 0.07f)
-    IconButton(
-        onClick = hapticClick { scope.launch { SpeechSettingsRepository.save(current.copy(chatAutoSpeak = !on)) } },
-        modifier = Modifier
-            .size(44.dp)
-            .liquidGlassCircle(glassBackdrop, tint = glassTint),
-    ) {
-        Icon(
-            imageVector = if (on) Icons.AutoMirrored.Rounded.VolumeUp else Icons.AutoMirrored.Rounded.VolumeOff,
-            contentDescription = stringResource(if (on) R.string.speech_auto_read_on else R.string.speech_auto_read_off),
-            modifier = Modifier.size(22.dp),
-            tint = MiuixTheme.colorScheme.onSurface,
-        )
     }
 }
 

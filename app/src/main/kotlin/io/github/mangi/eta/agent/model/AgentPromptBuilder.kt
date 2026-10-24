@@ -131,14 +131,11 @@ internal object AgentPromptBuilder {
             ))
         }
         if (config.browserTools) {
-            // Eta Mod：本地 web_search 走 AgentSearchProvider 抽象引擎；未配置 API Key 或开关关闭时不向模型提及该工具。
-            val localSearchAvailable = !config.usesHostedWebSearch &&
-                config.webSearchTools && AgentWebSearchToolCatalog.searchConfigured()
             messages.put(
                 systemMessage(
                     (if (config.usesHostedWebSearch) {
                         "需要补充读取托管搜索的来源页面时使用 fetch_url。"
-                    } else if (localSearchAvailable) {
+                    } else if (config.webSearchTools) {
                         "查找公开网页使用本地 web_search，它返回标题、原始链接和摘要；需要核对来源正文时使用 fetch_url。"
                     } else {
                         ""

@@ -2,9 +2,30 @@
 
 > 本 fork：`my-mods` 分支，applicationId `io.github.mangi.eta.mod`
 > 远端：`origin` = Number444/Eta（推送目标），`upstream` = Mangi-11/Eta（官方源）
-> 当前版本：3.3.1-001（versionCode 2026102101；merge 上游 v3.3.1+3fix，见归档第 7 条）
+> 当前版本：3.3.3-002（versionCode 2026102402；merge 上游 v3.3.3 + 更新 APK 直链下载，待真机验收）
 
 > 已完成归档（2026-10-08 精简，2026-10-21 追加第 7 条）：1. merge 上游 v3.2.0（30 commits，16 冲突手工裁决，出包真机回归通过）；2. 更新检查/关于页链接指向 Number444/Eta（`isNewer` 支持 `-NNN` 修订号）；3. 删官方搜索只留 Exa（官方服务本机超时不可用）；4. 消息操作行按钮放大 1.4 倍；5. 分享成图按新 markdown 层重写（含 `ShareCardRenderTest` 渲染基线）；6. merge 上游 v3.3.0（2026-10-13 完成：21 commits，7 冲突裁决 + `AgentAppState` 四功能块移植；暗礁=双方 `MIGRATION_21_22` 撞车，上游 `model_id` 迁移顺延 22_23、DB 升 v23；48 个单测失败对撞全为 Windows 环境基线零回归，出包真机冒烟通过）；7. merge 上游 v3.3.1+3fix（2026-10-21 完成：17 commits / ~150 文件，21 冲突文件 ~49 hunks 全裁决——三子代理语义对撞先行；关键适配：`setCapsuleYielded` 恢复逻辑归一到我方常驻 FLAG_NOT_TOUCHABLE 基线（仅补充输入态例外）、`AnswerActionButton` 新操作行体系保留我方 42dp/21dp+分享按钮+触感、刻度条四滚动点分页 +1 偏移、`AgentModelClient` 前缀缓存重构上重贴 webSearchTools/compactConfig/suppressReasoning、我方 stdin 测试补丁被上游 -4 退出码方案覆盖而放弃；DB 零迁移撞车（上游停 v22）；单测 49 失败对撞零回归（新增 1 个上游 PTY 测试 Windows 环境失败入基线）；merge 后玻璃尾巴：新模型选择器 EtaListPopup + 厂商余额移植、新增 `EtaGlassBottomSheet` 真玻璃覆盖模型抽屉与远端模型导入抽屉、朗读开关套玻璃）。详细过程见 git 历史。
+
+## 16. 检查更新直接下载 APK（2026-10-24 实施，待真机验收）
+
+- GitHub Release 恰好包含一个 APK 时，更新弹窗「前往下载」通过默认浏览器直接打开其 `browser_download_url`；无 APK 或有多个 APK 时回退 Release 页面，避免误下附件。
+- 不引入应用内下载器，不新增权限；浏览器与系统负责重定向、下载和后续安装。直链已实测 302 后返回 200、`application/vnd.android.package-archive` 与 attachment 响应头。
+- 版本 3.3.3-002（versionCode 2026102402）；待真机验证直接下载、覆盖安装和更新检测。
+
+## 15. merge 上游 v3.3.3（代码合并与本地验证完成，待真机验收）
+
+- **实施现状（2026-10-24）**：已合入 `ed022f5`，全部冲突与自动合并语义冲突已裁决。Room 升 v25，21–25 迁移按 schema 检查并补齐双方字段；官方新队列唯一保留，临时会话/计时/删除取消 run 已接回；岛补充经 `MSG_INTERRUPT_REQUEST` 回传 AppState 后按官方插话执行；搜索仅官方链路，旧 Exa/独立搜索实现已移除（文件入回收站），DeepSeek 配置做一次性加密迁移；OAuth 供应商保留 API Key 余额；新队列条与输入栏恢复玻璃。`compileDebugUnitTestKotlin`、`lintDebug` 与数据库/队列/岛 wire/常亮/搜索迁移/供应商/工具目录定向测试通过。全量 1791 项单测为 50 failed / 2 skipped：49 项既有 Windows/Robolectric 环境基线，另 1 项为上游新增 OAuth 备份测试的同类文件行为环境失败；工具需求测试修正后通过，无其他新增失败。ADB 无设备，真机回归待执行；未 commit。
+- **目标**：完整合并官方 `upstream/main`（评估时 HEAD=`ed022f5`，v3.3.3 + README 更新），不做选择性移植；保留 Mod 既有架构与功能。预演为 17 个文本冲突文件，另有数据库、队列、搜索三类自动合并后的语义冲突，禁止解完冲突标记就直接出包。
+- **消息队列（Four 已拍板）**：以官方新队列为唯一实现，支持附件、草稿恢复、跨会话发送与插话；删除本地旧纯文本队列及旧 drain/Action/UI。重新接入本地临时会话、单轮计时，切走/删除临时会话后不得落库、复活或续发队列。
+- **插话与岛补充（Four 已拍板）**：统一为官方插话语义——取消当前 run 后发送新消息；岛「补充」入口保留，但提交也走官方插话，不再保留运行中 steering 的产品行为。官方 `AgentMessageQueueReducer` 为队列状态唯一主干，注意 AppState 与服务浮层之间的接线。
+- **自动朗读（Four 已拍板）**：本次沿用官方实现，不额外增加逐 run 完成边界触发；连续队列是否漏读列入真机观察项，后续确有问题再单独立项。
+- **搜索（Four 已拍板）**：完全采用官方 `AgentWebTools` + `WebToolsSettingsRepository` + 官方设置页及工具契约，使用官方内置、DeepSeek、自定义接口；放弃 Exa，不保留本地 `AgentSearchProvider`/独立 `web_search` 执行器作为第二链路，不保留旧搜索设置入口。迁移现有 DeepSeek Key 与选择；原 Exa 用户回退官方默认后端，旧 Exa 配置不迁移、不留备用运行路径。
+- **供应商/OAuth（Four 已拍板）**：引入官方 Codex/Grok 订阅登录、账号绑定与远端模型同步，以其 Provider/Repository/UI 重构为骨架；保留本地余额字段、编辑器与 API Key 供应商余额查询。OAuth 模式不直接复用依赖 Bearer API Key 的旧余额请求，避免静默 401。远端模型导入采用官方 `RemoteModelCatalog`，保留本地 `EtaGlassBottomSheet`。
+- **数据库**：目标 Room v25；双方 v22–v24 migration 分叉，必须按实际 schema 幂等补齐 `model_id`、`auth_mode`、余额列与计时列，禁止整边选择或清库。所有已发布 Mod 的覆盖升级为必测路径，另覆盖全新安装最终 schema；先完成迁移方案与测试再处理上层功能。
+- **运行时与岛**：保留本地 `.mod` action、胶囊 `FLAG_NOT_TOUCHABLE`、岛暂停/停止及输入浮层触摸例外，合入官方 `keepScreenOnState/keepScreenOn`；暂停、恢复、取消、完成与 Service 销毁时常亮和岛状态均须正确回收。岛补充按上述官方插话语义重接，不恢复旧 steering。
+- **UI/语音（Four 已拍板）**：接受官方新图标、移除自定义启动动画及语音设置重构；官方新增队列条、供应商页、语音页和 Web 工具页按本地液态玻璃规范 Mod 化。保留本地一级分类设置页、数据驱动更多菜单、临时会话/删除会话/单轮计时；旧顶栏自动朗读按钮不恢复，入口并入更多菜单。连续队列朗读不额外改架构。
+- **构建**：保留 `applicationId=io.github.mangi.eta.mod`、签名与 Number444/Eta 更新源；目标 versionName `3.3.3-001`，versionCode 按实际发布日期递增。接受官方 ARM64-only、Nimbus/ProGuard 与 `buildConfig=true`。
+- **验收顺序**：数据库迁移测试 → 编译与重复声明检查 → 官方队列 reducer/AppState 集成 → DeepSeek/自定义搜索 → Codex/Grok OAuth 与余额 → 岛插话/暂停/停止/触摸穿透/常亮 → 三档玻璃与深浅色 → `lintDebug` + `compileDebugUnitTestKotlin` + 全量单测基线对撞 → Release 出包与真机回归。
 
 ## 14. 首次安装引导向导（Compose 原生绘制，2026-10-19 调研存档并定方向，未开工）
 

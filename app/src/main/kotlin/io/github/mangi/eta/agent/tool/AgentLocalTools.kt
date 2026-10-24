@@ -13,7 +13,6 @@ import io.github.mangi.eta.agent.device.RootAccess
 import io.github.mangi.eta.agent.device.RootShellDeviceController
 import io.github.mangi.eta.agent.device.BoundedRootCommandExecutor
 import io.github.mangi.eta.agent.model.AgentModelClient
-import io.github.mangi.eta.agent.model.AgentWebSearchToolCatalog
 import io.github.mangi.eta.agent.model.AgentHttpClient
 import io.github.mangi.eta.agent.device.LocalNetworkPermission
 import io.github.mangi.eta.agent.web.AgentWebTools
@@ -54,6 +53,7 @@ import io.github.mangi.eta.data.repository.AgentMemoryMutation
 import io.github.mangi.eta.data.repository.AgentMemoryRepository
 import io.github.mangi.eta.data.repository.AgentMemoryWriteResult
 import io.github.mangi.eta.data.repository.LinuxEnvironmentSettingsRepository
+import io.github.mangi.eta.data.repository.WebToolsSettingsRepository
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -115,6 +115,7 @@ internal class AgentLocalTools(
     private val webTools = AgentWebTools(
         transport = WebHttpTransport(AgentHttpClient.client),
         localNetworkAccess = { LocalNetworkPermission.accessState(context).name.lowercase(Locale.ROOT) },
+        runtimeConfig = { runBlocking { WebToolsSettingsRepository.resolveRuntimeConfig(context) } },
     )
     val terminalExecutionContext = LinuxEnvironmentSettingsRepository.current(context).terminalEnvironment.let { environment ->
         TerminalExecutionContext(
@@ -123,7 +124,6 @@ internal class AgentLocalTools(
         )
     }
 
-    /** Eta Mod：web_search 走 AgentSearchProvider 抽象引擎，注册条件在 AgentWebSearchToolCatalog.searchConfigured()。 */
     private val terminalController = RootShellTerminalController(
         logger = logger,
         rootAvailable = rootAvailable,
@@ -183,15 +183,11 @@ internal class AgentLocalTools(
             }
             when (toolCall.name) {
                 "get_current_context" -> textResult(DeviceContextTool.current(context))
-                AgentWebSearchToolCatalog.WEB_SEARCH -> textResult(
-                    // Eta Mod：web_search 只走 Exa（官方免 Key 搜索在本机不可用，已移除）。
-                    AgentWebSearchTool.execute(args)
-                )
                 "search_apps" -> textResult(searchApps(args))
                 "launch_app" -> textResult(launchApp(args))
                 "open_uri" -> textResult(openUri(args))
                 "browser_use" -> browserUse(args, toolCall.id)
-                "fetch_url" -> {
+                "web_search", "fetch_url" -> {
                     if (!browserToolsEnabled()) textResult(errorResult("BROWSER_TOOLS_DISABLED", "请先启用网页搜索、读取与浏览器工具"))
                     else textResult(webTools.execute(toolCall.name, args))
                 }

@@ -15,8 +15,7 @@ class AgentToolRequirementsTest {
     fun everyRegisteredToolHasExactlyOneRequirement() {
         val tools = catalog(root = true).also { CharacterMemoryTools.appendSchemas(it) }
         val executionOnly = setOf("input_text", "replace_text", "clear_text", "paste_text")
-        // Eta Mod：web_search 仅在当前搜索引擎 key 已配置时注册（测试环境无 key），从恒等式期望集中排除。
-        assertEquals(AgentToolRequirements.toolNames - executionOnly - setOf("web_search"), tools.names())
+        assertEquals(AgentToolRequirements.toolNames - executionOnly, tools.names())
         executionOnly.forEach { name -> assertFalse("$name 仅保留执行兼容，不再向模型暴露", name in tools.names()) }
         assertFalse("旧命令名仅保留执行兼容，不再向模型暴露", "run_command" in tools.names())
         assertEquals(tools.length(), tools.names().size)

@@ -6,10 +6,11 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 
-/** GitHub 最新 Release 信息，[version] 已去掉 tag 的 v 前缀。 */
+/** GitHub 最新 Release 信息，[version] 已去掉 tag 的 v 前缀，[downloadUrl] 为 APK 直链或 Release 页面。 */
 internal data class AppLatestRelease(
     val version: String,
     val url: String,
+    val downloadUrl: String,
 )
 
 /**
@@ -31,15 +32,34 @@ internal object AppUpdateChecker {
             if (!response.isSuccessful) {
                 throw IOException("GitHub Release 请求失败（HTTP ${response.code}）")
             }
-            val json = runCatching { JSONObject(response.body.string()) }
-                .getOrElse { throw IOException("GitHub Release 响应不是有效 JSON", it) }
-            val tag = json.optString("tag_name").trim()
-            val url = json.optString("html_url").trim()
-            if (tag.isEmpty() || url.isEmpty()) {
-                throw IOException("GitHub Release 响应缺少 tag_name/html_url")
-            }
-            return AppLatestRelease(version = tag.removePrefix("v"), url = url)
+            return parseLatest(response.body.string())
         }
+    }
+
+    fun parseLatest(payload: String): AppLatestRelease {
+        val json = runCatching { JSONObject(payload) }
+            .getOrElse { throw IOException("GitHub Release 响应不是有效 JSON", it) }
+        val tag = json.optString("tag_name").trim()
+        val url = json.optString("html_url").trim()
+        if (tag.isEmpty() || url.isEmpty()) {
+            throw IOException("GitHub Release 响应缺少 tag_name/html_url")
+        }
+        val assets = json.optJSONArray("assets")
+        val apkUrls = (0 until (assets?.length() ?: 0)).mapNotNull { index ->
+            val asset = assets?.optJSONObject(index)
+            val name = asset?.optString("name").orEmpty()
+            val downloadUrl = asset?.optString("browser_download_url").orEmpty().trim()
+            if (name.endsWith(".apk", ignoreCase = true) && downloadUrl.isNotEmpty()) {
+                downloadUrl
+            } else {
+                null
+            }
+        }
+        return AppLatestRelease(
+            version = tag.removePrefix("v"),
+            url = url,
+            downloadUrl = apkUrls.singleOrNull() ?: url,
+        )
     }
 
     fun isNewer(latest: String, current: String): Boolean {

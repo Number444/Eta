@@ -291,18 +291,29 @@ internal class AgentAppState(
         try {
             pendingPersistence?.join()
             return conversationLoadMutex.withLock {
-                val summary = EtaBackupRepository.import(appContext, input)
-                imported = true
-                reloadConversationsAfterBackup()
-                reloaded = true
-                summary
+                try {
+                    val summary = EtaBackupRepository.import(appContext, input, onCommitted = { imported = true })
+                    reloadConversationsAfterBackup()
+                    reloaded = true
+                    summary
+                } catch (failure: Throwable) {
+                    if (imported && !reloaded) {
+                        try {
+                            withContext(NonCancellable) { reloadConversationsAfterBackup() }
+                            reloaded = true
+                        } catch (reloadFailure: Throwable) {
+                            failure.addSuppressed(reloadFailure)
+                        }
+                    }
+                    throw failure
+                }
             }
         } finally {
             // 导入已提交但重载失败时内存仍是旧状态，继续暂停，避免覆盖导入结果；重启后按库内数据加载。
             if (!imported || reloaded) {
                 synchronized(persistenceLock) { persistencePaused = false }
             }
-            // 导入失败时数据库已回滚并与保存基线一致，补写暂停期间的会话变更。
+            // 仅提交前失败才回写旧内存；提交后的清理失败或取消仍以导入数据为准。
             if (!imported) withContext(Dispatchers.Main.immediate + NonCancellable) { persistConversations() }
         }
     }
@@ -559,6 +570,7 @@ internal class AgentAppState(
                 runId = runId,
                 onReplay = { events -> restoreRunEvents(runId, events) },
                 onEvent = { event -> enqueueRunEvent(runId, event) },
+                onInterruptRequest = ::enqueueIslandInterrupt,
             )
             when (outcome) {
                 is AgentRuntimeClient.AttachOutcome.Completed -> withContext(Dispatchers.Main) {
@@ -989,7 +1001,7 @@ internal class AgentAppState(
         val leavingId = selectedConversationId
             ?.takeIf { it in temporaryConversationIds && it != nextConversationId }
             ?: return
-        if (currentRunId?.let(runConversationIds::get) == leavingId) stopCurrentRun()
+        cancelConversationRun(leavingId)
         conversationsById = conversationsById - leavingId
         conversationTitles = conversationTitles - leavingId
         conversationUpdatedAt = conversationUpdatedAt - leavingId
@@ -1034,6 +1046,7 @@ internal class AgentAppState(
     }
 
     fun deleteConversation(conversationId: String) {
+        cancelConversationRun(conversationId)
         val wasSelected = selectedConversationId == conversationId
         conversationsById = conversationsById - conversationId
         conversationTitles = conversationTitles - conversationId
@@ -1113,27 +1126,67 @@ internal class AgentAppState(
     )
 
     fun sendCurrentMessage(submittedText: String? = null) {
+        submitOrQueueCurrentMessage(submittedText = submittedText, immediateInterrupt = false)
+    }
+
+    fun interruptAndSendCurrentMessage(submittedText: String? = null) {
+        submitOrQueueCurrentMessage(submittedText = submittedText, immediateInterrupt = true)
+    }
+
+    fun steerQueuedMessage(id: String) {
+        if (!homeState.isConversationLoaded) return
+        val (nextState, promoted) = AgentMessageQueueReducer.promoteToInterrupt(homeState, id)
+        if (promoted == null) return
+        updateCurrentConversation(nextState, updateTimestamp = false)
+        if (nextState.isStreaming && !nextState.isCompacting) {
+            requestInterruptCurrentRun()
+        } else if (!nextState.isStreaming) {
+            dispatchQueuedMessage(selectedConversationId, promoted)
+        }
+    }
+
+    fun recallQueuedMessage(id: String, currentDraftText: String) {
+        if (!homeState.isConversationLoaded) return
+        val nextState = AgentMessageQueueReducer.recallToDraft(
+            state = homeState,
+            currentInputText = currentDraftText,
+            id = id,
+        ) ?: return
+        updateCurrentConversation(nextState, updateTimestamp = false)
+    }
+
+    fun removeQueuedMessage(id: String) {
+        if (!homeState.isConversationLoaded) return
+        val nextState = AgentMessageQueueReducer.remove(homeState, id)
+        if (nextState !== homeState) {
+            updateCurrentConversation(nextState, updateTimestamp = false)
+        }
+    }
+
+    private fun submitOrQueueCurrentMessage(
+        submittedText: String?,
+        immediateInterrupt: Boolean,
+    ) {
         if (!homeState.isConversationLoaded || homeState.isCompacting) return
         val prompt = (submittedText ?: homeState.input).trim()
         val pendingImages = homeState.pendingImages
         val pendingFileReferences = homeState.pendingFileReferences
-        if (
-            (prompt.isBlank() && pendingImages.isEmpty() && pendingFileReferences.isEmpty()) ||
-            homeState.isStreaming
-        ) {
+        if (prompt.isBlank() && pendingImages.isEmpty() && pendingFileReferences.isEmpty()) {
             return
         }
-        homeState.messageEdit?.takeIf { it.preserveFollowingMessages }?.let { edit ->
-            val updated = RoleplayConversationReducer.edit(homeState, edit.targetMessageId, prompt) ?: return
-            updateCurrentConversation(updated.copy(
-                input = edit.previousInput,
-                pendingImages = edit.previousImages,
-                pendingFileReferences = edit.previousFileReferences,
-                messageEdit = null,
-            ))
-            refreshConversationSummaries()
-            persistConversations()
-            return
+        if (!homeState.isStreaming) {
+            homeState.messageEdit?.takeIf { it.preserveFollowingMessages }?.let { edit ->
+                val updated = RoleplayConversationReducer.edit(homeState, edit.targetMessageId, prompt) ?: return
+                updateCurrentConversation(updated.copy(
+                    input = edit.previousInput,
+                    pendingImages = edit.previousImages,
+                    pendingFileReferences = edit.previousFileReferences,
+                    messageEdit = null,
+                ))
+                refreshConversationSummaries()
+                persistConversations()
+                return
+            }
         }
         val fileReferences = pendingFileReferences.map { it.reference }
         if (
@@ -1149,7 +1202,24 @@ internal class AgentAppState(
             ).show()
             return
         }
-        val runtimePrompt = AgentFileReferencePromptCodec.format(prompt, fileReferences)
+
+        if (homeState.isStreaming) {
+            val queued = QueuedMessageUi(
+                id = "queue-${UUID.randomUUID()}",
+                content = prompt,
+                pendingImages = pendingImages,
+                pendingFileReferences = pendingFileReferences,
+                immediateInterrupt = immediateInterrupt,
+            )
+            updateCurrentConversation(
+                state = AgentMessageQueueReducer.enqueue(homeState, queued),
+                updateTimestamp = false,
+            )
+            if (immediateInterrupt) {
+                requestInterruptCurrentRun()
+            }
+            return
+        }
 
         val edit = homeState.messageEdit
         if (edit == null && selectedConversationId?.isReadOnlyExternalArchiveConversation() == true) {
@@ -1171,6 +1241,65 @@ internal class AgentAppState(
                 pendingTemporaryConversation = false
             }
         }
+        dispatchMessageToConversation(
+            conversationId = conversationId,
+            state = homeState,
+            prompt = prompt,
+            pendingImages = pendingImages,
+            pendingFileReferences = pendingFileReferences,
+            editBoundary = editBoundary,
+        )
+    }
+
+    private fun dispatchQueuedMessage(
+        conversationId: String?,
+        item: QueuedMessageUi,
+    ) {
+        val targetConversationId = conversationId ?: selectedConversationId ?: newConversationId().also {
+            selectedConversationId = it
+        }
+        val state = if (conversationId == null) {
+            homeState
+        } else {
+            conversationsById[targetConversationId] ?: return
+        }
+        if (state.isStreaming || state.isCompacting) return
+        val fileReferences = item.pendingFileReferences.map { it.reference }
+        if (
+            !AgentFileReferencePolicy.canSend(
+                references = fileReferences,
+                terminalToolsEnabled = agentBooleanForUi(Prefs.Keys.AGENT_TERMINAL_TOOLS),
+            )
+        ) {
+            Toast.makeText(
+                appContext,
+                appContext.getString(R.string.state_ui_file_path_reference_requires_opening_the_termina_deca4c),
+                Toast.LENGTH_SHORT,
+            ).show()
+            return
+        }
+        dispatchMessageToConversation(
+            conversationId = targetConversationId,
+            state = state,
+            prompt = item.content,
+            pendingImages = item.pendingImages,
+            pendingFileReferences = item.pendingFileReferences,
+            editBoundary = null,
+            preserveCurrentDraft = true,
+        )
+    }
+
+    private fun dispatchMessageToConversation(
+        conversationId: String,
+        state: AgentChatHomeUiState,
+        prompt: String,
+        pendingImages: List<PendingImageUi>,
+        pendingFileReferences: List<PendingFileReferenceUi>,
+        editBoundary: AgentConversationRevisionReducer.Boundary?,
+        preserveCurrentDraft: Boolean = false,
+    ) {
+        val fileReferences = pendingFileReferences.map { it.reference }
+        val runtimePrompt = AgentFileReferencePromptCodec.format(prompt, fileReferences)
         val runId = "run-${UUID.randomUUID()}"
         val userMessage = UserMessageUi(
             id = editBoundary?.userMessage?.id ?: "user-$runId",
@@ -1178,11 +1307,11 @@ internal class AgentAppState(
             images = pendingImages.map { it.dataUrl },
             isEdited = editBoundary != null,
         )
-        val history = editBoundary?.historyPrefix ?: homeState.history
+        val history = editBoundary?.historyPrefix ?: state.history
         val messages = if (editBoundary == null) {
-            homeState.messages + userMessage
+            state.messages + userMessage
         } else {
-            homeState.messages.take(editBoundary.userMessageIndex) + userMessage
+            state.messages.take(editBoundary.userMessageIndex) + userMessage
         }
         val userHistoryMessage = AgentModelClient.buildUserHistoryMessage(
             text = runtimePrompt,
@@ -1206,7 +1335,9 @@ internal class AgentAppState(
         }
 
         conversationTitles = conversationTitles + (conversationId to title)
-        conversationPaneState = conversationPaneState.copy(selectedConversationId = conversationId)
+        if (selectedConversationId == conversationId) {
+            conversationPaneState = conversationPaneState.copy(selectedConversationId = conversationId)
+        }
         launchConversationRun(
             conversationId = conversationId,
             runId = runId,
@@ -1215,14 +1346,21 @@ internal class AgentAppState(
             history = history,
             userHistoryMessage = userHistoryMessage,
             messages = messages,
-            state = homeState.copy(
-                journal = editBoundary?.journalPrefix ?: homeState.journal,
-                input = "",
-                pendingImages = emptyList(),
-                pendingFileReferences = emptyList(),
-                messageEdit = null,
-            ),
-            reasoningEffort = homeState.reasoningEffort,
+            state = if (preserveCurrentDraft) {
+                state.copy(
+                    journal = editBoundary?.journalPrefix ?: state.journal,
+                    messageEdit = null,
+                )
+            } else {
+                state.copy(
+                    journal = editBoundary?.journalPrefix ?: state.journal,
+                    input = "",
+                    pendingImages = emptyList(),
+                    pendingFileReferences = emptyList(),
+                    messageEdit = null,
+                )
+            },
+            reasoningEffort = state.reasoningEffort,
         )
     }
 
@@ -1548,6 +1686,7 @@ internal class AgentAppState(
                         ),
                     ),
                     onEvent = { event -> enqueueRunEvent(runId, event) },
+                    onInterruptRequest = ::enqueueIslandInterrupt,
                 )
             }
             withContext(Dispatchers.Main) {
@@ -1800,62 +1939,62 @@ internal class AgentAppState(
         }
 
     private val stopRequestedRunIds = mutableSetOf<String>()
+    private val userStoppedRunIds = mutableSetOf<String>()
 
     /** Eta Mod：本进程发起的 run 的单调钟起点（elapsedRealtime），终态折算「用时+完成时刻」打到消息上。 */
     private val runStartedAtElapsed = mutableMapOf<String, Long>()
 
     fun stopCurrentRun() {
         val runId = currentRunId ?: return
+        userStoppedRunIds.add(runId)
+        conversationIdForRun(runId)?.let { id ->
+            conversationsById[id]?.let { state ->
+                val cleared = AgentMessageQueueReducer.clearInterruptFlags(state)
+                if (cleared !== state) {
+                    updateConversation(id, cleared, updateTimestamp = false)
+                }
+            }
+        }
+        requestCancelRun(runId)
+    }
+
+    private fun requestInterruptCurrentRun() {
+        val runId = currentRunId ?: return
+        requestCancelRun(runId)
+    }
+
+    private fun enqueueIslandInterrupt(runId: String, text: String) {
+        val prompt = text.trim()
+        val conversationId = conversationIdForRun(runId)
+        val state = conversationId?.let(conversationsById::get)
+        if (prompt.isEmpty() || conversationId == null || state == null || !state.isStreaming || state.isCompacting) {
+            Toast.makeText(appContext, "当前会话无法接收插话，任务仍在运行", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val queued = QueuedMessageUi(
+            id = "queue-${UUID.randomUUID()}",
+            content = prompt,
+            immediateInterrupt = true,
+        )
+        updateConversation(
+            conversationId,
+            AgentMessageQueueReducer.enqueue(state, queued),
+            updateTimestamp = false,
+        )
+        requestCancelRun(runId)
+    }
+
+    private fun requestCancelRun(runId: String) {
         if (!stopRequestedRunIds.add(runId)) return
         scope.launch(Dispatchers.IO) {
             AgentRuntimeClient(appContext, AndroidAgentLogger).cancelRun(runId)
         }
     }
 
-    // ── Eta Mod：排队/插入消息 ──────────────────────────────────────────
-
-    /** 运行期间把输入框文本排入当前会话队列；运行结束后按序自动发送。 */
-    fun queueCurrentMessage(text: String) {
-        val prompt = text.trim()
-        if (prompt.isBlank() || !homeState.isStreaming) return
-        updateCurrentConversation(
-            homeState.copy(
-                queuedMessages = homeState.queuedMessages +
-                    QueuedMessageUi(id = "queued-${UUID.randomUUID()}", text = prompt),
-            ),
-        )
-    }
-
-    /** 插入：立即从队列取出并作为 steering 补充注入正在运行的 run（下一轮 loop 前进入上下文）。 */
-    fun insertQueuedMessage(id: String) {
-        val item = homeState.queuedMessages.firstOrNull { it.id == id } ?: return
-        if (!homeState.isStreaming) return
-        val conversationId = selectedConversationId ?: return
+    private fun cancelConversationRun(conversationId: String) {
         val runId = runConversationIds.entries.firstOrNull { it.value == conversationId }?.key ?: return
-        updateCurrentConversation(
-            homeState.copy(queuedMessages = homeState.queuedMessages.filterNot { it.id == id }),
-        )
-        scope.launch(Dispatchers.IO) {
-            AgentRuntimeClient(appContext, AndroidAgentLogger).sendSupplement(runId, item.text)
-        }
-    }
-
-    /** 编辑：从队列取出并回填输入框（已有内容时换行追加）。 */
-    fun editQueuedMessage(id: String) {
-        val item = homeState.queuedMessages.firstOrNull { it.id == id } ?: return
-        val merged = if (homeState.input.isBlank()) item.text else homeState.input + "\n" + item.text
-        updateCurrentConversation(
-            homeState.copy(
-                queuedMessages = homeState.queuedMessages.filterNot { it.id == id },
-                input = merged,
-            ),
-        )
-    }
-
-    fun deleteQueuedMessage(id: String) {
-        updateCurrentConversation(
-            homeState.copy(queuedMessages = homeState.queuedMessages.filterNot { it.id == id }),
-        )
+        userStoppedRunIds.add(runId)
+        requestCancelRun(runId)
     }
 
     private fun isReplyRewrite(runId: String): Boolean =
@@ -1941,6 +2080,8 @@ internal class AgentAppState(
         acknowledgeRuntimeResult: Boolean = false,
     ) {
         flushPendingRunDelta(runId)
+        val completedConversationId = conversationIdForRun(runId)
+        val explicitlyStoppedByUser = userStoppedRunIds.remove(runId)
         val rewriting = result.operation == AgentRuntimeWire.OP_REWRITE_REPLY || isReplyRewrite(runId)
         stopRequestedRunIds.remove(runId)
         if (rewriting) runStartedAtElapsed.remove(runId)
@@ -1998,10 +2139,6 @@ internal class AgentAppState(
         }
         setConversationStreaming(runId, false)
         stampRunTiming(runId)
-        // Eta Mod：排队消化——CHAT 运行自然结束（含失败）后自动发送队列下一条；
-        // 用户手动停止不消化，避免停止后意外立刻发起新运行。
-        val wasStoppedByUser = result.error == LEGACY_STOPPED_ERROR || result.error == SYNTHETIC_STATUS_STOPPED
-        val finishedConversationId = conversationIdForRun(runId)
         conversationIdForRun(runId)?.let { id -> conversationsById[id]?.let {
             updateConversation(id, RoleplayConversationReducer.linkRun(it, runId))
         } }
@@ -2017,23 +2154,21 @@ internal class AgentAppState(
                 null
             }
         )
-        drainQueuedMessageIfIdle(finishedConversationId, result, wasStoppedByUser)
-    }
-
-    /** Eta Mod：运行结束后若队列非空则自动发送下一条；仅消化当前正在查看的会话。 */
-    private fun drainQueuedMessageIfIdle(
-        conversationId: String?,
-        result: AgentRuntimeWire.RunResult,
-        wasStoppedByUser: Boolean,
-    ) {
-        if (conversationId == null || wasStoppedByUser) return
-        if (result.operation != AgentRuntimeWire.OP_CHAT) return
-        if (conversationId != selectedConversationId) return
-        val state = conversationsById[conversationId] ?: return
-        if (state.isStreaming) return
-        val next = state.queuedMessages.firstOrNull() ?: return
-        updateConversation(conversationId, state.copy(queuedMessages = state.queuedMessages.drop(1)))
-        sendCurrentMessage(next.text)
+        if (completedConversationId != null && currentRunId == null) {
+            val finishedState = conversationsById[completedConversationId]
+            if (finishedState != null && finishedState.queuedMessages.isNotEmpty()) {
+                val stoppedByUser = explicitlyStoppedByUser ||
+                    (!result.ok && (result.error == LEGACY_STOPPED_ERROR || result.error == SYNTHETIC_STATUS_STOPPED))
+                val (afterPopState, nextQueued) = AgentMessageQueueReducer.pollNextToSendAfterRun(
+                    state = finishedState,
+                    stoppedByUser = stoppedByUser,
+                )
+                updateConversation(completedConversationId, afterPopState, updateTimestamp = false)
+                if (nextQueued != null) {
+                    dispatchQueuedMessage(completedConversationId, nextQueued)
+                }
+            }
+        }
     }
 
     private fun updateRunTrace(
@@ -2124,12 +2259,15 @@ internal class AgentAppState(
         if (!outcome.alreadyApplied) updateConversation(conversationId, outcome.state)
     }
 
-    private fun updateCurrentConversation(state: AgentChatHomeUiState) {
+    private fun updateCurrentConversation(
+        state: AgentChatHomeUiState,
+        updateTimestamp: Boolean = true,
+    ) {
         val conversationId = selectedConversationId
         if (conversationId == null) {
             homeState = state
         } else {
-            updateConversation(conversationId, state)
+            updateConversation(conversationId, state, updateTimestamp = updateTimestamp)
         }
     }
 

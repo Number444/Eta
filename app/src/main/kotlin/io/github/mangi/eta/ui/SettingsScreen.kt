@@ -253,7 +253,7 @@ internal fun SettingsScreen(
                 onCancel = { availableUpdate = null },
                 onConfirm = {
                     availableUpdate = null
-                    openUrl(update.url)
+                    openUrl(update.downloadUrl)
                 },
             )
         }

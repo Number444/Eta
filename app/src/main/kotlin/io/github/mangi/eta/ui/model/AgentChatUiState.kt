@@ -22,10 +22,10 @@ internal data class AgentChatUiState(
     val availableReasoningEfforts: List<ReasoningEffort> = emptyList(),
     val pendingImages: List<PendingImageUi> = emptyList(),
     val pendingFileReferences: List<PendingFileReferenceUi> = emptyList(),
+    val queuedMessages: List<QueuedMessageUi> = emptyList(),
+    val inputSyncVersion: Int = 0,
     val appliedRuntimeRunIds: List<String> = emptyList(),
     val messageEdit: MessageEditUiState? = null,
-    /** Eta Mod：运行期间排队的待发送消息（纯文本）；运行结束后按序自动发送。 */
-    val queuedMessages: List<QueuedMessageUi> = emptyList(),
     val roleplay: RoleplayBinding? = null,
     val roleplayMessages: RoleplayMessageState = RoleplayMessageState(),
     /** 窗口外但参与正文修订的同批消息原文；仅按需加载，不写入会话元数据。 */
@@ -184,17 +184,19 @@ data class PendingImageUi(
     val mimeType: String,
 )
 
-/** Eta Mod：排队消息（运行期间从输入框排入的纯文本草稿）。 */
-@Immutable
-data class QueuedMessageUi(
-    val id: String,
-    val text: String,
-)
-
 @Immutable
 data class PendingFileReferenceUi(
     val id: String,
     val reference: AgentFileReference,
+)
+
+@Immutable
+internal data class QueuedMessageUi(
+    val id: String,
+    val content: String,
+    val pendingImages: List<PendingImageUi> = emptyList(),
+    val pendingFileReferences: List<PendingFileReferenceUi> = emptyList(),
+    val immediateInterrupt: Boolean = false,
 )
 
 @Immutable

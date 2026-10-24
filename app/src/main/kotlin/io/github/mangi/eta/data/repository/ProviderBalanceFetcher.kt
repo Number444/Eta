@@ -4,6 +4,7 @@ import android.util.Log
 
 import io.github.mangi.eta.agent.model.AgentHttpClient
 import io.github.mangi.eta.agent.model.ProviderRequestHeaders
+import io.github.mangi.eta.data.model.ProviderAuthModes
 import io.github.mangi.eta.data.model.ProviderSetting
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +27,7 @@ internal object ProviderBalanceFetcher {
 
     suspend fun fetch(provider: ProviderSetting): Result<String> = withContext(Dispatchers.IO) {
         runCatching {
+            require(provider.authMode == ProviderAuthModes.API_KEY) { "余额查询仅支持 API Key 认证" }
             val request = Request.Builder()
                 .url(resolveBalanceUrl(provider.balanceUrl, provider.baseUrl))
                 .headers(
@@ -107,7 +109,10 @@ internal object ProviderBalanceStore {
     fun refresh(providers: List<ProviderSetting>, force: Boolean = false) {
         val now = System.currentTimeMillis()
         val configurable = providers
-            .filter { it.balanceUrl.isNotBlank() && it.balanceJsonPath.isNotBlank() }
+            .filter {
+                it.authMode == ProviderAuthModes.API_KEY &&
+                    it.balanceUrl.isNotBlank() && it.balanceJsonPath.isNotBlank()
+            }
             .associateBy { it.id }
         Log.d(
             TAG,

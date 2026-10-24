@@ -12,16 +12,17 @@ A personal mod of [Mangi-11/Eta](https://github.com/Mangi-11/Eta). It **installs
 
 ## Mod Features
 
-All changes relative to the official app:
+Main changes relative to the official app:
 
-1. **Super Island run controls** (Xiaomi HyperOS): task status (thinking / responding / tool calls) is mirrored to the island in real time. During GUI runs, pause/resume, supplement and stop buttons render directly on the island, while the floating capsule becomes display-only and no longer swallows the agent's taps on apps underneath. "Supplement" submits through a floating input card (Live Updates have no input-field mapping, verified on-device). During foreground GUI control the island reads "Taking over"; completions expand the island once with a banner notification, while manual stops/failures stay silent. Enable "floating notifications" for the "Task status island" channel in system notification settings.
-2. **Thinking & compaction control**: toggle for auto-expanding thinking streams, manual default thinking depth, a dedicated compaction/summary model, and compaction requests that explicitly strip reasoning parameters per provider protocol.
-3. **Provider balance display**: expandable "balance query" per provider (API URL + JSON path, off by default, with a test button); the balance appears next to the provider name in the model picker, tinted with the theme accent color.
-4. **Exa-only search**: `web_search` keeps Exa only (bring your own API key) — the official key-free search times out on this device and is no longer registered (upstream code retained); the official `fetch_url` tool is unaffected.
-5. **Conversation management**: a red "Delete conversation" entry (with confirmation) in the top-right overflow menu, and "New temporary conversation" — a full-capability session that auto-destructs when you leave or switch away, never touches the database, and shows a banner above the input bar.
-6. **Per-turn timing**: each reply shows its finish time and duration below the action row, e.g. `14:03 · Time: 8.6s`, rendered as "Xm Xs" beyond 60 seconds.
-7. **Message queueing**: queue messages while the model is running; send anytime.
-8. **Share-as-image rewrite**: rebuilt on the new markdown rendering layer — tables and code blocks render correctly, with haptic feedback and success/failure indication on the share button.
+1. **Super Island run controls** (Xiaomi HyperOS): task status is mirrored to the island in real time. Pause/resume, supplement and stop actions render directly on the island, while the floating capsule stays display-only and does not swallow the agent's taps. Supplement uses a floating input card, then follows the official interruption behavior: cancel the current turn and send the new message.
+2. **Liquid-glass UI**: shared material tokens, backdrop sources and popup architecture across home, the conversation pane and Settings, with three blur modes and light/dark themes.
+3. **Thinking & compaction control**: auto-expanding thinking, default reasoning depth, a dedicated compaction model, and provider-specific reasoning handling for compaction.
+4. **Provider balance display**: API-key providers can configure a balance endpoint and JSON path, shown beside the provider name in the model picker.
+5. **Conversation management & timing**: delete conversations or create temporary sessions that self-destruct on exit without touching the database. Each reply shows its finish time and duration.
+6. **Share-as-image rewrite**: tables and code blocks render correctly through the current markdown layer, with haptic and success/failure feedback.
+7. **Configuration compatibility**: preserves existing Mod database/settings upgrades and migrates legacy DeepSeek search credentials into the official encrypted store. The former Exa path has been removed in favor of the official web-tool architecture.
+
+The current upstream baseline is **v3.3.3**, including Codex/Grok subscription login, attachment-aware queues and interruption, keep-screen-on, Gemini/MiniMax speech, configurable web search/fetch, and ARM64-only packaging.
 
 ## Screenshots (Mod)
 
@@ -35,7 +36,7 @@ All changes relative to the official app:
 
 ## Upstream Capabilities
 
-Eta itself is a system-level AI agent for Android: cross-app GUI operation, terminals (Android user/root shell, Alpine / Debian Linux), a built-in browser, file tools, Skills and MCP extensions, personal context retrieval, long-term memory, character cards, and system assistant entries (power button / Breeno / Super XiaoAi takeover via Xposed). AI features require your own model API key (BYOK), with built-in presets for OpenAI, Anthropic, Alibaba Bailian, DeepSeek, Kimi and more, plus custom providers.
+Eta itself is a system-level AI agent for Android: cross-app GUI operation, terminals (Android user/root shell, Alpine / Debian Linux), a built-in browser, file tools, Skills and MCP extensions, personal context retrieval, long-term memory, character cards, and system assistant entries through Xposed. Use your own model API key (BYOK) or sign in with a Codex (ChatGPT) or Grok subscription; built-in providers and custom services are supported.
 
 See the upstream repository [Mangi-11/Eta](https://github.com/Mangi-11/Eta) and its [README](https://github.com/Mangi-11/Eta/blob/main/README_EN.md) for the full introduction, documentation and design notes.
 

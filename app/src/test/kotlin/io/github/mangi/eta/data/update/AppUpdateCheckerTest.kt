@@ -1,5 +1,6 @@
 package io.github.mangi.eta.data.update
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -56,5 +57,50 @@ class AppUpdateCheckerTest {
         assertTrue(AppUpdateChecker.isNewer("v3.3.0-001", "3.2.0-009"))
         assertTrue(AppUpdateChecker.isNewer("3.2.0-001", "3.2.0"))
         assertFalse(AppUpdateChecker.isNewer("3.2.0", "3.2.0-001"))
+    }
+
+    @Test
+    fun singleApkAssetBecomesDownloadUrl() {
+        val release = AppUpdateChecker.parseLatest(
+            """
+            {
+              "tag_name": "v3.3.3-002",
+              "html_url": "https://github.com/Number444/Eta/releases/tag/v3.3.3-002",
+              "assets": [
+                {
+                  "name": "EtaMod-3.3.3-002.apk",
+                  "browser_download_url": "https://github.com/Number444/Eta/releases/download/v3.3.3-002/EtaMod-3.3.3-002.apk"
+                }
+              ]
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals("3.3.3-002", release.version)
+        assertEquals(
+            "https://github.com/Number444/Eta/releases/download/v3.3.3-002/EtaMod-3.3.3-002.apk",
+            release.downloadUrl,
+        )
+    }
+
+    @Test
+    fun missingOrMultipleApkAssetsFallBackToReleasePage() {
+        fun releasePageWithAssets(assets: String) = AppUpdateChecker.parseLatest(
+            """
+            {
+              "tag_name": "v3.3.3-002",
+              "html_url": "https://github.com/Number444/Eta/releases/tag/v3.3.3-002",
+              "assets": [$assets]
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals(releasePageWithAssets("").url, releasePageWithAssets("").downloadUrl)
+        val apk =
+            """{"name":"EtaMod.apk","browser_download_url":"https://example.com/EtaMod.apk"}"""
+        assertEquals(
+            releasePageWithAssets("$apk,$apk").url,
+            releasePageWithAssets("$apk,$apk").downloadUrl,
+        )
     }
 }

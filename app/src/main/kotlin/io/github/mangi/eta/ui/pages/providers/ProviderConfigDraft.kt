@@ -7,7 +7,13 @@ import io.github.mangi.eta.data.model.AnthropicProviderSetting
 import io.github.mangi.eta.data.model.CustomHeader
 import io.github.mangi.eta.data.model.CustomProviderSetting
 import io.github.mangi.eta.data.model.OpenAiCompatibleProviderSetting
+import io.github.mangi.eta.data.model.OpenAiEndpointMode
+import io.github.mangi.eta.data.model.ProviderAuthModes
 import io.github.mangi.eta.data.model.ProviderSetting
+import io.github.mangi.eta.data.model.ProviderSourceTypes
+import io.github.mangi.eta.data.provider.BuiltinProviders
+import io.github.mangi.eta.data.provider.ProviderConnectionProfile
+import io.github.mangi.eta.data.provider.ProviderSourceRegistry
 import java.util.UUID
 
 internal data class ProviderHeaderDraft(
@@ -25,6 +31,7 @@ internal data class ProviderConfigDraft(
     val hostedWebSearchEnabled: Boolean,
     val anthropicVersion: String,
     val headers: List<ProviderHeaderDraft> = emptyList(),
+    val authMode: String = ProviderAuthModes.API_KEY,
     val balanceUrl: String = "",
     val balanceJsonPath: String = "",
 ) {
@@ -34,6 +41,7 @@ internal data class ProviderConfigDraft(
             name = provider.name,
             baseUrl = provider.baseUrl,
             apiKey = provider.apiKey,
+            authMode = provider.authMode,
             systemPrompt = provider.systemPrompt.orEmpty(),
             isEnabled = provider.isEnabled,
             endpointMode = when (provider) {
@@ -57,6 +65,7 @@ internal val ProviderConfigDraftSaver = mapSaver(
             "name" to draft.name,
             "baseUrl" to draft.baseUrl,
             "apiKey" to draft.apiKey,
+            "authMode" to draft.authMode,
             "systemPrompt" to draft.systemPrompt,
             "isEnabled" to draft.isEnabled,
             "endpointMode" to draft.endpointMode,
@@ -74,6 +83,7 @@ internal val ProviderConfigDraftSaver = mapSaver(
             name = state.getValue("name") as String,
             baseUrl = state.getValue("baseUrl") as String,
             apiKey = state.getValue("apiKey") as String,
+            authMode = state["authMode"] as? String ?: ProviderAuthModes.API_KEY,
             systemPrompt = state.getValue("systemPrompt") as String,
             isEnabled = state.getValue("isEnabled") as Boolean,
             endpointMode = state.getValue("endpointMode") as String,
@@ -96,21 +106,24 @@ internal fun buildUpdatedProvider(
     hostedWebSearchEnabled: Boolean,
     anthropicVersion: String,
     customHeaders: List<CustomHeader>,
-    balanceUrl: String = "",
-    balanceJsonPath: String = "",
+    authMode: String = source.authMode,
+    balanceUrl: String = source.balanceUrl,
+    balanceJsonPath: String = source.balanceJsonPath,
 ): ProviderSetting {
     val prompt = systemPrompt.trim().takeIf { it.isNotBlank() }
+    val profile = ProviderConnectionProfile.forAuthMode(authMode)
     val trimmedBalanceUrl = balanceUrl.trim()
     val trimmedBalancePath = balanceJsonPath.trim()
     return when (source) {
         is OpenAiCompatibleProviderSetting -> source.copy(
             customHeaders = customHeaders.map { it.copy(name = it.name.trim()) },
             name = name.trim(),
-            baseUrl = baseUrl.trim(),
+            baseUrl = profile?.baseUrl ?: baseUrl.trim(),
             apiKey = apiKey.trim(),
+            authMode = authMode,
             systemPrompt = prompt,
             isEnabled = isEnabled,
-            endpointMode = endpointMode,
+            endpointMode = profile?.endpointMode ?: endpointMode,
             hostedWebSearchEnabled = hostedWebSearchEnabled,
             balanceUrl = trimmedBalanceUrl,
             balanceJsonPath = trimmedBalancePath,
@@ -118,11 +131,12 @@ internal fun buildUpdatedProvider(
         is CustomProviderSetting -> source.copy(
             customHeaders = customHeaders.map { it.copy(name = it.name.trim()) },
             name = name.trim(),
-            baseUrl = baseUrl.trim(),
+            baseUrl = profile?.baseUrl ?: baseUrl.trim(),
             apiKey = apiKey.trim(),
+            authMode = authMode,
             systemPrompt = prompt,
             isEnabled = isEnabled,
-            endpointMode = endpointMode,
+            endpointMode = profile?.endpointMode ?: endpointMode,
             hostedWebSearchEnabled = hostedWebSearchEnabled,
             balanceUrl = trimmedBalanceUrl,
             balanceJsonPath = trimmedBalancePath,
@@ -132,6 +146,7 @@ internal fun buildUpdatedProvider(
             name = name.trim(),
             baseUrl = baseUrl.trim(),
             apiKey = apiKey.trim(),
+            authMode = authMode,
             systemPrompt = prompt,
             isEnabled = isEnabled,
             anthropicVersion = anthropicVersion.trim().ifBlank { AnthropicProviderSetting.DEFAULT_ANTHROPIC_VERSION },
@@ -139,6 +154,56 @@ internal fun buildUpdatedProvider(
             balanceJsonPath = trimmedBalancePath,
         )
     }
+}
+
+internal fun ProviderConfigDraft.toProvider(source: ProviderSetting): ProviderSetting = buildUpdatedProvider(
+    source = source,
+    name = name,
+    baseUrl = baseUrl,
+    apiKey = apiKey,
+    systemPrompt = systemPrompt,
+    isEnabled = isEnabled,
+    endpointMode = endpointMode,
+    hostedWebSearchEnabled = hostedWebSearchEnabled,
+    anthropicVersion = anthropicVersion,
+    customHeaders = headers.map { it.header },
+    authMode = authMode,
+    balanceUrl = balanceUrl,
+    balanceJsonPath = balanceJsonPath,
+)
+
+internal fun providerAccountAuthMode(provider: ProviderSetting): String? {
+    if (provider is AnthropicProviderSetting) return null
+    if (ProviderAuthModes.isOAuth(provider.authMode)) return provider.authMode
+    return when (ProviderSourceRegistry.resolve(provider)) {
+        ProviderSourceTypes.OPENAI -> ProviderAuthModes.OPENAI_CHATGPT
+        ProviderSourceTypes.XAI -> ProviderAuthModes.XAI_GROK
+        else -> null
+    }
+}
+
+internal fun ProviderConfigDraft.withAuthMode(mode: String, provider: ProviderSetting): ProviderConfigDraft {
+    val profile = ProviderConnectionProfile.forAuthMode(mode)
+    if (profile != null) return copy(
+        authMode = mode,
+        baseUrl = profile.baseUrl,
+        endpointMode = profile.endpointMode,
+        hostedWebSearchEnabled = hostedWebSearchEnabled && profile.endpointMode == OpenAiEndpointMode.RESPONSES,
+    )
+    val original = ProviderConfigDraft.from(provider)
+    if (provider.authMode == ProviderAuthModes.API_KEY) return copy(
+        authMode = mode,
+        baseUrl = original.baseUrl,
+        endpointMode = original.endpointMode,
+    )
+    val apiProvider = checkNotNull(BuiltinProviders.providerById(
+        if (authMode == ProviderAuthModes.XAI_GROK) BuiltinProviders.XAI_ID else BuiltinProviders.OPENAI_ID,
+    ))
+    return copy(
+        authMode = mode,
+        baseUrl = apiProvider.baseUrl,
+        endpointMode = ProviderConfigDraft.from(apiProvider).endpointMode,
+    )
 }
 
 internal fun validateProviderDraft(context: android.content.Context, draft: ProviderConfigDraft): String? {
