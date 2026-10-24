@@ -23,6 +23,12 @@
 - 硬约束：Kyant lens 只支持 `CornerBasedShape`/`RoundedRectangularShape`，通用 Shape 抛 `UnsupportedOperationException`（010 弹层闪退事故）——玻璃轮廓只能用圆角/圆形。
 - `LiquidGlass.kt` 的 `liquidGlassCircle`/`liquidGlassRounded` 是预设的薄封装，现存 9 块首页玻璃控件走这里。
 
+## 页面控件收口（v3.3.3-002）
+
+- `EtaSearchField`：液态玻璃档 = 透明 InputField + 假玻璃底色/高光；其他档保持 Miuix 原色。供应商、社区目录、模型管理/选择/导入与角色库统一走此组件，避免灰白页面底下原生搜索框失去边界。
+- `EtaTabRow`：非液态玻璃档保留原生 Miuix TabRow；液态玻璃档按原生 42dp 高、12dp 圆角、9dp 间距绘制独立选项，每项各自使用 squircle 背景和 `etaSquircleGlassBorder`，外层透明且无描边。
+- **TabRow 高光约束**：Miuix 外层 modifier 属于整行容器，选中块是内部另一个带动画偏移的 Box。禁止在外层直接加 `etaPseudoGlassBorder`/`etaSquircleGlassBorder`——即使曲线一致也会与选中块错位并形成顶部白线；高光必须属于单个选项自身。
+
 ## 多采样源 Surface 模式
 
 **规矩：每个 surface 一个 backdrop 提供者；录制层内不得有任何 drawBackdrop 消费者（渲染回路爆炸）；消费者读就近的 `LocalLiquidGlassBackdrop`（嵌套 surface 天然遮蔽外层）。**

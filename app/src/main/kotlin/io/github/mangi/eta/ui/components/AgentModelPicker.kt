@@ -66,7 +66,6 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.squircle.squircleSurface
@@ -265,7 +264,7 @@ private fun ModelSheetContent(
             .height(sheetHeight)
             .navigationBarsPadding(),
     ) {
-        InputField(
+        EtaSearchField(
             query = query,
             onQueryChange = { query = it },
             onSearch = {},

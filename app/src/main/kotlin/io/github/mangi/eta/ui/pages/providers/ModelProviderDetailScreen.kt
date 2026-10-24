@@ -66,7 +66,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
-import top.yukonga.miuix.kmp.basic.TabRow
+import io.github.mangi.eta.ui.components.EtaTabRow
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -147,7 +147,7 @@ internal fun ModelProviderDetailScreen(
                 .padding(top = paddingValues.calculateTopPadding()),
         ) {
             if (!isNew) {
-                TabRow(
+                EtaTabRow(
                     tabs = listOf(context.getString(R.string.page_configuration_d7d7ce), context.getString(R.string.page_model_98fd0c)),
                     selectedTabIndex = currentTab,
                     onTabSelected = { currentTab = it },

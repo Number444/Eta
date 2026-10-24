@@ -6,7 +6,7 @@
 
 <p><a href="https://github.com/Number444/Eta/releases"><img src="https://img.shields.io/github/downloads/Number444/Eta/total?logo=github&amp;label=%E4%B8%8B%E8%BD%BD%E9%87%8F&amp;color=1677FF" alt="GitHub Releases 累计下载量"></a> <img src="https://img.shields.io/badge/minSdk-33-3DDC84?logo=android&amp;logoColor=white" alt="minSdk 33"> <img src="https://img.shields.io/badge/Kotlin-2.4.20-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin 2.4.20"> <img src="https://img.shields.io/badge/AGP-9.4.1-3DDC84?logo=android&amp;logoColor=white" alt="AGP 9.4.1"></p>
 
-**[下载 APK](https://github.com/Number444/Eta/releases)** · App 内「设置 → 检查更新」直接检测本仓库 Release。
+**[下载 APK](https://github.com/Number444/Eta/releases)** · App 内「设置 → 检查更新」检测本仓库 Release；发现新版且仅有一个 APK 附件时，直接通过默认浏览器下载。
 
 **版本号规则**：`官方版本号-三位 Mod 修订号`，如 `3.3.0-008`——左段跟随上游官方版本，右段为本 Mod 的迭代号；跟随上游升级后右段归零重排。
 

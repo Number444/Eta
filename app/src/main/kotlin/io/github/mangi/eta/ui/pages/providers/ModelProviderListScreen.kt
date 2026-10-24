@@ -45,7 +45,7 @@ import io.github.mangi.eta.ui.navigation.NewProviderType
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.InputField
+import io.github.mangi.eta.ui.components.EtaSearchField
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -76,7 +76,7 @@ internal fun ModelProviderListScreen(
 
     MiuixScaffoldPage(title = stringResource(R.string.ui_model_provider_e8c7f5), onBack = onBack) {
         item(key = "search") {
-            InputField(
+            EtaSearchField(
                 query = searchQuery,
                 onQueryChange = { searchQuery = it },
                 onSearch = {},

@@ -1,24 +1,135 @@
 package io.github.mangi.eta.ui.components
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Indication
 import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import io.github.mangi.eta.ui.app.LocalLiquidGlassEnabled
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.Switch
+import top.yukonga.miuix.kmp.basic.TabRow
+import top.yukonga.miuix.kmp.basic.TabRowDefaults
+import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextButtonColors
 import top.yukonga.miuix.kmp.layout.DialogDefaults
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.squircle.squircleBackground
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.window.WindowDialog
+
+@Composable
+internal fun EtaSearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onSearch: (String) -> Unit,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+) {
+    val liquidGlass = LocalLiquidGlassEnabled.current
+    InputField(
+        query = query,
+        onQueryChange = onQueryChange,
+        onSearch = onSearch,
+        expanded = expanded,
+        onExpandedChange = onExpandedChange,
+        label = label,
+        color = if (liquidGlass) Color.Transparent else MiuixTheme.colorScheme.surfaceContainer,
+        modifier = modifier.then(
+            if (liquidGlass) {
+                Modifier.etaPseudoGlass(EtaGlassStyles.InputBar.copy(shape = CircleShape))
+            } else {
+                Modifier
+            },
+        ),
+    )
+}
+
+@Composable
+internal fun EtaTabRow(
+    tabs: List<String>,
+    selectedTabIndex: Int,
+    onTabSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (!LocalLiquidGlassEnabled.current) {
+        TabRow(
+            tabs = tabs,
+            selectedTabIndex = selectedTabIndex,
+            onTabSelected = onTabSelected,
+            modifier = modifier,
+        )
+        return
+    }
+    Row(
+        modifier = modifier.fillMaxWidth().height(TabRowDefaults.TabRowHeight),
+        horizontalArrangement = Arrangement.spacedBy(9.dp),
+    ) {
+        tabs.forEachIndexed { index, tab ->
+            val selected = index == selectedTabIndex
+            val background by animateColorAsState(
+                targetValue = if (selected) MiuixTheme.colorScheme.surfaceContainer else Color.Transparent,
+                label = "tab_background",
+            )
+            val content by animateColorAsState(
+                targetValue = if (selected) MiuixTheme.colorScheme.onBackground else MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                label = "tab_content",
+            )
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .squircleBackground(background, TabRowDefaults.TabRowCornerRadius)
+                    .etaSquircleGlassBorder(TabRowDefaults.TabRowCornerRadius, EtaGlassStyles.ListRow)
+                    .semantics { this.selected = selected }
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        role = Role.Tab,
+                        onClick = { onTabSelected(index) },
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = tab,
+                    color = content,
+                    fontSize = MiuixTheme.textStyles.body1.fontSize,
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
 
 internal object EtaControlDefaults {
     val ButtonCornerRadius = 22.dp

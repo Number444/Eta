@@ -35,7 +35,7 @@ import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
-import top.yukonga.miuix.kmp.basic.InputField
+import io.github.mangi.eta.ui.components.EtaSearchField
 import top.yukonga.miuix.kmp.basic.SearchBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -82,7 +82,7 @@ internal fun CharacterLibraryScreen(
                 expanded = false,
                 onExpandedChange = {},
                 inputField = {
-                    InputField(
+                    EtaSearchField(
                         query = store.query,
                         onQueryChange = { store.query = it },
                         onSearch = { store.query = it },

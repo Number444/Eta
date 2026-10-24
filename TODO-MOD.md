@@ -2,19 +2,26 @@
 
 > 本 fork：`my-mods` 分支，applicationId `io.github.mangi.eta.mod`
 > 远端：`origin` = Number444/Eta（推送目标），`upstream` = Mangi-11/Eta（官方源）
-> 当前版本：3.3.3-002（versionCode 2026102402；merge 上游 v3.3.3 + 更新 APK 直链下载，待真机验收）
+> 当前版本：3.3.3-002（versionCode 2026102402；merge 上游 v3.3.3 + 更新 APK 直链下载 + 玻璃控件适配，真机验收通过）
 
 > 已完成归档（2026-10-08 精简，2026-10-21 追加第 7 条）：1. merge 上游 v3.2.0（30 commits，16 冲突手工裁决，出包真机回归通过）；2. 更新检查/关于页链接指向 Number444/Eta（`isNewer` 支持 `-NNN` 修订号）；3. 删官方搜索只留 Exa（官方服务本机超时不可用）；4. 消息操作行按钮放大 1.4 倍；5. 分享成图按新 markdown 层重写（含 `ShareCardRenderTest` 渲染基线）；6. merge 上游 v3.3.0（2026-10-13 完成：21 commits，7 冲突裁决 + `AgentAppState` 四功能块移植；暗礁=双方 `MIGRATION_21_22` 撞车，上游 `model_id` 迁移顺延 22_23、DB 升 v23；48 个单测失败对撞全为 Windows 环境基线零回归，出包真机冒烟通过）；7. merge 上游 v3.3.1+3fix（2026-10-21 完成：17 commits / ~150 文件，21 冲突文件 ~49 hunks 全裁决——三子代理语义对撞先行；关键适配：`setCapsuleYielded` 恢复逻辑归一到我方常驻 FLAG_NOT_TOUCHABLE 基线（仅补充输入态例外）、`AnswerActionButton` 新操作行体系保留我方 42dp/21dp+分享按钮+触感、刻度条四滚动点分页 +1 偏移、`AgentModelClient` 前缀缓存重构上重贴 webSearchTools/compactConfig/suppressReasoning、我方 stdin 测试补丁被上游 -4 退出码方案覆盖而放弃；DB 零迁移撞车（上游停 v22）；单测 49 失败对撞零回归（新增 1 个上游 PTY 测试 Windows 环境失败入基线）；merge 后玻璃尾巴：新模型选择器 EtaListPopup + 厂商余额移植、新增 `EtaGlassBottomSheet` 真玻璃覆盖模型抽屉与远端模型导入抽屉、朗读开关套玻璃）。详细过程见 git 历史。
 
-## 16. 检查更新直接下载 APK（2026-10-24 实施，待真机验收）
+## 17. 玻璃主题搜索框与选项卡适配（2026-10-24 完成，Four 真机验收）
+
+- 新增共享 `EtaSearchField`：液态玻璃档使用透明输入层 + 假玻璃底色/高光，其他档保持 Miuix 原色；覆盖供应商、社区目录、模型管理/选择/导入与角色库搜索框，修复灰白页面底下边界不可辨。
+- 新增共享 `EtaTabRow`：非液态玻璃档保留原生 Miuix TabRow；液态玻璃档使用等尺寸独立选项按钮，每项各自绘制 squircle 背景与高光，外层不再铺底色或描边。
+- 关键教训：Miuix TabRow 的外层 modifier 属于整行容器，选中块是内部独立动画 Box；在外层加圆角或 squircle 高光都会产生顶部溢线，不能靠更换曲线或调整选中颜色修复。
+- 最终效果经 Four 真机确认；编译、定向测试、`compileDebugUnitTestKotlin`、`lintDebug` 与 Release v2 签名验证通过。
+
+## 16. 检查更新直接下载 APK（2026-10-24 实施）
 
 - GitHub Release 恰好包含一个 APK 时，更新弹窗「前往下载」通过默认浏览器直接打开其 `browser_download_url`；无 APK 或有多个 APK 时回退 Release 页面，避免误下附件。
 - 不引入应用内下载器，不新增权限；浏览器与系统负责重定向、下载和后续安装。直链已实测 302 后返回 200、`application/vnd.android.package-archive` 与 attachment 响应头。
-- 版本 3.3.3-002（versionCode 2026102402）；待真机验证直接下载、覆盖安装和更新检测。
+- 版本 3.3.3-002（versionCode 2026102402）；覆盖安装与同版本更新检测已真机验证，真实更新弹窗的 APK 直链下载留待后续更高版本 Release 验证。
 
-## 15. merge 上游 v3.3.3（代码合并与本地验证完成，待真机验收）
+## 15. merge 上游 v3.3.3（2026-10-24 完成）
 
-- **实施现状（2026-10-24）**：已合入 `ed022f5`，全部冲突与自动合并语义冲突已裁决。Room 升 v25，21–25 迁移按 schema 检查并补齐双方字段；官方新队列唯一保留，临时会话/计时/删除取消 run 已接回；岛补充经 `MSG_INTERRUPT_REQUEST` 回传 AppState 后按官方插话执行；搜索仅官方链路，旧 Exa/独立搜索实现已移除（文件入回收站），DeepSeek 配置做一次性加密迁移；OAuth 供应商保留 API Key 余额；新队列条与输入栏恢复玻璃。`compileDebugUnitTestKotlin`、`lintDebug` 与数据库/队列/岛 wire/常亮/搜索迁移/供应商/工具目录定向测试通过。全量 1791 项单测为 50 failed / 2 skipped：49 项既有 Windows/Robolectric 环境基线，另 1 项为上游新增 OAuth 备份测试的同类文件行为环境失败；工具需求测试修正后通过，无其他新增失败。ADB 无设备，真机回归待执行；未 commit。
+- **实施现状（2026-10-24）**：已合入 `ed022f5`，全部冲突与自动合并语义冲突已裁决。Room 升 v25，21–25 迁移按 schema 检查并补齐双方字段；官方新队列唯一保留，临时会话/计时/删除取消 run 已接回；岛补充经 `MSG_INTERRUPT_REQUEST` 回传 AppState 后按官方插话执行；搜索仅官方链路，旧 Exa/独立搜索实现已移除（文件入回收站），DeepSeek 配置做一次性加密迁移；OAuth 供应商保留 API Key 余额；新队列条与输入栏恢复玻璃。`compileDebugUnitTestKotlin`、`lintDebug` 与数据库/队列/岛 wire/常亮/搜索迁移/供应商/工具目录定向测试通过。全量 1791 项单测为 50 failed / 2 skipped：49 项既有 Windows/Robolectric 环境基线，另 1 项为上游新增 OAuth 备份测试的同类文件行为环境失败；工具需求测试修正后通过，无其他新增失败。Four 已覆盖安装并完成真机冒烟验收。
 - **目标**：完整合并官方 `upstream/main`（评估时 HEAD=`ed022f5`，v3.3.3 + README 更新），不做选择性移植；保留 Mod 既有架构与功能。预演为 17 个文本冲突文件，另有数据库、队列、搜索三类自动合并后的语义冲突，禁止解完冲突标记就直接出包。
 - **消息队列（Four 已拍板）**：以官方新队列为唯一实现，支持附件、草稿恢复、跨会话发送与插话；删除本地旧纯文本队列及旧 drain/Action/UI。重新接入本地临时会话、单轮计时，切走/删除临时会话后不得落库、复活或续发队列。
 - **插话与岛补充（Four 已拍板）**：统一为官方插话语义——取消当前 run 后发送新消息；岛「补充」入口保留，但提交也走官方插话，不再保留运行中 steering 的产品行为。官方 `AgentMessageQueueReducer` 为队列状态唯一主干，注意 AppState 与服务浮层之间的接线。

@@ -99,7 +99,7 @@ import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Checkbox
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.InputField
+import io.github.mangi.eta.ui.components.EtaSearchField
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
@@ -359,7 +359,7 @@ internal fun ProviderModelsTab(
             }
 
             item(key = "model_search", contentType = "search") {
-                InputField(
+                EtaSearchField(
                     query = modelSearchQuery,
                     onQueryChange = { modelSearchQuery = it },
                     onSearch = {},

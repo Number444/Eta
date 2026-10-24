@@ -37,7 +37,7 @@ import io.github.mangi.eta.ui.components.EtaTextButton
 import io.github.mangi.eta.ui.model.ModelSearchQuery
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Checkbox
-import top.yukonga.miuix.kmp.basic.InputField
+import io.github.mangi.eta.ui.components.EtaSearchField
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.squircle.squircleSurface
@@ -130,7 +130,7 @@ private fun RemoteModelImportContent(
                 insideMargin = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
             )
         }
-        InputField(
+        EtaSearchField(
             query = query,
             onQueryChange = { query = it },
             onSearch = {},

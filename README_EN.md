@@ -6,7 +6,7 @@ A personal mod of [Mangi-11/Eta](https://github.com/Mangi-11/Eta). It **installs
 
 <p><a href="https://github.com/Number444/Eta/releases"><img src="https://img.shields.io/github/downloads/Number444/Eta/total?logo=github&amp;label=Downloads&amp;color=1677FF" alt="GitHub Releases downloads"></a> <img src="https://img.shields.io/badge/minSdk-33-3DDC84?logo=android&amp;logoColor=white" alt="minSdk 33"> <img src="https://img.shields.io/badge/Kotlin-2.4.20-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin 2.4.20"> <img src="https://img.shields.io/badge/AGP-9.4.1-3DDC84?logo=android&amp;logoColor=white" alt="AGP 9.4.1"></p>
 
-**[Download APK](https://github.com/Number444/Eta/releases)** · In-app "Settings → Check for updates" tracks this repository's releases.
+**[Download APK](https://github.com/Number444/Eta/releases)** · In-app "Settings → Check for updates" tracks this repository's releases and opens the APK directly in the default browser when a newer release has exactly one APK asset.
 
 **Version scheme**: `upstream version - three-digit mod revision`, e.g. `3.3.0-008`. The left part tracks the upstream release; the right part increments per mod iteration and resets after each upstream merge.
 

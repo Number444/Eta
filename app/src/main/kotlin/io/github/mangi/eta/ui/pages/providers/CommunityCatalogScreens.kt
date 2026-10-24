@@ -49,7 +49,7 @@ import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
-import top.yukonga.miuix.kmp.basic.InputField
+import io.github.mangi.eta.ui.components.EtaSearchField
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.PressFeedbackType
@@ -87,7 +87,7 @@ internal fun CommunityCatalogScreen(
         },
     ) {
         item(key = "search") {
-            InputField(
+            EtaSearchField(
                 query = query,
                 onQueryChange = { query = it },
                 onSearch = {},
@@ -298,7 +298,7 @@ internal fun CommunityCatalogProviderScreen(
             }
         }
         item(key = "model_search") {
-            InputField(
+            EtaSearchField(
                 query = query,
                 onQueryChange = { query = it },
                 onSearch = {},
