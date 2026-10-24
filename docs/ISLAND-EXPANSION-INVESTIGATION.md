@@ -13,7 +13,7 @@ App 在 eta_island 频道发带 miui.focus.param 的 ongoing 通知（+promoted/
   → MIUI FocusPlugin 识别为焦点通知 → 岛挂上胶囊（任意重要性频道均可）
   → 若频道在系统设置中「悬浮通知」已开启（eta_island 被历史修改为 imp=4 满足此条件）：
       首发 alert → HyperOS 3 把 heads-up 渲染为「岛展开」约 2 秒（声音/振动仅此时触发）
-  → 收起为胶囊；同 id 更新（onlyAlertOnce）只改胶囊文字；终态「已完成」→ 8s 后撤销
+  → 收起为胶囊；同 id 更新（onlyAlertOnce）只改胶囊文字；终态「已完成」→ 8s 后撤销；若 8s 内开始新任务则立即撤销 1208（2026-10-24 Review 修补）
 ```
 
 **三个实锤（第一轮）+ 两个修正（第二轮）：**

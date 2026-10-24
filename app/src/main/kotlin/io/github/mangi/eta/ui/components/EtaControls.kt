@@ -62,7 +62,7 @@ internal fun EtaSearchField(
         expanded = expanded,
         onExpandedChange = onExpandedChange,
         label = label,
-        color = if (liquidGlass) Color.Transparent else MiuixTheme.colorScheme.surfaceContainer,
+        color = if (liquidGlass) Color.Transparent else MiuixTheme.colorScheme.surfaceContainerHigh,
         modifier = modifier.then(
             if (liquidGlass) {
                 Modifier.etaPseudoGlass(EtaGlassStyles.InputBar.copy(shape = CircleShape))

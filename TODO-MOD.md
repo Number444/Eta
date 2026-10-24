@@ -2,9 +2,15 @@
 
 > 本 fork：`my-mods` 分支，applicationId `io.github.mangi.eta.mod`
 > 远端：`origin` = Number444/Eta（推送目标），`upstream` = Mangi-11/Eta（官方源）
-> 当前版本：3.3.3-002（versionCode 2026102402；merge 上游 v3.3.3 + 更新 APK 直链下载 + 玻璃控件适配，真机验收通过）
+> 当前版本：3.3.3-002（versionCode 2026102402；merge 上游 v3.3.3 + 更新 APK 直链下载 + 玻璃控件适配 + Review 修补）
 
 > 已完成归档（2026-10-08 精简，2026-10-21 追加第 7 条）：1. merge 上游 v3.2.0（30 commits，16 冲突手工裁决，出包真机回归通过）；2. 更新检查/关于页链接指向 Number444/Eta（`isNewer` 支持 `-NNN` 修订号）；3. 删官方搜索只留 Exa（官方服务本机超时不可用）；4. 消息操作行按钮放大 1.4 倍；5. 分享成图按新 markdown 层重写（含 `ShareCardRenderTest` 渲染基线）；6. merge 上游 v3.3.0（2026-10-13 完成：21 commits，7 冲突裁决 + `AgentAppState` 四功能块移植；暗礁=双方 `MIGRATION_21_22` 撞车，上游 `model_id` 迁移顺延 22_23、DB 升 v23；48 个单测失败对撞全为 Windows 环境基线零回归，出包真机冒烟通过）；7. merge 上游 v3.3.1+3fix（2026-10-21 完成：17 commits / ~150 文件，21 冲突文件 ~49 hunks 全裁决——三子代理语义对撞先行；关键适配：`setCapsuleYielded` 恢复逻辑归一到我方常驻 FLAG_NOT_TOUCHABLE 基线（仅补充输入态例外）、`AnswerActionButton` 新操作行体系保留我方 42dp/21dp+分享按钮+触感、刻度条四滚动点分页 +1 偏移、`AgentModelClient` 前缀缓存重构上重贴 webSearchTools/compactConfig/suppressReasoning、我方 stdin 测试补丁被上游 -4 退出码方案覆盖而放弃；DB 零迁移撞车（上游停 v22）；单测 49 失败对撞零回归（新增 1 个上游 PTY 测试 Windows 环境失败入基线）；merge 后玻璃尾巴：新模型选择器 EtaListPopup + 厂商余额移植、新增 `EtaGlassBottomSheet` 真玻璃覆盖模型抽屉与远端模型导入抽屉、朗读开关套玻璃）。详细过程见 git 历史。
+
+## 18. 002 发布后聚焦 Review 修补（2026-10-24）
+
+- `EtaSearchField` 非液态玻璃分支恢复 Miuix 原生 `surfaceContainerHigh`，撤销封装时误改成 `surfaceContainer` 的视觉差异；液态玻璃行为不变。
+- `AgentIslandNotifier.onRunStarted()` 立即撤销 `DONE_NOTIFICATION_ID`（1208），修复任务完成后 8 秒内启动新任务时旧「已完成」常驻通知与新胶囊并存的问题；其余通知 ID、首发 alert 和 8 秒收尾机制不变。
+- 仅两个源码文件各一行修改；`AgentIslandNotifierTest`、`ProviderComponentsTest`、测试源码编译、`lintDebug` 与 Release v2 签名验证通过。
 
 ## 17. 玻璃主题搜索框与选项卡适配（2026-10-24 完成，Four 真机验收）
 

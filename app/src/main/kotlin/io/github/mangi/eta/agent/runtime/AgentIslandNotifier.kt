@@ -84,6 +84,7 @@ internal object AgentIslandNotifier {
         gateAllowed = probeGate(appContext)
         Log.d(TAG, "onRunStarted gate=$gateAllowed icon=$iconRes")
         if (!gateAllowed) return
+        NotificationManagerCompat.from(appContext).cancel(DONE_NOTIFICATION_ID)
         cancelPendingDismiss()
         runActive = true
         paused = false
