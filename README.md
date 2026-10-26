@@ -47,7 +47,7 @@ Eta 本体是面向 Android 的系统级 AI Agent：GUI 跨应用操作、终端
 ## 本仓库文档
 
 - [岛-通知机制调研](docs/ISLAND-EXPANSION-INVESTIGATION.md)：小米超级岛 / LiveUpdate 映射的完整测定结论（本 Mod 岛功能的实现依据）。
-- [待办与 merge 裁决记录](TODO-MOD.md)：Mod 路线、已完成事项与上游 merge 裁决。
+- [当前待办](TODO-MOD.md)：进行中、未开工与暂缓事项；完成记录见 git 历史与专题文档。
 - 上游文档：[Agent Runtime](docs/AGENT_RUNTIME.md) · [技术实现](docs/TECHNICAL.md) · [设备支持与权限边界](docs/ROOTLESS_SUPPORT.md) · [HyperOS 系统入口](docs/HYPEROS_SYSTEM_ENTRY.md) · [终端原生组件](docs/TERMINAL_NATIVE.md)
 
 ## 致谢与许可证

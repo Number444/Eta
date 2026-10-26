@@ -47,7 +47,7 @@ See the upstream repository [Mangi-11/Eta](https://github.com/Mangi-11/Eta) and 
 ## Documentation in This Fork
 
 - [Island-notification investigation](docs/ISLAND-EXPANSION-INVESTIGATION.md): complete mapping results for Xiaomi Super Island / Live Updates (the basis of this mod's island features).
-- [TODO & merge decisions](TODO-MOD.md): roadmap, completed items and upstream merge rulings.
+- [Current TODO](TODO-MOD.md): active, planned and paused items; completed work is recorded in git history and topic documents.
 - Upstream docs: [Agent Runtime](docs/AGENT_RUNTIME.md) · [Technical](docs/TECHNICAL.md) · [Device support & permission boundaries](docs/ROOTLESS_SUPPORT.md) · [HyperOS system entry](docs/HYPEROS_SYSTEM_ENTRY.md) · [Terminal native components](docs/TERMINAL_NATIVE.md)
 
 ## Credits & License
