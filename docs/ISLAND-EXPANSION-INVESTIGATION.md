@@ -142,3 +142,5 @@ PendingIntent.getService 直发测试服务（生产停止键同款模式，穿�
 2026-10-14 随 v3.3.0-004 清理，本文档保留全部结论。）
 
 **v3.3.3 行为修订（Four 拍板）**：岛「补充」仍复用上述悬浮窗输入链路，但提交不再进入 steering；Runtime Service 经 `MSG_INTERRUPT_REQUEST` 回传 AppState，先按官方 `QueuedMessageUi(immediateInterrupt=true)` 入队，再取消当前 run 并由官方队列续发。回传失败或目标会话已销毁时不取消原任务。本文此前 steering 描述保留为历史实现记录。
+
+**v3.3.3-002 后补充浮层修补（2026-10-24，待真机验证）**：普通任务首次点击先以展开态创建浮层，避免初始收起副作用退出输入；取消/发送后，普通任务移除临时胶囊和边缘光但不停止 Runtime，GUI 任务仅收拢常驻胶囊。发送先于窗口销毁，且新 run 与结束回调清零补充请求计数，避免内容丢失和旧请求重放。`AgentOverlayCapsuleTest` 覆盖冷启动、取消和发送顺序。

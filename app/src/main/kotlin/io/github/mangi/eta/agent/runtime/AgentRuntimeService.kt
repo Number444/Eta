@@ -190,8 +190,9 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
             }
             ACTION_ISLAND_SUPPLEMENT -> {
                 if (activeSession?.isTerminal == false) {
-                    ensureOverlayVisible()
+                    if (capsuleView == null) capsuleExpanded.value = true
                     islandSupplementRequests.intValue += 1
+                    ensureOverlayVisible()
                 } else {
                     stopSelf(startId)
                 }
@@ -436,6 +437,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         mainHandler.removeCallbacksAndMessages(hideToken)
         state.value = AgentOverlayState.Initial
         capsuleExpanded.value = false
+        islandSupplementRequests.intValue = 0
         setCapsuleWindowHeight(CAPSULE_COLLAPSED_HEIGHT_DP)
         hasExecutedForegroundTool = false
         resultConversationId = request.handoff
@@ -939,6 +941,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
                 onStop = ::requestStop,
                 onSupplementModeChange = ::setCapsuleInputMode,
                 onSupplement = ::requestIslandInterrupt,
+                onExternalSupplementFinished = ::onIslandSupplementFinished,
             )
         }
         val capsuleLp = capsuleLayoutParams()
@@ -989,6 +992,12 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
 
     private fun onCapsuleCollapsedSettled() {
         if (!capsuleExpanded.value) setCapsuleWindowHeight(CAPSULE_COLLAPSED_HEIGHT_DP)
+    }
+
+    private fun onIslandSupplementFinished() {
+        capsuleExpanded.value = false
+        islandSupplementRequests.intValue = 0
+        if (!hasExecutedForegroundTool) removeAmbientWindows()
     }
 
     private fun setCapsuleWindowHeight(heightDp: Int) {

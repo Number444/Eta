@@ -92,13 +92,13 @@ internal fun AgentOverlayCapsule(
     onStop: () -> Unit,
     onSupplementModeChange: (Boolean) -> Unit,
     onSupplement: (String) -> Unit,
+    onExternalSupplementFinished: () -> Unit,
 ) {
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
     var supplementMode by remember { mutableStateOf(false) }
     var supplementText by remember { mutableStateOf("") }
-    // Eta Mod：本次补充输入是否由岛「插入」键唤起；外部唤起的输入结束后要自动收拢胶囊
-    // （胶囊在 GUI run 期间不可触摸，用户无法自己收起）。
+    // Eta Mod：岛唤起的输入结束后由宿主决定移除普通任务临时浮层或收拢 GUI 常驻胶囊。
     var supplementExternal by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val keyboard = LocalSoftwareKeyboardController.current
@@ -117,11 +117,11 @@ internal fun AgentOverlayCapsule(
         scope.launch {
             delay(80)
             setSupplementMode(false)
+            then()
             if (supplementExternal) {
                 supplementExternal = false
-                onToggleExpanded()
+                onExternalSupplementFinished()
             }
-            then()
         }
     }
 
