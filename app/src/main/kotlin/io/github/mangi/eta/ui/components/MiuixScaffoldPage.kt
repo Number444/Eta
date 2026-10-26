@@ -117,6 +117,9 @@ fun MiuixScaffold(
     title: String,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    showNavigationIcon: Boolean = true,
+    compactTitle: Boolean = false,
+    topBarContent: (@Composable (ScrollBehavior) -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable (
         paddingValues: PaddingValues,
@@ -138,13 +141,25 @@ fun MiuixScaffold(
             containerColor = pageBaseColor,
             topBar = {
                 TopBarBackdrop(backdrop) {
-                    AdaptiveTopAppBar(
-                        title = title,
-                        color = topBarColor,
-                        navigationIcon = { MiuixBackButton(onClick = onBack) },
-                        actions = actions,
-                        scrollBehavior = scrollBehavior,
-                    )
+                    if (topBarContent != null) {
+                        topBarContent(scrollBehavior)
+                    } else if (compactTitle) {
+                        SmallTopAppBar(
+                            title = title,
+                            color = topBarColor,
+                            navigationIcon = { if (showNavigationIcon) MiuixBackButton(onClick = onBack) },
+                            actions = actions,
+                            scrollBehavior = scrollBehavior,
+                        )
+                    } else {
+                        AdaptiveTopAppBar(
+                            title = title,
+                            color = topBarColor,
+                            navigationIcon = { if (showNavigationIcon) MiuixBackButton(onClick = onBack) },
+                            actions = actions,
+                            scrollBehavior = scrollBehavior,
+                        )
+                    }
                 }
             },
         ) { paddingValues ->

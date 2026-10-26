@@ -2,7 +2,10 @@ package io.github.mangi.eta.ui
 
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
+import android.net.Uri
+import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -115,11 +118,13 @@ internal class PermissionSummaryState internal constructor(
     accessibilityState: MutableState<Boolean>,
     protectionEnabledState: MutableState<Boolean>,
     islandState: MutableState<AgentIslandNotifier.SupportStatus>,
+    notificationsState: MutableState<Boolean>,
 ) {
     var overlayGranted by overlayState
     var accessibilityGranted by accessibilityState
     var accessibilityProtectionEnabled by protectionEnabledState
     var islandStatus by islandState
+    var notificationsGranted by notificationsState
 
     /** 悬浮窗 / 无障碍 / 超级岛三项中未授权的数量（岛不支持或检测中不计入）。 */
     val unauthorizedCount: Int
@@ -138,6 +143,9 @@ internal fun rememberPermissionSummaryState(context: Context): PermissionSummary
             accessibilityState = mutableStateOf(isAgentAccessibilityEnabled(context)),
             protectionEnabledState = mutableStateOf(AccessibilityProtectionClient.isEnabled(context)),
             islandState = mutableStateOf(AgentIslandNotifier.SupportStatus.CHECKING),
+            notificationsState = mutableStateOf(
+                androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled(),
+            ),
         )
     }
     // 岛权限查询为耗时调用，后台探测一次。
@@ -153,6 +161,8 @@ internal fun rememberPermissionSummaryState(context: Context): PermissionSummary
                 state.overlayGranted = android.provider.Settings.canDrawOverlays(context)
                 state.accessibilityGranted = isAgentAccessibilityEnabled(context)
                 state.accessibilityProtectionEnabled = AccessibilityProtectionClient.isEnabled(context)
+                state.notificationsGranted = androidx.core.app.NotificationManagerCompat.from(context)
+                    .areNotificationsEnabled()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -171,6 +181,27 @@ internal fun isAgentAccessibilityEnabled(context: Context): Boolean {
         android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
     ).orEmpty()
     return enabledServices.split(':').any { it.equals(expected, ignoreCase = true) }
+}
+
+internal fun openOverlaySettings(context: Context) {
+    runCatching {
+        context.startActivity(
+            Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")),
+        )
+    }
+}
+
+internal fun openAccessibilitySettings(context: Context) {
+    runCatching { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+}
+
+internal fun openNotificationSettings(context: Context) {
+    runCatching {
+        context.startActivity(
+            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
+        )
+    }
 }
 
 /** 与供应商 key 同款的掩码显示：短 key 全掩，长 key 首尾各留 4 位。 */

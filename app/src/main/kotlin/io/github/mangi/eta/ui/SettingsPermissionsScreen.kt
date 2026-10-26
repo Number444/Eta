@@ -1,8 +1,6 @@
 package io.github.mangi.eta.ui
 
 import android.content.Context
-import android.content.Intent
-import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccessibilityNew
@@ -68,16 +66,7 @@ internal fun SettingsPermissionsScreen(
                         )
                     },
                     onClick = {
-                        if (!permissionState.overlayGranted) {
-                            runCatching {
-                                context.startActivity(
-                                    Intent(
-                                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                        android.net.Uri.parse("package:${context.packageName}"),
-                                    ),
-                                )
-                            }
-                        }
+                        if (!permissionState.overlayGranted) openOverlaySettings(context)
                     },
                 )
 
@@ -104,13 +93,7 @@ internal fun SettingsPermissionsScreen(
                             },
                         )
                     },
-                    onClick = {
-                        runCatching {
-                            context.startActivity(
-                                Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS),
-                            )
-                        }
-                    },
+                    onClick = { openAccessibilitySettings(context) },
                 )
                 if (AccessibilityProtectionClient.isSupported() &&
                     (frameworkState.prefs != null || frameworkState.hasConnectedFramework)
@@ -203,14 +186,7 @@ internal fun SettingsPermissionsScreen(
                             )
                         }
                     },
-                    onClick = {
-                        runCatching {
-                            context.startActivity(
-                                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                                    .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
-                            )
-                        }
-                    },
+                    onClick = { openNotificationSettings(context) },
                 )
             }
         }

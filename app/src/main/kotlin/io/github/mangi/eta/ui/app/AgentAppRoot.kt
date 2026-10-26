@@ -69,7 +69,11 @@ import io.github.mangi.eta.ui.model.LOCAL_NETWORK_PERMISSION_ITEM_ID
 import io.github.mangi.eta.ui.model.PermissionHealthAction
 import io.github.mangi.eta.ui.model.roleplayChatUi
 import io.github.mangi.eta.ui.navigation.AgentNavigator
+import io.github.mangi.eta.ui.openAccessibilitySettings
+import io.github.mangi.eta.ui.openNotificationSettings
+import io.github.mangi.eta.ui.openOverlaySettings
 import io.github.mangi.eta.ui.navigation.AppRoute
+import io.github.mangi.eta.ui.onboarding.OnboardingScreen
 import io.github.mangi.eta.ui.pages.providers.CommunityCatalogProviderScreen
 import io.github.mangi.eta.ui.pages.providers.CommunityCatalogScreen
 import io.github.mangi.eta.ui.pages.providers.ModelProviderDetailScreen
@@ -116,6 +120,7 @@ import top.yukonga.miuix.kmp.nav.transition.NavSwipeDirection
  */
 @Composable
 fun AgentAppRoot(
+    showOnboarding: Boolean = false,
     assistantConversationKey: String? = null,
     requestedConversationId: String? = null,
     onRequestedConversationOpened: () -> Unit = {},
@@ -130,15 +135,18 @@ fun AgentAppRoot(
     val context = LocalContext.current
     val resources = LocalResources.current
     val uiScope = rememberCoroutineScope()
-    val backStack = rememberNavBackStack<AppRoute>(AppRoute.Home)
-    LaunchedEffect(openSpeechSettings) {
-        if (openSpeechSettings) {
+    val backStack = rememberNavBackStack<AppRoute>(
+        if (showOnboarding) AppRoute.Onboarding() else AppRoute.Home,
+    )
+    var onboardingActive by rememberSaveable { mutableStateOf(showOnboarding) }
+    LaunchedEffect(openSpeechSettings, onboardingActive) {
+        if (openSpeechSettings && !onboardingActive) {
             if (backStack.lastOrNull() != AppRoute.SpeechSettings) backStack.add(AppRoute.SpeechSettings)
             onSpeechSettingsOpened()
         }
     }
-    LaunchedEffect(openTerminal) {
-        if (openTerminal) {
+    LaunchedEffect(openTerminal, onboardingActive) {
+        if (openTerminal && !onboardingActive) {
             if (backStack.lastOrNull() != AppRoute.Terminal) backStack.add(AppRoute.Terminal)
             onTerminalOpened()
         }
@@ -225,7 +233,8 @@ fun AgentAppRoot(
         RuntimeConfigRepository.ensureDefaults(EtaApp.serviceInstance)
     }
 
-    LaunchedEffect(requestedConversationId) {
+    LaunchedEffect(requestedConversationId, onboardingActive) {
+        if (onboardingActive) return@LaunchedEffect
         val conversationId = requestedConversationId ?: return@LaunchedEffect
         agentState.selectConversation(conversationId)
         conversationPaneOpen = false
@@ -233,7 +242,8 @@ fun AgentAppRoot(
         onRequestedConversationOpened()
     }
 
-    LaunchedEffect(requestedArchivedConversation) {
+    LaunchedEffect(requestedArchivedConversation, onboardingActive) {
+        if (onboardingActive) return@LaunchedEffect
         val request = requestedArchivedConversation ?: return@LaunchedEffect
         // 外部入口的结果要先导入归档才有会话；找不到时停在当前界面，不切到无关的会话。
         if (agentState.openArchivedConversation(request.source, request.conversationKey)) {
@@ -243,7 +253,8 @@ fun AgentAppRoot(
         onArchivedConversationOpened()
     }
 
-    LaunchedEffect(assistantConversationKey) {
+    LaunchedEffect(assistantConversationKey, onboardingActive) {
+        if (onboardingActive) return@LaunchedEffect
         val conversationKey = assistantConversationKey ?: return@LaunchedEffect
         val opened = agentState.openAssistantConversation(conversationKey)
         if (opened) {
@@ -372,6 +383,19 @@ fun AgentAppRoot(
                 cornerClipRadius = rememberNavSystemCornerRadius(),
             ),
         ) {
+            entry<AppRoute.Onboarding> { route ->
+                OnboardingScreen(
+                    testMode = route.testMode,
+                    onFinished = {
+                        if (route.testMode) {
+                            popRoute()
+                        } else {
+                            onboardingActive = false
+                            navigator.popToHome()
+                        }
+                    },
+                )
+            }
             entry<AppRoute.Home>(swipeDismiss = swipeDismiss) {
                 RoutedShell(route = AppRoute.Home) { padding ->
                     AgentHomeScreen(
@@ -546,21 +570,8 @@ fun AgentAppRoot(
                                     LOCAL_NETWORK_PERMISSION_ITEM_ID -> requestLocalNetworkPermission()
                                     "calendar" -> locationPermissionLauncher.launch(io.github.mangi.eta.agent.device.CalendarPermissions.requested)
                                     "notification_policy" -> context.startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
-                                    "accessibility" -> {
-                                        runCatching {
-                                            context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                                        }
-                                    }
-                                    "overlay" -> {
-                                        runCatching {
-                                            context.startActivity(
-                                                Intent(
-                                                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                                    Uri.parse("package:${context.packageName}")
-                                                )
-                                            )
-                                        }
-                                    }
+                                    "accessibility" -> openAccessibilitySettings(context)
+                                    "overlay" -> openOverlaySettings(context)
                                     "background" -> {
                                         if (RootAccess.isGranted && Build.MANUFACTURER.lowercase() in setOf("oppo", "realme", "oneplus")) {
                                             uiScope.launch(Dispatchers.IO) {
@@ -630,10 +641,7 @@ fun AgentAppRoot(
                                             context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
                                         }
                                     }
-                                    "notifications" -> {
-                                        context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                                            .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
-                                    }
+                                    "notifications" -> openNotificationSettings(context)
                                     "root" -> pushRoute(AppRoute.SystemEnhance)
                                 }
                             }

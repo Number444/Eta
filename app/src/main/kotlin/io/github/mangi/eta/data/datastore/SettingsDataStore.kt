@@ -70,6 +70,7 @@ internal object SettingsDataStore {
 
     private val SELECTED_PROVIDER_ID = stringPreferencesKey("selected_provider_id")
     private val SELECTED_MODEL_ID = stringPreferencesKey("selected_model_id")
+    private val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
     private val OFFICIAL_MODEL_CATALOG_REVISION = intPreferencesKey("official_model_catalog_revision")
     private val MEMORY_ENABLED = booleanPreferencesKey("memory_enabled")
     private val LINUX_DISTRIBUTION = stringPreferencesKey("linux_distribution")
@@ -112,6 +113,16 @@ internal object SettingsDataStore {
     }
 
     suspend fun settings(): Settings = settingsFlow().first()
+
+    suspend fun onboardingCompleted(): Boolean {
+        ensureInitialized()
+        return dataStore.data.first()[ONBOARDING_COMPLETED] ?: false
+    }
+
+    suspend fun setOnboardingCompleted(completed: Boolean) {
+        ensureInitialized()
+        dataStore.edit { preferences -> preferences[ONBOARDING_COMPLETED] = completed }
+    }
 
     suspend fun officialModelCatalogRevision(): Int {
         ensureInitialized()

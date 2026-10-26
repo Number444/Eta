@@ -145,6 +145,16 @@ internal fun SettingsScreen(
 
                 EtaPreferenceDivider()
                 EtaArrowPreference(
+                    title = stringResource(R.string.onboarding_test_entry),
+                    summary = stringResource(R.string.onboarding_test_entry_summary),
+                    startAction = {
+                        EtaPreferenceIcon(icon = Icons.Rounded.BugReport, tint = EtaPreferenceColors.Orange)
+                    },
+                    onClick = { onNavigate(AppRoute.Onboarding(testMode = true)) },
+                )
+
+                EtaPreferenceDivider()
+                EtaArrowPreference(
                     title = stringResource(R.string.settings_category_permissions_notifications),
                     startAction = {
                         EtaPreferenceIcon(icon = Icons.Rounded.Security, tint = EtaPreferenceColors.Blue)

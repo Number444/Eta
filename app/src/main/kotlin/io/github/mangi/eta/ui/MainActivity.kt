@@ -22,6 +22,7 @@ import io.github.mangi.eta.ui.app.AgentAppRoot
 import io.github.mangi.eta.ui.app.AgentAppTheme
 import io.github.mangi.eta.ui.app.PredictiveBackController
 import io.github.mangi.eta.ui.app.installStartupSplash
+import io.github.mangi.eta.ui.onboarding.OnboardingPolicy
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -37,6 +38,7 @@ class MainActivity : ComponentActivity() {
         launchRequests = MainActivityLaunchRequests.restore(savedInstanceState, intent)
         lifecycleScope.launch {
             val initialAppearance = AppearanceSettingsRepository.settings()
+            val showOnboarding = OnboardingPolicy.shouldShow()
             appliedPredictiveBackEnabled = initialAppearance.predictiveBackEnabled
             setContent {
                 val appearance by AppearanceSettingsRepository.settingsFlow()
@@ -62,6 +64,7 @@ class MainActivity : ComponentActivity() {
                     onResolvedDarkModeChange = ::updateSystemBars,
                 ) {
                     AgentAppRoot(
+                        showOnboarding = showOnboarding,
                         assistantConversationKey = launchRequests.assistantConversationKey,
                         requestedConversationId = launchRequests.conversationId,
                         onRequestedConversationOpened = {
