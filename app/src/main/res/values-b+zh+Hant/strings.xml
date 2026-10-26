@@ -521,7 +521,6 @@
   <string name="copy_copied">已複製</string>
   <string name="copy_answer">複製回答</string>
   <string name="share_as_image">分享為長圖</string>
-  <string name="share_image_format_title">選擇長圖比例</string>
   <string name="share_image_format_phone">手機</string>
   <string name="share_image_format_tablet">平板</string>
   <string name="share_image_format_desktop">電腦</string>

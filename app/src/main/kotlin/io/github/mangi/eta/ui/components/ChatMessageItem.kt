@@ -118,7 +118,7 @@ import io.github.mangi.eta.ui.model.ToolSummaryMessageUi
 import io.github.mangi.eta.ui.model.UserMessageUi
 import io.github.mangi.eta.ui.share.MessageShareImage
 import io.github.mangi.eta.ui.share.ShareImageFormat
-import io.github.mangi.eta.ui.share.ShareImageFormatDialog
+import io.github.mangi.eta.ui.share.ShareImageFormatPopup
 import io.github.mangi.eta.ui.share.ShareTurn
 import io.github.mangi.eta.ui.voice.SpeechReadAloudButton
 import kotlinx.coroutines.delay
@@ -578,7 +578,7 @@ private fun AgentMessageBlock(
     var copied by remember(message.id) { mutableStateOf(false) }
     // Eta Mod：分享为长图所需的环境——锚点 View、协程域、当前外观与品牌字标。
     var shareRendering by remember(message.id) { mutableStateOf(false) }
-    var showShareFormatDialog by remember(message.id) { mutableStateOf(false) }
+    var showShareFormatPopup by remember(message.id) { mutableStateOf(false) }
     // 触反馈：成功勾/失败叉短暂显示后自动还原，时长对齐复制按钮。
     var shareFeedback by remember(message.id) { mutableStateOf<ShareFeedback?>(null) }
     val shareView = LocalView.current
@@ -705,45 +705,46 @@ private fun AgentMessageBlock(
                 // Eta Mod：分享为长图——把本轮问答离屏渲染成卡片 PNG 后走系统分享。
                 // 分享的最小单位是一轮：组装好的 ShareTurn 由列表层按轮边界提供。
                 if (shareTurn != null) {
-                    IconButton(
-                        onClick = hapticClick {
-                            if (!shareRendering) showShareFormatDialog = true
-                        },
-                        enabled = !shareRendering,
-                        minWidth = 42.dp,
-                        minHeight = 42.dp,
-                    ) {
-                        when {
-                            shareRendering -> ShareProgressSpinner(
-                                modifier = Modifier.size(18.dp),
-                            )
-                            shareFeedback == ShareFeedback.Success -> Icon(
-                                imageVector = Icons.Rounded.Check,
-                                contentDescription = stringResource(R.string.share_as_image),
-                                modifier = Modifier.size(21.dp),
-                                // 成功勾跟主体色，与复制成功态一致。
-                                tint = MiuixTheme.colorScheme.primary,
-                            )
-                            shareFeedback == ShareFeedback.Failure -> Icon(
-                                imageVector = Icons.Rounded.Close,
-                                contentDescription = stringResource(R.string.share_as_image),
-                                modifier = Modifier.size(21.dp),
-                                tint = StatusError,
-                            )
-                            else -> Icon(
-                                imageVector = Icons.Rounded.Share,
-                                contentDescription = stringResource(R.string.share_as_image),
-                                modifier = Modifier.size(21.dp),
-                                tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
-                            )
+                    Box {
+                        IconButton(
+                            onClick = hapticClick {
+                                if (!shareRendering) showShareFormatPopup = true
+                            },
+                            enabled = !shareRendering,
+                            minWidth = 42.dp,
+                            minHeight = 42.dp,
+                        ) {
+                            when {
+                                shareRendering -> ShareProgressSpinner(
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                shareFeedback == ShareFeedback.Success -> Icon(
+                                    imageVector = Icons.Rounded.Check,
+                                    contentDescription = stringResource(R.string.share_as_image),
+                                    modifier = Modifier.size(21.dp),
+                                    // 成功勾跟主体色，与复制成功态一致。
+                                    tint = MiuixTheme.colorScheme.primary,
+                                )
+                                shareFeedback == ShareFeedback.Failure -> Icon(
+                                    imageVector = Icons.Rounded.Close,
+                                    contentDescription = stringResource(R.string.share_as_image),
+                                    modifier = Modifier.size(21.dp),
+                                    tint = StatusError,
+                                )
+                                else -> Icon(
+                                    imageVector = Icons.Rounded.Share,
+                                    contentDescription = stringResource(R.string.share_as_image),
+                                    modifier = Modifier.size(21.dp),
+                                    tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
+                                )
+                            }
                         }
-                    }
-                    if (showShareFormatDialog) {
-                        ShareImageFormatDialog(
-                            onDismissRequest = { showShareFormatDialog = false },
+                        ShareImageFormatPopup(
+                            show = showShareFormatPopup,
+                            onDismissRequest = { showShareFormatPopup = false },
                             onSelect = onSelect@{ format ->
                                 if (shareRendering) return@onSelect
-                                showShareFormatDialog = false
+                                showShareFormatPopup = false
                                 shareRendering = true
                                 shareFeedback = null
                                 shareScope.launch {

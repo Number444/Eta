@@ -14,6 +14,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AppearanceSettings
 import io.github.mangi.eta.ui.app.AgentAppTheme
@@ -152,18 +153,19 @@ class ShareCardRenderTest {
     }
 
     @Test
-    fun shareFormatDialogSelectsEachPresetAndCloses() {
-        val showDialog = mutableStateOf(true)
+    fun shareFormatPopupSelectsEachPresetAndCloses() {
+        val showPopup = mutableStateOf(true)
         val selections = mutableListOf<ShareImageFormat>()
         composeRule.setContent {
             MiuixTheme(colors = lightColorScheme()) {
                 Scaffold {
-                    if (showDialog.value) {
-                        ShareImageFormatDialog(
-                            onDismissRequest = { showDialog.value = false },
+                    Box(modifier = Modifier.width(42.dp)) {
+                        ShareImageFormatPopup(
+                            show = showPopup.value,
+                            onDismissRequest = { showPopup.value = false },
                             onSelect = {
                                 selections += it
-                                showDialog.value = false
+                                showPopup.value = false
                             },
                         )
                     }
@@ -173,7 +175,7 @@ class ShareCardRenderTest {
 
         val context = RuntimeEnvironment.getApplication()
         ShareImageFormat.entries.forEach { imageFormat ->
-            showDialog.value = true
+            showPopup.value = true
             composeRule.mainClock.advanceTimeBy(1_000)
             composeRule.waitForIdle()
             val label = context.getString(
@@ -187,7 +189,7 @@ class ShareCardRenderTest {
             composeRule.mainClock.advanceTimeBy(1_000)
             composeRule.waitForIdle()
             assertEquals(imageFormat, selections.last())
-            assertFalse(showDialog.value)
+            assertFalse(showPopup.value)
         }
         assertEquals(ShareImageFormat.entries.toList(), selections)
     }

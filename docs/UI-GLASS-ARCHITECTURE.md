@@ -50,12 +50,12 @@
 
 当前接线：
 
-- overlay（主页 Scaffold 内）：顶栏溢出菜单、附件菜单、思考强度、模型选择（`AgentAppShell` / `AgentChatFileAttachments` / `AgentChatInputBar` / `AgentChatModelControls`）。
+- overlay（主页 Scaffold 内）：顶栏溢出菜单、附件菜单、思考强度、模型选择、分享长图比例选择（`AgentAppShell` / `AgentChatFileAttachments` / `AgentChatInputBar` / `AgentChatModelControls` / `ShareImageFormatPopup`）。
 - 主页固定控件新增（v3.3.3）：官方消息队列条 `AgentChatQueueStrip` 使用 `liquidGlassRounded`，仍为主页消息采样层的兄弟消费者；输入栏新增按钮统一 `LiquidGlassCircleBehind`，不得在消息录制层内另建玻璃消费者。
 - useWindow（面板在 Scaffold 之外）：侧边栏会话长按菜单（`ConversationPanePanel.kt`）。
 - 设置页下拉（2026-10-17，v3.3.0-015）：`EtaDropdownPreference` 默认 `useWindow=false`（overlay 真玻璃），原 window 变体 7 处全部转 overlay（模型与对话 3、助理接管 1、Linux 环境 2、供应商详情 1）；`EtaWindowSpinnerPreference` 包装器删除。所有宿主页均为 `MiuixScaffoldPage`/`MiuixScaffold`（自带 overlay 宿主 + 设置骨架采样源），真玻璃直接生效。
 - 弹窗：路径输入（`AgentChatFileAttachments`）→ `EtaOverlayDialog`（Scaffold 内，IME 行为需真机盯）；根级 5 弹窗（角色通知/重命名/删除会话/删除消息/重新生成，`AgentAppRoot.kt`）在 NavDisplay 之外无宿主，**保持 WindowDialog 系**，阶段四已统一收进 `EtaWindowDialog`（不透明描边玻璃）。
-- 弹窗补充：主页分享长图比例选择走 `EtaOverlayDialog`；局域网权限拒绝后的设置引导已收进 `EtaWindowDialog`，不再直接使用裸 `WindowDialog`。
+- 弹窗补充：局域网权限拒绝后的设置引导已收进 `EtaWindowDialog`，不再直接使用裸 `WindowDialog`。
 
 ## 真玻璃 vs 假玻璃决策矩阵
 

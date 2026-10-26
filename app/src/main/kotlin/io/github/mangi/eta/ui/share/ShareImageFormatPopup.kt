@@ -1,16 +1,14 @@
 package io.github.mangi.eta.ui.share
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
-import io.github.mangi.eta.ui.components.EtaOverlayDialog
-import io.github.mangi.eta.ui.components.EtaTextButton
+import io.github.mangi.eta.ui.components.EtaListPopup
+import top.yukonga.miuix.kmp.basic.DropdownImpl
+import top.yukonga.miuix.kmp.basic.ListPopupColumn
+import top.yukonga.miuix.kmp.theme.LocalDismissState
 
 internal enum class ShareImageFormat(val widthDp: Dp) {
     Phone(420.dp),
@@ -19,18 +17,16 @@ internal enum class ShareImageFormat(val widthDp: Dp) {
 }
 
 @Composable
-internal fun ShareImageFormatDialog(
+internal fun ShareImageFormatPopup(
+    show: Boolean,
     onDismissRequest: () -> Unit,
     onSelect: (ShareImageFormat) -> Unit,
 ) {
-    EtaOverlayDialog(
-        show = true,
-        title = stringResource(R.string.share_image_format_title),
-        onDismissRequest = onDismissRequest,
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            ShareImageFormat.entries.forEach { format ->
-                EtaTextButton(
+    EtaListPopup(show = show, onDismissRequest = onDismissRequest) {
+        val dismiss = LocalDismissState.current
+        ListPopupColumn {
+            ShareImageFormat.entries.forEachIndexed { index, format ->
+                DropdownImpl(
                     text = stringResource(
                         when (format) {
                             ShareImageFormat.Phone -> R.string.share_image_format_phone
@@ -38,8 +34,13 @@ internal fun ShareImageFormatDialog(
                             ShareImageFormat.Desktop -> R.string.share_image_format_desktop
                         },
                     ),
-                    onClick = { onSelect(format) },
-                    modifier = Modifier.fillMaxWidth(),
+                    optionSize = ShareImageFormat.entries.size,
+                    isSelected = false,
+                    index = index,
+                    onSelectedIndexChange = {
+                        dismiss?.invoke()
+                        onSelect(format)
+                    },
                 )
             }
         }
