@@ -533,6 +533,10 @@
   <string name="copy_copied">已复制</string>
   <string name="copy_answer">复制回答</string>
   <string name="share_as_image">分享为长图</string>
+  <string name="share_image_format_title">选择长图比例</string>
+  <string name="share_image_format_phone">手机</string>
+  <string name="share_image_format_tablet">平板</string>
+  <string name="share_image_format_desktop">电脑</string>
   <string name="copy_code">复制代码</string>
   <string name="copy_command">复制命令</string>
   <string name="shell_command">Shell 命令</string>

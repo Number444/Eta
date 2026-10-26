@@ -81,8 +81,9 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  */
 internal object MessageShareImage {
 
-    /** 超长内容兜底：位图高度上限（约 8 屏），超出部分裁断。 */
+    /** 超长内容兜底：位图高度与总像素双重上限，超出部分裁断。 */
     private const val MAX_BITMAP_HEIGHT_PX = 12_000
+    private const val MAX_BITMAP_PIXELS = 18_000_000L
 
     /**
      * 渲染并弹出系统分享面板。必须在主线程调用。
@@ -90,19 +91,20 @@ internal object MessageShareImage {
      * @param anchor 当前界面任意 View（用于取 decorView 与 Activity 上下文）
      * @param appearance 当前外观设置，离屏卡片用同一套主题渲染，保证明暗/配色一致
      * @param turns 待导出的轮次；当前每次一轮，列表形态为多选多轮导出预留
+     * @param format 排版宽度预设；高度仍随内容增长
      */
     suspend fun shareTurnAsImage(
         anchor: View,
         appearance: AppearanceSettings,
         turns: List<ShareTurn>,
         brand: String,
+        format: ShareImageFormat = ShareImageFormat.Phone,
     ) {
         if (turns.isEmpty()) return
         val context = anchor.context
         val decorView = anchor.rootView as? ViewGroup ?: return
-        val widthPx = decorView.width.takeIf { it > 0 }
-            ?: context.resources.displayMetrics.widthPixels
-        if (widthPx <= 0) return
+        val density = context.resources.displayMetrics.density
+        val widthPx = (format.widthDp.value * density + 0.5f).toInt().coerceAtLeast(1)
 
         // 解析在组合内后台进行（行内样式依赖主题色，只能在组合里取）；
         // 文档未就绪前卡片不渲染，ready 翻真后再等两帧让排版彻底落地。
@@ -159,7 +161,7 @@ internal object MessageShareImage {
             composeView.layout(0, 0, widthPx, measuredHeight)
             val bitmap = Bitmap.createBitmap(
                 widthPx,
-                measuredHeight.coerceAtMost(MAX_BITMAP_HEIGHT_PX),
+                cappedBitmapHeight(measuredHeight, widthPx),
                 Bitmap.Config.ARGB_8888,
             )
             composeView.draw(Canvas(bitmap))
@@ -167,6 +169,13 @@ internal object MessageShareImage {
         } finally {
             decorView.removeView(composeView)
         }
+    }
+
+    internal fun cappedBitmapHeight(measuredHeight: Int, widthPx: Int): Int {
+        require(measuredHeight >= 0)
+        require(widthPx > 0)
+        val pixelLimitedHeight = (MAX_BITMAP_PIXELS / widthPx).coerceAtLeast(1L).toInt()
+        return measuredHeight.coerceAtMost(minOf(MAX_BITMAP_HEIGHT_PX, pixelLimitedHeight))
     }
 
     /** 与聊天页同一套解析器，终态整体解析，在调用线程同步完成；失败的段退化为纯文本渲染。 */

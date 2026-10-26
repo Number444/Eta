@@ -549,6 +549,10 @@
   <string name="copy_copied">Copied</string>
   <string name="copy_answer">Copy answer</string>
   <string name="share_as_image">Share as image</string>
+  <string name="share_image_format_title">Choose image layout</string>
+  <string name="share_image_format_phone">Phone</string>
+  <string name="share_image_format_tablet">Tablet</string>
+  <string name="share_image_format_desktop">Computer</string>
   <string name="copy_code">Copy code</string>
   <string name="copy_command">Copy command</string>
   <string name="shell_command">Shell command</string>

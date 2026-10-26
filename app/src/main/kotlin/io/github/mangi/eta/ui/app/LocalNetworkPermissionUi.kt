@@ -18,12 +18,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.device.LocalNetworkPermission
+import io.github.mangi.eta.ui.components.EtaWindowDialog
 import io.github.mangi.eta.ui.components.MiuixDialogActions
 import io.github.mangi.eta.ui.model.LOCAL_NETWORK_PERMISSION_ITEM_ID
 import io.github.mangi.eta.ui.model.PermissionHealthItemUi
 import io.github.mangi.eta.ui.model.PermissionStatusUi
-import top.yukonga.miuix.kmp.layout.DialogDefaults
-import top.yukonga.miuix.kmp.window.WindowDialog
 
 internal fun localNetworkPermissionHealthItem(context: Context): PermissionHealthItemUi? {
     val access = LocalNetworkPermission.accessState(context)
@@ -49,9 +48,8 @@ internal fun rememberLocalNetworkPermissionRequest(onResult: () -> Unit): () -> 
         showSettingsGuide = !granted
     }
     if (showSettingsGuide) {
-        WindowDialog(
+        EtaWindowDialog(
             show = true,
-            cornerRadius = DialogDefaults.CornerRadius,
             title = stringResource(R.string.permission_local_network_title),
             summary = stringResource(R.string.permission_local_network_denied),
             onDismissRequest = { showSettingsGuide = false },

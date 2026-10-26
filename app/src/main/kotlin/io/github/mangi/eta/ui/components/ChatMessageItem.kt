@@ -117,6 +117,8 @@ import io.github.mangi.eta.ui.model.ToolActivityMessageUi
 import io.github.mangi.eta.ui.model.ToolSummaryMessageUi
 import io.github.mangi.eta.ui.model.UserMessageUi
 import io.github.mangi.eta.ui.share.MessageShareImage
+import io.github.mangi.eta.ui.share.ShareImageFormat
+import io.github.mangi.eta.ui.share.ShareImageFormatDialog
 import io.github.mangi.eta.ui.share.ShareTurn
 import io.github.mangi.eta.ui.voice.SpeechReadAloudButton
 import kotlinx.coroutines.delay
@@ -576,6 +578,7 @@ private fun AgentMessageBlock(
     var copied by remember(message.id) { mutableStateOf(false) }
     // Eta Mod：分享为长图所需的环境——锚点 View、协程域、当前外观与品牌字标。
     var shareRendering by remember(message.id) { mutableStateOf(false) }
+    var showShareFormatDialog by remember(message.id) { mutableStateOf(false) }
     // 触反馈：成功勾/失败叉短暂显示后自动还原，时长对齐复制按钮。
     var shareFeedback by remember(message.id) { mutableStateOf<ShareFeedback?>(null) }
     val shareView = LocalView.current
@@ -704,25 +707,7 @@ private fun AgentMessageBlock(
                 if (shareTurn != null) {
                     IconButton(
                         onClick = hapticClick {
-                            if (shareRendering) return@hapticClick
-                            shareRendering = true
-                            shareFeedback = null
-                            shareScope.launch {
-                                runCatching {
-                                    MessageShareImage.shareTurnAsImage(
-                                        anchor = shareView,
-                                        appearance = shareAppearance,
-                                        turns = listOf(shareTurn),
-                                        brand = shareBrand,
-                                    )
-                                }.onSuccess {
-                                    shareFeedback = ShareFeedback.Success
-                                }.onFailure {
-                                    Log.w(TAG, "分享成图失败", it)
-                                    shareFeedback = ShareFeedback.Failure
-                                }
-                                shareRendering = false
-                            }
+                            if (!shareRendering) showShareFormatDialog = true
                         },
                         enabled = !shareRendering,
                         minWidth = 42.dp,
@@ -752,6 +737,34 @@ private fun AgentMessageBlock(
                                 tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
                             )
                         }
+                    }
+                    if (showShareFormatDialog) {
+                        ShareImageFormatDialog(
+                            onDismissRequest = { showShareFormatDialog = false },
+                            onSelect = onSelect@{ format ->
+                                if (shareRendering) return@onSelect
+                                showShareFormatDialog = false
+                                shareRendering = true
+                                shareFeedback = null
+                                shareScope.launch {
+                                    runCatching {
+                                        MessageShareImage.shareTurnAsImage(
+                                            anchor = shareView,
+                                            appearance = shareAppearance,
+                                            turns = listOf(shareTurn),
+                                            brand = shareBrand,
+                                            format = format,
+                                        )
+                                    }.onSuccess {
+                                        shareFeedback = ShareFeedback.Success
+                                    }.onFailure {
+                                        Log.w(TAG, "分享成图失败", it)
+                                        shareFeedback = ShareFeedback.Failure
+                                    }
+                                    shareRendering = false
+                                }
+                            },
+                        )
                     }
                 }
                 if (showMessageActions) {
