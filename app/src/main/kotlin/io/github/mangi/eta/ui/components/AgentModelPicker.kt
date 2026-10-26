@@ -158,7 +158,7 @@ internal fun AgentModelPickerButton(
             )
         }
 
-        // Eta Mod：抽屉经 EtaGlassBottomSheet 内容侧注入真玻璃（backdrop 缺失时回退原生）。
+        // Eta Mod：抽屉经 EtaGlassBottomSheet 整体应用真玻璃（backdrop 缺失时回退原生）。
         EtaGlassBottomSheet(
             show = showSheet,
             title = stringResource(R.string.model_picker_title),

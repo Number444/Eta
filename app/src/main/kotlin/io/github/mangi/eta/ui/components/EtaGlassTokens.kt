@@ -90,7 +90,7 @@ internal object EtaGlassStyles {
     )
 
     /**
-     * 底部抽屉（EtaGlassBottomSheet 内容侧注入）：顶部 28dp 圆角对齐
+     * 底部抽屉（EtaGlassBottomSheet 整体 modifier）：顶部 28dp 圆角对齐
      * miuix BottomSheetDefaults.cornerRadius，底边贴屏幕无圆角；模糊/折射参数与 Popup 一致。
      */
     val BottomSheet = EtaGlassStyle(

@@ -59,7 +59,7 @@ internal fun RemoteModelImportSheet(
     onDismissRequest: () -> Unit,
     onConfirm: (RemoteModelImport, Set<String>) -> Unit,
 ) {
-    // Eta Mod：内容侧注入真玻璃（EtaGlassBottomSheet；backdrop 缺失时回退原生抽屉）。
+    // Eta Mod：抽屉整体应用真玻璃（EtaGlassBottomSheet；backdrop 缺失时回退原生抽屉）。
     EtaGlassBottomSheet(
         show = pending != null,
         title = stringResource(R.string.remote_model_import_title),
