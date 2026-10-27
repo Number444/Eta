@@ -9,7 +9,7 @@ sealed interface AppRoute : NavKey {
     data object Home : AppRoute
 
     @Serializable
-    data class Onboarding(val testMode: Boolean = false) : AppRoute
+    data object Onboarding : AppRoute
 
     @Serializable
     data object Browser : AppRoute

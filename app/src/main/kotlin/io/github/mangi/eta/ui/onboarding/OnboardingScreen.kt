@@ -3,12 +3,8 @@
 package io.github.mangi.eta.ui.onboarding
 
 import android.Manifest
-import android.annotation.SuppressLint
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.content.Context
 import android.content.pm.PackageManager
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.Crossfade
@@ -27,7 +23,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -61,7 +56,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import io.github.mangi.eta.EtaApp
@@ -108,6 +102,7 @@ import io.github.mangi.eta.ui.pages.providers.toProvider
 import io.github.mangi.eta.ui.pages.providers.validateProviderDraft
 import io.github.mangi.eta.ui.rememberPermissionSummaryState
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
@@ -122,9 +117,7 @@ private enum class OnboardingStep { Provider, Connection, Model, Permissions }
 
 @Composable
 internal fun OnboardingScreen(
-    testMode: Boolean,
     onFinished: () -> Unit,
-    onTestEvent: ((Int) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -139,28 +132,29 @@ internal fun OnboardingScreen(
     var catalog by remember { mutableStateOf<RemoteModelCatalog?>(null) }
     var models by remember { mutableStateOf<List<Model>>(emptyList()) }
     var modelsLoading by remember { mutableStateOf(false) }
+    var modelSaving by remember { mutableStateOf(false) }
     var modelLoadCount by remember { mutableIntStateOf(0) }
+    var selectedModelId by rememberSaveable { mutableStateOf<String?>(null) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var loginCompleted by remember { mutableStateOf(false) }
     var finishing by remember { mutableStateOf(false) }
-    val testEvent = onTestEvent ?: { event: Int -> postOnboardingTestNotification(context, event) }
-    val built = remember(source, draft) { source?.let(draft::toProvider) }
+    var prefillAttempted by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        if (!testMode) RuntimeConfigRepository.ensureDefaults(EtaApp.serviceInstance)
+        RuntimeConfigRepository.ensureDefaults(EtaApp.serviceInstance)
+    }
+    LaunchedEffect(providers) {
+        if (prefillAttempted || providers.isEmpty()) return@LaunchedEffect
+        prefillAttempted = true
+        val settings = SettingsDataStore.settings()
+        val currentProvider = providers.firstOrNull { it.id == settings.selectedProviderId } ?: return@LaunchedEffect
+        source = currentProvider
+        draft = ProviderConfigDraft.from(currentProvider)
+        selectedModelId = currentProvider.models.firstOrNull { it.id == settings.selectedModelId }?.modelId
     }
 
-    fun notifyTest(event: Int) {
-        if (testMode) testEvent(event)
-    }
-
-    fun finish(skip: Boolean) {
+    fun finish() {
         if (finishing) return
-        if (testMode) {
-            notifyTest(if (skip) R.string.onboarding_test_event_skip else R.string.onboarding_test_event_finish)
-            onFinished()
-            return
-        }
         finishing = true
         scope.launch {
             try {
@@ -173,56 +167,50 @@ internal fun OnboardingScreen(
     }
 
     fun selectProvider(provider: ProviderSetting, new: Boolean) {
+        val providerChanged = source?.id != provider.id || source?.let { it::class } != provider::class
         source = provider
         isNew = new
         draft = ProviderConfigDraft.from(provider)
         catalog = null
         models = emptyList()
+        if (providerChanged) selectedModelId = null
         errorMessage = null
         loginCompleted = false
-        notifyTest(R.string.onboarding_test_event_provider)
     }
 
     fun continueConnection() {
         val validation = validateProviderDraft(context, draft)
         errorMessage = when {
             validation != null -> context.getString(R.string.provider_error, validation)
-            !testMode && draft.authMode == ProviderAuthModes.API_KEY && draft.apiKey.isBlank() ->
+            draft.authMode == ProviderAuthModes.API_KEY && draft.apiKey.isBlank() ->
                 context.getString(R.string.onboarding_api_key_required)
-            !testMode && ProviderAuthModes.isOAuth(draft.authMode) && !loginCompleted ->
+            ProviderAuthModes.isOAuth(draft.authMode) && !loginCompleted ->
                 context.getString(R.string.onboarding_login_required)
             else -> null
         }
         if (errorMessage != null) return
-        notifyTest(R.string.onboarding_test_event_connection)
         step = OnboardingStep.Model
     }
 
     fun loadModels() {
-        val currentBuilt = built ?: return
+        val currentBuilt = source?.let(draft::toProvider) ?: return
         scope.launch {
             modelsLoading = true
             errorMessage = null
             catalog = null
-            if (testMode) {
-                models = OfficialModelCatalog.modelsForProvider(currentBuilt)
-                    .ifEmpty { currentBuilt.models }
-                    .ifEmpty { OfficialModelCatalog.modelsForProvider(BuiltinProviders.PROVIDERS.first()) }
-            } else {
-                val result = RemoteModelFetcher.fetchCatalog(currentBuilt)
-                result.onSuccess {
-                    catalog = it
-                    models = it.models
-                }.onFailure { throwable ->
-                    models = OfficialModelCatalog.modelsForProvider(currentBuilt).ifEmpty { currentBuilt.models }
-                    errorMessage = if (models.isEmpty()) {
-                        context.getString(
-                            R.string.provider_error,
-                            throwable.message ?: throwable.javaClass.simpleName,
-                        )
-                    } else {
-                        context.getString(R.string.onboarding_models_fallback)
-                    }
+            val result = RemoteModelFetcher.fetchCatalog(currentBuilt)
+            result.onSuccess {
+                catalog = it
+                models = it.models
+            }.onFailure { throwable ->
+                models = OfficialModelCatalog.modelsForProvider(currentBuilt).ifEmpty { currentBuilt.models }
+                errorMessage = if (models.isEmpty()) {
+                    context.getString(
+                        R.string.provider_error,
+                        throwable.message ?: throwable.javaClass.simpleName,
+                    )
+                } else {
+                    context.getString(R.string.onboarding_models_fallback)
                 }
             }
             modelsLoading = false
@@ -234,22 +222,21 @@ internal fun OnboardingScreen(
     }
 
     fun selectModel(model: Model) {
-        if (modelsLoading) return
-        if (testMode) {
-            notifyTest(R.string.onboarding_test_event_model)
-            step = OnboardingStep.Permissions
-            return
-        }
-        val currentBuilt = built ?: return
-        modelsLoading = true
+        if (modelsLoading || modelSaving) return
+        val currentBuilt = source?.let(draft::toProvider) ?: return
+        selectedModelId = model.modelId
+        modelSaving = true
         scope.launch {
             try {
-                saveOnboardingModel(
-                    provider = currentBuilt,
-                    isNew = isNew,
-                    catalog = catalog,
-                    model = model,
-                )
+                kotlinx.coroutines.withContext(Dispatchers.IO) {
+                    saveOnboardingModel(
+                        provider = currentBuilt,
+                        isNew = isNew,
+                        catalog = catalog,
+                        model = model,
+                    )
+                }
+                modelSaving = false
                 step = OnboardingStep.Permissions
             } catch (cancelled: CancellationException) {
                 throw cancelled
@@ -259,7 +246,7 @@ internal fun OnboardingScreen(
                     throwable.message ?: throwable.javaClass.simpleName,
                 )
             } finally {
-                modelsLoading = false
+                modelSaving = false
             }
         }
     }
@@ -272,10 +259,6 @@ internal fun OnboardingScreen(
     }
 
     fun permissionAction(kind: String) {
-        if (testMode) {
-            notifyTest(R.string.onboarding_test_event_permission)
-            return
-        }
         when (kind) {
             "notifications" -> {
                 if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
@@ -291,11 +274,28 @@ internal fun OnboardingScreen(
         }
     }
 
+    fun skipCurrentStep() {
+        when (step) {
+            OnboardingStep.Provider -> {
+                if (source == null) {
+                    val fallback = providers.firstOrNull() ?: BuiltinProviders.PROVIDERS.first()
+                    source = fallback
+                    isNew = false
+                    draft = ProviderConfigDraft.from(fallback)
+                }
+                step = OnboardingStep.Connection
+            }
+            OnboardingStep.Connection -> step = OnboardingStep.Model
+            OnboardingStep.Model -> step = OnboardingStep.Permissions
+            OnboardingStep.Permissions -> finish()
+        }
+    }
+
     MiuixScaffold(
         title = "",
         onBack = {
             when (step) {
-                OnboardingStep.Provider -> finish(skip = true)
+                OnboardingStep.Provider -> finish()
                 OnboardingStep.Connection -> step = OnboardingStep.Provider
                 OnboardingStep.Model -> step = OnboardingStep.Connection
                 OnboardingStep.Permissions -> step = OnboardingStep.Model
@@ -303,19 +303,7 @@ internal fun OnboardingScreen(
         },
         showNavigationIcon = false,
         captureGlassContent = false,
-        topBarContent = {
-            if (testMode) {
-                Text(
-                    text = stringResource(R.string.onboarding_test_banner),
-                    style = MiuixTheme.textStyles.footnote1,
-                    color = MiuixTheme.colorScheme.primary,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(horizontal = 32.dp, vertical = 8.dp),
-                )
-            }
-        },
+        topBarContent = {},
     ) { paddingValues, _, sidePadding ->
         val glassBackdrop = LocalLiquidGlassBackdrop.current
         Box(
@@ -334,6 +322,7 @@ internal fun OnboardingScreen(
                         OnboardingStep.Provider -> OnboardingProviderPage(
                             providers = providers,
                             selected = source,
+                            newProviderSelected = isNew,
                             step = currentStep,
                             sidePadding = sidePadding,
                             onSelect = ::selectProvider,
@@ -359,11 +348,9 @@ internal fun OnboardingScreen(
                                 provider = source!!,
                                 draft = draft,
                                 onDraftChange = { draft = it },
-                                testMode = testMode,
                                 step = currentStep,
                                 sidePadding = sidePadding,
                                 errorMessage = errorMessage,
-                                onTestEvent = ::notifyTest,
                                 onLoginValidationError = { errorMessage = it },
                                 onLoginStateChange = { loginCompleted = it.account != null },
                             )
@@ -371,6 +358,7 @@ internal fun OnboardingScreen(
                         OnboardingStep.Model -> OnboardingModelPage(
                             models = models,
                             loading = modelsLoading,
+                            selectedModelId = selectedModelId,
                             errorMessage = errorMessage,
                             step = currentStep,
                             sidePadding = sidePadding,
@@ -396,31 +384,29 @@ internal fun OnboardingScreen(
                     .padding(horizontal = sidePadding + 32.dp)
                     .padding(bottom = 32.dp),
             ) {
-                if (step != OnboardingStep.Model) {
-                    val primaryActionEnabled = when (step) {
-                        OnboardingStep.Provider -> source != null
-                        OnboardingStep.Connection -> !modelsLoading
-                        OnboardingStep.Permissions -> !finishing
-                        OnboardingStep.Model -> false
-                    }
-                    OnboardingFloatingButton(
-                        text = stringResource(
-                            if (step == OnboardingStep.Permissions) R.string.onboarding_finish else R.string.onboarding_next,
-                        ),
-                        onClick = {
-                            when (step) {
-                                OnboardingStep.Provider -> if (source != null) step = OnboardingStep.Connection
-                                OnboardingStep.Connection -> continueConnection()
-                                OnboardingStep.Permissions -> finish(skip = false)
-                                OnboardingStep.Model -> Unit
-                            }
-                        },
-                        enabled = primaryActionEnabled,
-                        primary = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
+                val primaryActionEnabled = when (step) {
+                    OnboardingStep.Provider -> source != null
+                    OnboardingStep.Connection -> !modelsLoading
+                    OnboardingStep.Permissions -> !finishing
+                    OnboardingStep.Model -> selectedModelId != null && !modelsLoading && !modelSaving
                 }
+                OnboardingFloatingButton(
+                    text = stringResource(
+                        if (step == OnboardingStep.Permissions) R.string.onboarding_finish else R.string.onboarding_next,
+                    ),
+                    onClick = {
+                        when (step) {
+                            OnboardingStep.Provider -> if (source != null) step = OnboardingStep.Connection
+                            OnboardingStep.Connection -> continueConnection()
+                            OnboardingStep.Permissions -> finish()
+                            OnboardingStep.Model -> models.firstOrNull { it.modelId == selectedModelId }?.let(::selectModel)
+                        }
+                    },
+                    enabled = primaryActionEnabled,
+                    primary = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(modifier = Modifier.height(8.dp))
                 Row(modifier = Modifier.fillMaxWidth()) {
                     OnboardingFloatingButton(
                         text = stringResource(R.string.action_back),
@@ -438,7 +424,7 @@ internal fun OnboardingScreen(
                     Spacer(modifier = Modifier.width(12.dp))
                     OnboardingFloatingButton(
                         text = stringResource(R.string.onboarding_skip),
-                        onClick = { finish(skip = true) },
+                        onClick = ::skipCurrentStep,
                         enabled = !finishing,
                         modifier = Modifier.weight(1f),
                     )
@@ -588,6 +574,7 @@ private fun OnboardingStepHeader(step: OnboardingStep) {
 private fun OnboardingProviderPage(
     providers: List<ProviderSetting>,
     selected: ProviderSetting?,
+    newProviderSelected: Boolean,
     step: OnboardingStep,
     sidePadding: Dp,
     onSelect: (ProviderSetting, Boolean) -> Unit,
@@ -595,7 +582,7 @@ private fun OnboardingProviderPage(
 ) {
     LazyColumn(
         modifier = Modifier.onboardingScroll(),
-        contentPadding = onboardingContentPadding(sidePadding, step),
+        contentPadding = onboardingContentPadding(sidePadding),
         verticalArrangement = Arrangement.Center,
     ) {
         item { OnboardingStepHeader(step) }
@@ -636,12 +623,32 @@ private fun OnboardingProviderPage(
                 EtaArrowPreference(
                     title = stringResource(R.string.ui_added_openai_compatible_6bd471),
                     startAction = { EtaPreferenceIcon(Icons.Rounded.Storefront) },
+                    endActions = {
+                        if (newProviderSelected && selected is CustomProviderSetting) {
+                            Icon(
+                                imageVector = Icons.Rounded.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = MiuixTheme.colorScheme.primary,
+                            )
+                        }
+                    },
                     onClick = { onCustom(OnboardingCustomType.OpenAi) },
                 )
                 EtaPreferenceDivider()
                 EtaArrowPreference(
                     title = stringResource(R.string.ui_new_anthropic_db6098),
                     startAction = { ProviderBrandIcon(io.github.mangi.eta.data.model.ProviderSourceTypes.ANTHROPIC) },
+                    endActions = {
+                        if (newProviderSelected && selected is AnthropicProviderSetting) {
+                            Icon(
+                                imageVector = Icons.Rounded.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = MiuixTheme.colorScheme.primary,
+                            )
+                        }
+                    },
                     onClick = { onCustom(OnboardingCustomType.Anthropic) },
                 )
             }
@@ -654,26 +661,22 @@ private fun OnboardingConnectionPage(
     provider: ProviderSetting,
     draft: ProviderConfigDraft,
     onDraftChange: (ProviderConfigDraft) -> Unit,
-    testMode: Boolean,
     step: OnboardingStep,
     sidePadding: Dp,
     errorMessage: String?,
-    onTestEvent: (Int) -> Unit,
     onLoginValidationError: (String) -> Unit,
     onLoginStateChange: (ProviderLoginState) -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val loginStore = remember(provider.id, testMode) {
-        if (testMode) null else ProviderLoginStore(provider.id, scope)
-    }
-    val loginState = loginStore?.state?.collectAsState()?.value ?: ProviderLoginState()
+    val loginStore = remember(provider.id) { ProviderLoginStore(provider.id, scope) }
+    val loginState = loginStore.state.collectAsState().value
     var browserError by remember { mutableStateOf<String?>(null) }
     DisposableEffect(loginStore) {
-        onDispose { loginStore?.close() }
+        onDispose { loginStore.close() }
     }
     LaunchedEffect(loginStore, draft.authMode) {
-        loginStore?.load(draft.authMode)
+        loginStore.load(draft.authMode)
     }
     LaunchedEffect(loginState.account, draft.authMode) {
         onLoginStateChange(loginState)
@@ -686,7 +689,7 @@ private fun OnboardingConnectionPage(
     }
     LazyColumn(
         modifier = Modifier.onboardingScroll(),
-        contentPadding = onboardingContentPadding(sidePadding, step),
+        contentPadding = onboardingContentPadding(sidePadding),
         verticalArrangement = Arrangement.Center,
     ) {
         item { OnboardingStepHeader(step) }
@@ -700,39 +703,23 @@ private fun OnboardingConnectionPage(
                     enabled = !loginState.isBusy,
                     browserError = browserError,
                     onOpenBrowser = {
-                        if (testMode) {
-                            onTestEvent(R.string.onboarding_test_event_login)
-                        } else {
-                            loginState.prompt?.let {
-                                browserError = openProviderAccountLink(context, it.authorizationUrl)
-                            }
+                        loginState.prompt?.let {
+                            browserError = openProviderAccountLink(context, it.authorizationUrl)
                         }
                     },
                     onManageUsage = {
-                        if (testMode) {
-                            onTestEvent(R.string.onboarding_test_event_login)
-                        } else {
-                            browserError = openProviderAccountLink(context, "https://chatgpt.com/codex/settings/usage")
-                        }
+                        browserError = openProviderAccountLink(context, "https://chatgpt.com/codex/settings/usage")
                     },
                     onLogin = {
-                        if (testMode) {
-                            onTestEvent(R.string.onboarding_test_event_login)
+                        val validation = validateProviderDraft(context, draft)
+                        if (validation != null) {
+                            onLoginValidationError(context.getString(R.string.provider_error, validation))
                         } else {
-                            val validation = validateProviderDraft(context, draft)
-                            if (validation != null) {
-                                onLoginValidationError(context.getString(R.string.provider_error, validation))
-                            } else {
-                                loginStore?.login(draft.toProvider(provider))
-                            }
+                            loginStore.login(draft.toProvider(provider))
                         }
                     },
-                    onDisconnect = {
-                        if (testMode) onTestEvent(R.string.onboarding_test_event_login) else loginStore?.disconnect()
-                    },
-                    onCancel = {
-                        if (testMode) onTestEvent(R.string.onboarding_test_event_login) else loginStore?.cancel()
-                    },
+                    onDisconnect = loginStore::disconnect,
+                    onCancel = loginStore::cancel,
                 )
             }
         }
@@ -753,6 +740,7 @@ private fun OnboardingConnectionPage(
 private fun OnboardingModelPage(
     models: List<Model>,
     loading: Boolean,
+    selectedModelId: String?,
     errorMessage: String?,
     step: OnboardingStep,
     sidePadding: Dp,
@@ -761,7 +749,7 @@ private fun OnboardingModelPage(
 ) {
     LazyColumn(
         modifier = Modifier.onboardingScroll(),
-        contentPadding = onboardingContentPadding(sidePadding, step),
+        contentPadding = onboardingContentPadding(sidePadding),
         verticalArrangement = Arrangement.Center,
     ) {
         item { OnboardingStepHeader(step) }
@@ -802,6 +790,16 @@ private fun OnboardingModelPage(
                             title = model.displayName,
                             summary = model.modelId,
                             enabled = !loading,
+                            endActions = {
+                                if (selectedModelId == model.modelId) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = MiuixTheme.colorScheme.primary,
+                                    )
+                                }
+                            },
                             onClick = { onSelect(model) },
                         )
                     }
@@ -831,7 +829,7 @@ private fun OnboardingPermissionsPage(
 ) {
     LazyColumn(
         modifier = Modifier.onboardingScroll(),
-        contentPadding = onboardingContentPadding(sidePadding, step),
+        contentPadding = onboardingContentPadding(sidePadding),
         verticalArrangement = Arrangement.Center,
     ) {
         item { OnboardingStepHeader(step) }
@@ -896,45 +894,9 @@ private fun Modifier.onboardingScroll(): Modifier =
         .scrollEndHaptic()
         .overScrollVertical()
 
-private fun onboardingContentPadding(sidePadding: Dp, step: OnboardingStep) = PaddingValues(
+private fun onboardingContentPadding(sidePadding: Dp) = PaddingValues(
     start = sidePadding,
     top = 12.dp,
     end = sidePadding,
-    bottom = if (step == OnboardingStep.Model) 100.dp else 156.dp,
+    bottom = 156.dp,
 )
-
-@SuppressLint("MissingPermission")
-private fun postOnboardingTestNotification(context: Context, event: Int) {
-    val appContext = context.applicationContext
-    val manager = NotificationManagerCompat.from(appContext)
-    if (!manager.areNotificationsEnabled()) {
-        Toast.makeText(
-            appContext,
-            R.string.onboarding_test_notification_unavailable,
-            Toast.LENGTH_LONG,
-        ).show()
-        return
-    }
-    val channelId = "eta_onboarding_test"
-    appContext.getSystemService(NotificationManager::class.java)?.createNotificationChannel(
-        NotificationChannel(
-            channelId,
-            appContext.getString(R.string.onboarding_test_channel_name),
-            NotificationManager.IMPORTANCE_DEFAULT,
-        ),
-    )
-    val text = appContext.getString(
-        R.string.onboarding_test_notification_text,
-        appContext.getString(event),
-    )
-    manager.notify(
-        System.currentTimeMillis().toInt(),
-        NotificationCompat.Builder(appContext, channelId)
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(appContext.getString(R.string.onboarding_test_notification_title))
-            .setContentText(text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
-            .setAutoCancel(true)
-            .build(),
-    )
-}

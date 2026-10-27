@@ -136,7 +136,7 @@ fun AgentAppRoot(
     val resources = LocalResources.current
     val uiScope = rememberCoroutineScope()
     val backStack = rememberNavBackStack<AppRoute>(
-        if (showOnboarding) AppRoute.Onboarding() else AppRoute.Home,
+        if (showOnboarding) AppRoute.Onboarding else AppRoute.Home,
     )
     var onboardingActive by rememberSaveable { mutableStateOf(showOnboarding) }
     LaunchedEffect(openSpeechSettings, onboardingActive) {
@@ -383,15 +383,14 @@ fun AgentAppRoot(
                 cornerClipRadius = rememberNavSystemCornerRadius(),
             ),
         ) {
-            entry<AppRoute.Onboarding> { route ->
+            entry<AppRoute.Onboarding> {
                 OnboardingScreen(
-                    testMode = route.testMode,
                     onFinished = {
-                        if (route.testMode) {
-                            popRoute()
-                        } else {
+                        if (onboardingActive) {
                             onboardingActive = false
                             navigator.popToHome()
+                        } else {
+                            popRoute()
                         }
                     },
                 )

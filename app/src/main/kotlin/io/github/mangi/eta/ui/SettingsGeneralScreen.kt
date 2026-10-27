@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SupportAgent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
@@ -21,7 +22,7 @@ import io.github.mangi.eta.ui.components.LanguagePreference
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
 import io.github.mangi.eta.ui.navigation.AppRoute
 
-/** 设置二级页：通用（外观 / 语音 / 语言 / 数据备份 / 数字助理应用）。 */
+/** 设置二级页：通用（重新引导 / 外观 / 语音 / 语言 / 数据备份 / 数字助理应用）。 */
 @Composable
 internal fun SettingsGeneralScreen(
     context: Context,
@@ -44,6 +45,16 @@ internal fun SettingsGeneralScreen(
         settingsTopSpacing()
         item(key = "general") {
             EtaPreferenceGroup {
+                EtaArrowPreference(
+                    title = stringResource(R.string.onboarding_replay_entry),
+                    summary = stringResource(R.string.onboarding_replay_entry_summary),
+                    startAction = {
+                        EtaPreferenceIcon(icon = Icons.Rounded.PlayArrow, tint = EtaPreferenceColors.Blue)
+                    },
+                    onClick = { onNavigate(AppRoute.Onboarding) },
+                )
+
+                EtaPreferenceDivider()
                 EtaArrowPreference(
                     title = stringResource(R.string.appearance_title),
                     startAction = {
