@@ -26,7 +26,7 @@ import androidx.room.migration.Migration
         CharacterEntity::class,
         UserPersonaEntity::class,
     ],
-    version = 25,
+    version = 26,
     exportSchema = false,
 )
 internal abstract class EtaDatabase : RoomDatabase() {
@@ -68,6 +68,7 @@ internal abstract class EtaDatabase : RoomDatabase() {
                         MIGRATION_22_23,
                         MIGRATION_23_24,
                         MIGRATION_24_25,
+                        MIGRATION_25_26,
                     )
                     .addCallback(object : Callback() {
                         override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) { createTextChunkCleanup(db) }
@@ -132,6 +133,10 @@ internal abstract class EtaDatabase : RoomDatabase() {
             ensureBalanceColumns(database)
             ensureColumn(database, "model_providers", "auth_mode", "TEXT NOT NULL DEFAULT 'api_key'")
             ensureTimingColumns(database)
+        }
+
+        internal val MIGRATION_25_26 = Migration(25, 26) { database ->
+            ensureColumn(database, "conversation_messages", "model_api_id", "TEXT")
         }
 
         private fun ensureBalanceColumns(database: androidx.sqlite.db.SupportSQLiteDatabase) {

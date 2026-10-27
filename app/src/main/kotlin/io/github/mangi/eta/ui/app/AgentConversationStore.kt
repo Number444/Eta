@@ -421,6 +421,7 @@ internal object AgentConversationStore {
                         cachedTokens = usage?.cachedTokens,
                         runDurationMs = runDurationMs,
                         runFinishedAtMillis = runFinishedAtMillis,
+                        modelApiId = modelApiId,
                     )
                 }
             }
@@ -493,6 +494,7 @@ internal object AgentConversationStore {
                 ).takeUnless { it.isEmpty },
                 runDurationMs = runDurationMs,
                 runFinishedAtMillis = runFinishedAtMillis,
+                modelApiId = modelApiId,
             )
 
             TYPE_SYSTEM_NOTICE -> SystemNoticeCode.fromWireValue(content)?.let { code ->

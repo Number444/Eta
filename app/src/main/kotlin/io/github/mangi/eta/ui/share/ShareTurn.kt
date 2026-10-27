@@ -39,6 +39,7 @@ internal sealed interface ShareTurnSegment {
 internal data class ShareTurn(
     val userPrompt: String?,
     val segments: List<ShareTurnSegment>,
+    val modelApiId: String? = null,
 )
 
 /**
@@ -51,11 +52,16 @@ internal fun buildShareTurns(messages: List<AgentChatMessageUi>): Map<String, Sh
     val segments = ArrayList<ShareTurnSegment>()
     var userPrompt: String? = null
     var lastAgentMessageId: String? = null
+    var modelApiId: String? = null
 
     fun closeTurn() {
         val id = lastAgentMessageId ?: return
         if (segments.isNotEmpty()) {
-            result[id] = ShareTurn(userPrompt = userPrompt, segments = segments.toList())
+            result[id] = ShareTurn(
+                userPrompt = userPrompt,
+                segments = segments.toList(),
+                modelApiId = modelApiId,
+            )
         }
     }
 
@@ -65,6 +71,7 @@ internal fun buildShareTurns(messages: List<AgentChatMessageUi>): Map<String, Sh
                 closeTurn()
                 segments.clear()
                 lastAgentMessageId = null
+                modelApiId = null
                 userPrompt = AgentFileReferencePromptCodec.parse(message.content).request
                     .takeIf { it.isNotBlank() }
             }
@@ -77,6 +84,7 @@ internal fun buildShareTurns(messages: List<AgentChatMessageUi>): Map<String, Sh
                     }
                 }
                 lastAgentMessageId = message.id
+                message.modelApiId?.let { modelApiId = it }
             }
             is ToolActivityMessageUi -> {
                 // 失败原因直接放在行内：剥离去重「失败」前缀与日志用的 code= 尾巴。

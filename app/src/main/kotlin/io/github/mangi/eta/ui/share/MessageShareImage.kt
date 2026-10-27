@@ -1,8 +1,10 @@
 package io.github.mangi.eta.ui.share
 
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.util.DisplayMetrics
 import android.view.View
 import android.view.ViewGroup
 import androidx.compose.foundation.background
@@ -72,8 +74,8 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 /**
  * Eta Mod：分享为长图。
  *
- * 仿照 dsh-share 插件的思路：不是截图拼接，而是把消息内容在一棵离屏视图中重新渲染成卡片
- * （用户提问块 + 按真实时序排列的正文/工具段 + 品牌页脚），再整体绘制成一张 PNG 分享出去。
+ * 仿照 dsh-share 插件：内容在一棵 1x 离屏视图中完整排版，按 2x → 1x → 0.5x
+ * 串行尝试完整 PNG，不做区域切片；所有比例都超预算或渲染失败时回退完整 Markdown。
  *
  * 出图确定性来自「先组装、预解析，后渲染」：全部 Markdown 段在卡片进入组合前用上游自建
  * 解析器（与聊天页同一套）解析成终态文档，渲染时内容一次性完整排版，不存在占位、
@@ -81,9 +83,11 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  */
 internal object MessageShareImage {
 
-    /** 超长内容兜底：位图高度与总像素双重上限，超出部分裁断。 */
-    private const val MAX_BITMAP_HEIGHT_PX = 12_000
-    private const val MAX_BITMAP_PIXELS = 18_000_000L
+    private const val MAX_IMAGE_SIDE = 32_767
+    private const val MAX_IMAGE_AREA = 33_554_432L
+    private val IMAGE_PIXEL_RATIOS = floatArrayOf(2f, 1f, 0.5f)
+
+    internal data class BitmapGeometry(val width: Int, val height: Int, val scale: Float)
 
     /**
      * 渲染并弹出系统分享面板。必须在主线程调用。
@@ -103,13 +107,20 @@ internal object MessageShareImage {
         if (turns.isEmpty()) return
         val context = anchor.context
         val decorView = anchor.rootView as? ViewGroup ?: return
-        val density = context.resources.displayMetrics.density
-        val widthPx = (format.widthDp.value * density + 0.5f).toInt().coerceAtLeast(1)
+        val renderContext = context.createConfigurationContext(
+            Configuration(context.resources.configuration).apply {
+                densityDpi = DisplayMetrics.DENSITY_DEFAULT
+            },
+        )
+        val widthPx = format.widthDp.value.toInt().coerceAtLeast(1)
+        val shareDir = File(context.cacheDir, "share").apply { mkdirs() }
+        val shareTimestamp = System.currentTimeMillis()
+        var nextFileIndex = 0
 
-        // 解析在组合内后台进行（行内样式依赖主题色，只能在组合里取）；
-        // 文档未就绪前卡片不渲染，ready 翻真后再等两帧让排版彻底落地。
+        // 与 dsh-share 一致：布局使用 1x 基准，导出时再按像素比放大。
         var contentReady by mutableStateOf(false)
-        val composeView = ComposeView(context).apply {
+        var renderedTurns by mutableStateOf(listOf(turns.first()))
+        val composeView = ComposeView(renderContext).apply {
             visibility = View.INVISIBLE
             setContent {
                 AgentAppTheme(appearance = appearance, applyInterfaceScale = false) {
@@ -122,15 +133,13 @@ internal object MessageShareImage {
                         value = withContext(Dispatchers.Default) { parseAllSegments(turns, style.inline) }
                     }.value
                     if (documents != null) {
-                        // 静态导出模式隐藏复制按钮等交互件；软件画布不支持 RuntimeShader，
-                        // 强制 squircle 回退为普通圆角，否则表格/代码块绘制即抛
-                        // IllegalArgumentException: Software rendering doesn't support RuntimeShader。
+                        // 软件画布不支持 RuntimeShader，静态导出统一回退普通圆角。
                         CompositionLocalProvider(
                             LocalMarkdownStaticExport provides true,
                             LocalSquircleEnabled provides false,
                         ) {
                             ShareTurnsCard(
-                                turns = turns,
+                                turns = renderedTurns,
                                 documents = documents,
                                 style = style,
                                 brand = brand,
@@ -148,34 +157,119 @@ internal object MessageShareImage {
         try {
             composeView.awaitLayout()
             snapshotFlow { contentReady }.first { it }
-            // 内容在首次排版前即完整，两帧只用于让组合/排版彻底落地。
-            withFrameNanos { }
-            withFrameNanos { }
 
-            val widthSpec = View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY)
-            val heightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-            composeView.measure(widthSpec, heightSpec)
-            val measuredHeight = composeView.measuredHeight
-            if (measuredHeight <= 0) return
-            // 在 view 自身坐标系原点排版：直接 draw(canvas) 时内容落在位图左上角。
-            composeView.layout(0, 0, widthPx, measuredHeight)
-            val bitmap = Bitmap.createBitmap(
-                widthPx,
-                cappedBitmapHeight(measuredHeight, widthPx),
-                Bitmap.Config.ARGB_8888,
-            )
-            composeView.draw(Canvas(bitmap))
-            withContext(Dispatchers.IO) { shareBitmap(context, bitmap, brand) }
+            suspend fun measurePage(page: List<ShareTurn>): Int {
+                if (renderedTurns != page) {
+                    contentReady = false
+                    renderedTurns = page
+                    snapshotFlow { contentReady }.first { it }
+                }
+                withFrameNanos { }
+                withFrameNanos { }
+                val widthSpec = View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY)
+                val heightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+                composeView.measure(widthSpec, heightSpec)
+                val measuredHeight = composeView.measuredHeight
+                if (measuredHeight > 0) composeView.layout(0, 0, widthPx, measuredHeight)
+                return measuredHeight
+            }
+
+            suspend fun renderTurn(turn: ShareTurn): File? {
+                val measuredHeight = try {
+                    measurePage(listOf(turn))
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    throw cancelled
+                } catch (_: Throwable) {
+                    return null
+                }
+                if (measuredHeight <= 0) return null
+                for (pixelRatio in IMAGE_PIXEL_RATIOS) {
+                    val geometry = bitmapGeometry(widthPx, measuredHeight, pixelRatio) ?: continue
+                    val bitmap = try {
+                        Bitmap.createBitmap(geometry.width, geometry.height, Bitmap.Config.ARGB_8888)
+                    } catch (_: Throwable) {
+                        null
+                    } ?: continue
+                    try {
+                        val canvas = Canvas(bitmap)
+                        canvas.scale(geometry.scale, geometry.scale)
+                        composeView.draw(canvas)
+                        val file = withContext(Dispatchers.IO) {
+                            File(shareDir, "eta-share-$shareTimestamp-${nextFileIndex + 1}.png").also { output ->
+                                FileOutputStream(output).use { out ->
+                                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                                }
+                            }
+                        }
+                        if (file.length() > 0) {
+                            nextFileIndex++
+                            return file
+                        }
+                    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                        throw cancelled
+                    } catch (_: Throwable) {
+                    } finally {
+                        bitmap.recycle()
+                    }
+                }
+                return null
+            }
+
+            val files = mutableListOf<File>()
+            var fallbackToMarkdown = false
+            for (turn in turns) {
+                val file = renderTurn(turn)
+                if (file == null) {
+                    fallbackToMarkdown = true
+                    break
+                }
+                files += file
+            }
+            withContext(Dispatchers.IO) {
+                if (fallbackToMarkdown) {
+                    val file = File(shareDir, "eta-share-$shareTimestamp.md")
+                    file.writeText(markdownFor(turns, brand))
+                    shareMarkdown(context, file, brand)
+                } else {
+                    shareImages(context, files, brand)
+                }
+            }
         } finally {
             decorView.removeView(composeView)
         }
     }
 
-    internal fun cappedBitmapHeight(measuredHeight: Int, widthPx: Int): Int {
-        require(measuredHeight >= 0)
+    internal fun bitmapGeometry(widthPx: Int, heightPx: Int, pixelRatio: Float): BitmapGeometry? {
         require(widthPx > 0)
-        val pixelLimitedHeight = (MAX_BITMAP_PIXELS / widthPx).coerceAtLeast(1L).toInt()
-        return measuredHeight.coerceAtMost(minOf(MAX_BITMAP_HEIGHT_PX, pixelLimitedHeight))
+        require(heightPx > 0)
+        require(pixelRatio > 0)
+        val width = (widthPx * pixelRatio).toInt()
+        val height = (heightPx * pixelRatio).toInt()
+        if (width < 1 || height < 1 || width > MAX_IMAGE_SIDE || height > MAX_IMAGE_SIDE) return null
+        if (width.toLong() * height.toLong() > MAX_IMAGE_AREA) return null
+        return BitmapGeometry(width, height, pixelRatio)
+    }
+
+    internal fun markdownFor(turns: List<ShareTurn>, brand: String): String = buildString {
+        turns.forEachIndexed { turnIndex, turn ->
+            if (turnIndex > 0) append("\n\n---\n\n")
+            if (!turn.userPrompt.isNullOrBlank()) {
+                append("## 用户\n\n").append(turn.userPrompt).append("\n\n")
+            }
+            turn.segments.forEach { segment ->
+                when (segment) {
+                    is ShareTurnSegment.Markdown -> append(segment.text).append("\n\n")
+                    is ShareTurnSegment.PlainText -> append(segment.text).append("\n\n")
+                    is ShareTurnSegment.ToolCall -> {
+                        append("- **").append(segment.toolName).append("**")
+                        if (segment.summary.isNotBlank()) append("：").append(segment.summary)
+                        append('\n')
+                        segment.failureLine?.let { append("  - 失败：").append(it).append('\n') }
+                    }
+                }
+            }
+            append("\n---\n\n").append(shareFooterBrand(listOf(turn), brand)).append('\n')
+        }
     }
 
     /** 与聊天页同一套解析器，终态整体解析，在调用线程同步完成；失败的段退化为纯文本渲染。 */
@@ -198,13 +292,26 @@ internal object MessageShareImage {
         return result
     }
 
-    private fun shareBitmap(context: android.content.Context, bitmap: Bitmap, brand: String) {
-        val dir = File(context.cacheDir, "share").apply { mkdirs() }
-        val file = File(dir, "eta-share-${System.currentTimeMillis()}.png")
-        FileOutputStream(file).use { out -> bitmap.compress(Bitmap.CompressFormat.PNG, 100, out) }
+    private fun shareImages(context: android.content.Context, files: List<File>, brand: String) {
+        val uris = files.mapTo(ArrayList()) { file ->
+            FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        }
+        val intent = Intent(if (uris.size == 1) Intent.ACTION_SEND else Intent.ACTION_SEND_MULTIPLE).apply {
+            type = "image/png"
+            if (uris.size == 1) {
+                putExtra(Intent.EXTRA_STREAM, uris.single())
+            } else {
+                putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+            }
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(intent, brand))
+    }
+
+    private fun shareMarkdown(context: android.content.Context, file: File, brand: String) {
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
         val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "image/png"
+            type = "text/markdown"
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
@@ -232,7 +339,7 @@ internal object MessageShareImage {
 
 /**
  * 长图卡片：与聊天界面同主题。结构仿 dsh-share——无独立头部，
- * 轮与轮之间以间距分隔，页脚为分隔线 + 居中品牌字标。
+ * 轮与轮之间以间距分隔，页脚为分隔线 + 居中模型 ID（历史消息缺失时回退品牌）。
  * internal 供 Robolectric 渲染测试直接组合。
  */
 @Composable
@@ -333,12 +440,21 @@ internal fun ShareTurnsCard(
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = brand,
+                text = shareFooterBrand(turns, brand),
                 style = MiuixTheme.textStyles.body2,
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
+}
+
+internal fun shareFooterBrand(turns: List<ShareTurn>, fallback: String): String {
+    val modelApiId = turns.lastOrNull()?.modelApiId?.trim()
+    return modelApiId
+        ?.takeIf { it.isNotEmpty() && it.none(Char::isISOControl) }
+        ?: fallback
 }
 
 /** 时间线中该节点的位置：决定竖线从哪画到哪，保证跨行无缝衔接。 */

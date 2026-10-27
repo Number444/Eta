@@ -72,6 +72,8 @@ data class AgentMessageUi(
     val runDurationMs: Long? = null,
     /** Eta Mod：本轮 run 的完成时刻（墙钟毫秒）；与 [runDurationMs] 成对出现。 */
     val runFinishedAtMillis: Long? = null,
+    /** Eta Mod：本轮实际请求的 API 模型 ID，供分享成图标记历史轮次。 */
+    val modelApiId: String? = null,
 ) : AgentChatMessageUi
 
 enum class SystemNoticeCode(val wireValue: String) {

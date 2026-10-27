@@ -134,4 +134,6 @@ internal data class ConversationMessageEntity(
     @ColumnInfo(name = "run_duration_ms") val runDurationMs: Long? = null,
     /** Eta Mod：本轮 run 完成时刻（墙钟毫秒）；仅 assistant 终态消息使用。 */
     @ColumnInfo(name = "run_finished_at") val runFinishedAtMillis: Long? = null,
+    /** Eta Mod：本轮实际请求的 API 模型 ID；仅 assistant 终态消息使用。 */
+    @ColumnInfo(name = "model_api_id") val modelApiId: String? = null,
 )

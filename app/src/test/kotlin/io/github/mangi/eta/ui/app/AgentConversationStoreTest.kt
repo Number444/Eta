@@ -519,6 +519,7 @@ class AgentConversationStoreTest {
             isStreaming = false,
             runDurationMs = 86_400L,
             runFinishedAtMillis = 1_760_000_000_000L,
+            modelApiId = "kimi-k2.5",
         )
         runBlocking {
             AgentConversationStore.save(
@@ -549,6 +550,7 @@ class AgentConversationStoreTest {
 
         assertEquals(86_400L, restored.runDurationMs)
         assertEquals(1_760_000_000_000L, restored.runFinishedAtMillis)
+        assertEquals("kimi-k2.5", restored.modelApiId)
     }
 
     @Test

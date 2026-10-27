@@ -1559,6 +1559,7 @@ internal class AgentAppState(
         runStartedAtElapsed[runId] = SystemClock.elapsedRealtime()
         // 发送即绑定：会话记住本轮实际使用的模型，回落到默认模型时也随之更新。
         val runModelId = state.effectiveModelId
+        providers.enabledModel(runModelId)?.model?.modelId?.let { runModelApiIds[runId] = it }
 
         updateConversation(
             conversationId,
@@ -1943,6 +1944,7 @@ internal class AgentAppState(
 
     /** Eta Mod：本进程发起的 run 的单调钟起点（elapsedRealtime），终态折算「用时+完成时刻」打到消息上。 */
     private val runStartedAtElapsed = mutableMapOf<String, Long>()
+    private val runModelApiIds = mutableMapOf<String, String>()
 
     fun stopCurrentRun() {
         val runId = currentRunId ?: return
@@ -2084,7 +2086,10 @@ internal class AgentAppState(
         val explicitlyStoppedByUser = userStoppedRunIds.remove(runId)
         val rewriting = result.operation == AgentRuntimeWire.OP_REWRITE_REPLY || isReplyRewrite(runId)
         stopRequestedRunIds.remove(runId)
-        if (rewriting) runStartedAtElapsed.remove(runId)
+        if (rewriting) {
+            runStartedAtElapsed.remove(runId)
+            runModelApiIds.remove(runId)
+        }
         if (runId == currentRunId) {
             currentRunId = null
             currentRunJob = null
@@ -2179,11 +2184,12 @@ internal class AgentAppState(
     }
 
     /**
-     * Eta Mod：run 终态把「用时 + 完成时刻」打到本轮最后一条 assistant 消息上。
+     * Eta Mod：run 终态把「用时 + 完成时刻 + API 模型 ID」打到本轮最后一条 assistant 消息上。
      * 只有本进程 launchConversationRun 发起的 run 有单调钟起点；恢复/归档/重放的 run
      * 无起点自然跳过，压缩 run 找不到目标消息也自然跳过。不推进会话时间戳。
      */
     private fun stampRunTiming(runId: String) {
+        val modelApiId = runModelApiIds.remove(runId)
         val startedAt = runStartedAtElapsed.remove(runId) ?: return
         val durationMs = (SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(0)
         val finishedAtMillis = System.currentTimeMillis()
@@ -2197,6 +2203,7 @@ internal class AgentAppState(
                         (message as AgentMessageUi).copy(
                             runDurationMs = durationMs,
                             runFinishedAtMillis = finishedAtMillis,
+                            modelApiId = modelApiId,
                         )
                     } else {
                         message

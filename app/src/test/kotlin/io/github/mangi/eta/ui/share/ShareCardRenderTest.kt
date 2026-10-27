@@ -22,7 +22,9 @@ import io.github.mangi.eta.ui.markdown.LocalMarkdownStaticExport
 import io.github.mangi.eta.ui.markdown.MarkdownInlineStyle
 import io.github.mangi.eta.ui.markdown.MarkdownTone
 import io.github.mangi.eta.ui.markdown.rememberMarkdownStyle
+import io.github.mangi.eta.ui.model.AgentMessageUi
 import io.github.mangi.eta.ui.model.ToolActivityStatusUi
+import io.github.mangi.eta.ui.model.UserMessageUi
 import java.io.File
 import java.io.FileOutputStream
 import org.junit.Assert.assertEquals
@@ -145,11 +147,60 @@ class ShareCardRenderTest {
     }
 
     @Test
-    fun bitmapHeightHonorsHeightAndPixelBudgets() {
-        assertEquals(2_000, MessageShareImage.cappedBitmapHeight(2_000, 2_520))
-        assertEquals(12_000, MessageShareImage.cappedBitmapHeight(20_000, 1_260))
-        assertEquals(7_142, MessageShareImage.cappedBitmapHeight(20_000, 2_520))
-        assertTrue(2_520L * 7_142 <= 18_000_000L)
+    fun shareTurnKeepsRunModelSnapshotAndSanitizesFooter() {
+        val messages = listOf(
+            UserMessageUi(id = "user-1", content = "你好"),
+            AgentMessageUi(id = "assistant-1", content = "第一段", modelApiId = "kimi-k2.5"),
+            AgentMessageUi(id = "assistant-2", content = "最终回答", modelApiId = "kimi-k2.5"),
+            UserMessageUi(id = "user-2", content = "下一轮"),
+            AgentMessageUi(id = "assistant-3", content = "旧消息"),
+        )
+        val turns = buildShareTurns(messages)
+
+        assertEquals("kimi-k2.5", turns.getValue("assistant-2").modelApiId)
+        assertEquals("kimi-k2.5", shareFooterBrand(listOf(turns.getValue("assistant-2")), "Eta Mod"))
+        assertEquals(null, turns.getValue("assistant-3").modelApiId)
+        assertEquals("Eta Mod", shareFooterBrand(listOf(turns.getValue("assistant-3")), "Eta Mod"))
+        assertEquals(
+            "Eta Mod",
+            shareFooterBrand(
+                listOf(turns.getValue("assistant-2").copy(modelApiId = "bad\nmodel")),
+                "Eta Mod",
+            ),
+        )
+    }
+
+    @Test
+    fun bitmapGeometryUsesDshPixelRatioAndBudget() {
+        val geometry = MessageShareImage.bitmapGeometry(420, 7_784, 2f)
+        assertEquals(840, geometry?.width)
+        assertEquals(15_568, geometry?.height)
+        assertEquals(2f, geometry?.scale)
+        assertTrue(840L * 15_568L <= 33_554_432L)
+        assertEquals(null, MessageShareImage.bitmapGeometry(1_000, 70_000, 0.5f))
+        assertEquals(null, MessageShareImage.bitmapGeometry(20_000, 20_000, 1f))
+    }
+
+    @Test
+    fun markdownFallbackKeepsPromptSegmentsToolsAndModel() {
+        val turn = ShareTurn(
+            userPrompt = "问题",
+            segments = listOf(
+                ShareTurnSegment.Markdown("**正文**"),
+                ShareTurnSegment.ToolCall("run_command", "检查状态", ToolActivityStatusUi.Failed, "权限不足"),
+                ShareTurnSegment.PlainText("结尾"),
+            ),
+            modelApiId = "kimi-k2.5",
+        )
+
+        val markdown = MessageShareImage.markdownFor(listOf(turn), "Eta Mod")
+
+        assertTrue("## 用户" in markdown)
+        assertTrue("**正文**" in markdown)
+        assertTrue("run_command" in markdown)
+        assertTrue("权限不足" in markdown)
+        assertTrue("结尾" in markdown)
+        assertTrue(markdown.trimEnd().endsWith("kimi-k2.5"))
     }
 
     @Test
