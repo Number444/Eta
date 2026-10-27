@@ -536,6 +536,7 @@
   <string name="share_image_format_phone">手机</string>
   <string name="share_image_format_tablet">平板</string>
   <string name="share_image_format_desktop">电脑</string>
+  <string name="external_share_unsupported">部分文件格式不支持，已跳过</string>
   <string name="onboarding_title">设置ETA</string>
   <string name="onboarding_replay_entry">重新引导</string>
   <string name="onboarding_replay_entry_summary">重新配置服务商、模型与权限，各步骤确认后生效</string>

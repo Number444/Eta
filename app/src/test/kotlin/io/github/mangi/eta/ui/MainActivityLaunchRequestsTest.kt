@@ -96,6 +96,42 @@ class MainActivityLaunchRequestsTest {
         )
     }
 
+    @Test
+    fun `文件分享和打开方式进入同一个待导入队列`() {
+        val image = android.net.Uri.parse("content://media/image/1")
+        val document = android.net.Uri.parse("content://documents/file/2")
+        val shared = MainActivityLaunchRequests().accept(
+            Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, image),
+        )
+        assertEquals(listOf(image.toString()), shared.sharedUris)
+
+        val multiple = shared.accept(
+            Intent(Intent.ACTION_SEND_MULTIPLE).putParcelableArrayListExtra(
+                Intent.EXTRA_STREAM,
+                arrayListOf(image, document),
+            ),
+        )
+        assertEquals(listOf(image.toString(), document.toString()), multiple.sharedUris)
+
+        val opened = multiple.accept(Intent(Intent.ACTION_VIEW).setData(document))
+        assertEquals(listOf(document.toString()), opened.sharedUris)
+    }
+
+    @Test
+    fun `分享请求恢复后保留且消费后不重放`() {
+        val uri = android.net.Uri.parse("content://documents/file/2")
+        val original = Intent(Intent.ACTION_VIEW).setData(uri)
+        val pending = MainActivityLaunchRequests(sharedUris = listOf(uri.toString()))
+        assertEquals(pending, MainActivityLaunchRequests.restore(savedState(pending), original))
+
+        val consumed = pending.copy(sharedUris = emptyList())
+        assertEquals(
+            MainActivityLaunchRequests(),
+            MainActivityLaunchRequests.restore(savedState(consumed), original),
+        )
+        assertEquals(pending, pending.accept(Intent(Intent.ACTION_VIEW).setData(android.net.Uri.parse("file:///tmp/invalid"))))
+    }
+
     private fun savedState(requests: MainActivityLaunchRequests): Bundle {
         val state = Bundle().also(requests::saveTo)
         val parcel = Parcel.obtain()

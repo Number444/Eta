@@ -552,6 +552,7 @@
   <string name="share_image_format_phone">Phone</string>
   <string name="share_image_format_tablet">Tablet</string>
   <string name="share_image_format_desktop">Computer</string>
+  <string name="external_share_unsupported">Some files are not supported and were skipped</string>
   <string name="onboarding_title">Set up ETA</string>
   <string name="onboarding_replay_entry">Run setup again</string>
   <string name="onboarding_replay_entry_summary">Reconfigure your provider, model, and permissions; changes apply as you confirm each step</string>

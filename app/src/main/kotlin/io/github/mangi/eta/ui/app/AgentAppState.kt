@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.SystemClock
+import android.provider.OpenableColumns
 import android.text.format.DateFormat
 import android.widget.Toast
 import androidx.compose.runtime.getValue
@@ -49,6 +50,8 @@ import io.github.mangi.eta.data.repository.EtaBackupRepository
 import io.github.mangi.eta.data.repository.EtaBackupSummary
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
+import io.github.mangi.eta.ui.ExternalShareImportKind
+import io.github.mangi.eta.ui.ExternalShareImportPolicy
 import io.github.mangi.eta.ui.model.AgentChatHomeUiState
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
 import io.github.mangi.eta.ui.model.AgentMessageUi
@@ -1783,6 +1786,43 @@ internal class AgentAppState(
             appContext.getString(R.string.state_ui_the_earlier_context_has_been_compressed_and_will_cf6c86),
             Toast.LENGTH_LONG,
         ).show()
+    }
+
+    fun attachSharedFiles(uris: List<String>) {
+        if (uris.isEmpty()) return
+        scope.launch(Dispatchers.IO) {
+            val imageUris = mutableListOf<String>()
+            val fileUris = mutableListOf<String>()
+            var rejected = false
+            uris.distinct().forEach { value ->
+                val uri = Uri.parse(value)
+                val mime = runCatching { appContext.contentResolver.getType(uri) }.getOrNull()
+                val displayName = if (mime.isNullOrBlank() || mime == "application/octet-stream") {
+                    runCatching {
+                        appContext.contentResolver.query(
+                            uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null,
+                        )?.use { cursor ->
+                            val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                            if (index >= 0 && cursor.moveToFirst()) cursor.getString(index) else null
+                        }
+                    }.getOrNull()
+                } else {
+                    null
+                }
+                when (ExternalShareImportPolicy.kindFor(mime, displayName)) {
+                    ExternalShareImportKind.Image -> imageUris += value
+                    ExternalShareImportKind.File -> fileUris += value
+                    null -> rejected = true
+                }
+            }
+            withContext(Dispatchers.Main) {
+                imageUris.forEach(::attachImage)
+                if (fileUris.isNotEmpty()) attachFiles(fileUris)
+                if (rejected) {
+                    Toast.makeText(appContext, R.string.external_share_unsupported, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
 
     fun attachImage(uri: String) {

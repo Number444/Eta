@@ -524,6 +524,7 @@
   <string name="share_image_format_phone">手機</string>
   <string name="share_image_format_tablet">平板</string>
   <string name="share_image_format_desktop">電腦</string>
+  <string name="external_share_unsupported">部分檔案格式不支援，已略過</string>
   <string name="onboarding_title">設定ETA</string>
   <string name="onboarding_replay_entry">重新引導</string>
   <string name="onboarding_replay_entry_summary">重新配置服務商、模型與權限，各步驟確認後生效</string>

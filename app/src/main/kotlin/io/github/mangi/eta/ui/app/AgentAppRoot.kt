@@ -131,6 +131,8 @@ fun AgentAppRoot(
     onTerminalOpened: () -> Unit = {},
     onSpeechSettingsOpened: () -> Unit = {},
     onAssistantConversationOpened: (Boolean) -> Unit = {},
+    sharedUris: List<String> = emptyList(),
+    onSharedUrisConsumed: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val resources = LocalResources.current
@@ -263,6 +265,14 @@ fun AgentAppRoot(
             navigator.popToHome()
         }
         onAssistantConversationOpened(opened)
+    }
+
+    LaunchedEffect(sharedUris, onboardingActive) {
+        if (onboardingActive || sharedUris.isEmpty()) return@LaunchedEffect
+        conversationPaneOpen = false
+        navigator.popToHome()
+        agentState.attachSharedFiles(sharedUris)
+        onSharedUrisConsumed()
     }
 
     fun pushRoute(
