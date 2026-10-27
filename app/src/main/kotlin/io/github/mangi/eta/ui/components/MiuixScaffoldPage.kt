@@ -119,6 +119,7 @@ fun MiuixScaffold(
     modifier: Modifier = Modifier,
     showNavigationIcon: Boolean = true,
     compactTitle: Boolean = false,
+    captureGlassContent: Boolean = true,
     topBarContent: (@Composable (ScrollBehavior) -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable (
@@ -167,7 +168,9 @@ fun MiuixScaffold(
                 modifier = Modifier
                     .fillMaxSize()
                     .captureForTopBar(backdrop)
-                    .liquidGlassSource(glassBackdrop),
+                    .then(
+                        if (captureGlassContent) Modifier.liquidGlassSource(glassBackdrop) else Modifier,
+                    ),
             ) {
                 WidePageContent { sidePadding ->
                     content(paddingValues, scrollBehavior, sidePadding)

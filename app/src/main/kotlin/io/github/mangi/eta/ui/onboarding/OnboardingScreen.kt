@@ -11,6 +11,9 @@ import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,10 +23,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -46,10 +51,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -74,14 +81,18 @@ import io.github.mangi.eta.data.repository.RemoteModelCatalog
 import io.github.mangi.eta.data.repository.RemoteModelFetcher
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import io.github.mangi.eta.ui.components.EtaArrowPreference
+import io.github.mangi.eta.ui.components.EtaControlDefaults
 import io.github.mangi.eta.ui.components.EtaGlassStyles
 import io.github.mangi.eta.ui.components.EtaPreferenceDivider
 import io.github.mangi.eta.ui.components.EtaPreferenceGroup
 import io.github.mangi.eta.ui.components.EtaPreferenceGroupTitle
 import io.github.mangi.eta.ui.components.EtaPreferenceIcon
 import io.github.mangi.eta.ui.components.EtaTextButton
+import io.github.mangi.eta.ui.components.LocalLiquidGlassBackdrop
 import io.github.mangi.eta.ui.components.MiuixScaffold
+import io.github.mangi.eta.ui.components.etaGlass
 import io.github.mangi.eta.ui.components.etaPseudoGlass
+import io.github.mangi.eta.ui.components.liquidGlassSource
 import io.github.mangi.eta.ui.openAccessibilitySettings
 import io.github.mangi.eta.ui.openNotificationSettings
 import io.github.mangi.eta.ui.openOverlaySettings
@@ -102,7 +113,6 @@ import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.ProgressIndicatorDefaults
-import top.yukonga.miuix.kmp.basic.ScrollBehavior
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
@@ -292,6 +302,7 @@ internal fun OnboardingScreen(
             }
         },
         showNavigationIcon = false,
+        captureGlassContent = false,
         topBarContent = {
             if (testMode) {
                 Text(
@@ -305,77 +316,81 @@ internal fun OnboardingScreen(
                 )
             }
         },
-    ) { paddingValues, scrollBehavior, sidePadding ->
-        Column(
+    ) { paddingValues, _, sidePadding ->
+        val glassBackdrop = LocalLiquidGlassBackdrop.current
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .imePadding()
                 .padding(top = paddingValues.calculateTopPadding()),
         ) {
-            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                when (step) {
-                    OnboardingStep.Provider -> OnboardingProviderPage(
-                        providers = providers,
-                        selected = source,
-                        step = step,
-                        scrollBehavior = scrollBehavior,
-                        sidePadding = sidePadding,
-                        onSelect = ::selectProvider,
-                        onCustom = { type ->
-                            val custom = when (type) {
-                                OnboardingCustomType.OpenAi -> CustomProviderSetting(
-                                    id = newProviderId,
-                                    name = "",
-                                    baseUrl = "",
-                                    endpointMode = OpenAiEndpointMode.CHAT_COMPLETIONS,
-                                )
-                                OnboardingCustomType.Anthropic -> AnthropicProviderSetting(
-                                    id = newProviderId,
-                                    name = "",
-                                    baseUrl = "https://api.anthropic.com",
-                                )
-                            }
-                            selectProvider(custom, new = true)
-                        },
-                    )
-                    OnboardingStep.Connection -> if (source != null) {
-                        OnboardingConnectionPage(
-                            provider = source!!,
-                            draft = draft,
-                            onDraftChange = { draft = it },
-                            testMode = testMode,
-                            step = step,
-                            scrollBehavior = scrollBehavior,
+            Box(modifier = Modifier.fillMaxSize().liquidGlassSource(glassBackdrop)) {
+                Crossfade(
+                    targetState = step,
+                    animationSpec = tween(180),
+                    modifier = Modifier.fillMaxSize(),
+                ) { currentStep ->
+                    when (currentStep) {
+                        OnboardingStep.Provider -> OnboardingProviderPage(
+                            providers = providers,
+                            selected = source,
+                            step = currentStep,
                             sidePadding = sidePadding,
+                            onSelect = ::selectProvider,
+                            onCustom = { type ->
+                                val custom = when (type) {
+                                    OnboardingCustomType.OpenAi -> CustomProviderSetting(
+                                        id = newProviderId,
+                                        name = "",
+                                        baseUrl = "",
+                                        endpointMode = OpenAiEndpointMode.CHAT_COMPLETIONS,
+                                    )
+                                    OnboardingCustomType.Anthropic -> AnthropicProviderSetting(
+                                        id = newProviderId,
+                                        name = "",
+                                        baseUrl = "https://api.anthropic.com",
+                                    )
+                                }
+                                selectProvider(custom, new = true)
+                            },
+                        )
+                        OnboardingStep.Connection -> if (source != null) {
+                            OnboardingConnectionPage(
+                                provider = source!!,
+                                draft = draft,
+                                onDraftChange = { draft = it },
+                                testMode = testMode,
+                                step = currentStep,
+                                sidePadding = sidePadding,
+                                errorMessage = errorMessage,
+                                onTestEvent = ::notifyTest,
+                                onLoginValidationError = { errorMessage = it },
+                                onLoginStateChange = { loginCompleted = it.account != null },
+                            )
+                        }
+                        OnboardingStep.Model -> OnboardingModelPage(
+                            models = models,
+                            loading = modelsLoading,
                             errorMessage = errorMessage,
-                            onTestEvent = ::notifyTest,
-                            onLoginValidationError = { errorMessage = it },
-                            onLoginStateChange = { loginCompleted = it.account != null },
+                            step = currentStep,
+                            sidePadding = sidePadding,
+                            onRetry = { modelLoadCount++ },
+                            onSelect = ::selectModel,
+                        )
+                        OnboardingStep.Permissions -> OnboardingPermissionsPage(
+                            overlayGranted = permissionState.overlayGranted,
+                            accessibilityGranted = permissionState.accessibilityGranted,
+                            notificationsGranted = permissionState.notificationsGranted,
+                            step = currentStep,
+                            sidePadding = sidePadding,
+                            onAction = ::permissionAction,
                         )
                     }
-                    OnboardingStep.Model -> OnboardingModelPage(
-                        models = models,
-                        loading = modelsLoading,
-                        errorMessage = errorMessage,
-                        step = step,
-                        scrollBehavior = scrollBehavior,
-                        sidePadding = sidePadding,
-                        onRetry = { modelLoadCount++ },
-                        onSelect = ::selectModel,
-                    )
-                    OnboardingStep.Permissions -> OnboardingPermissionsPage(
-                        overlayGranted = permissionState.overlayGranted,
-                        accessibilityGranted = permissionState.accessibilityGranted,
-                        notificationsGranted = permissionState.notificationsGranted,
-                        step = step,
-                        scrollBehavior = scrollBehavior,
-                        sidePadding = sidePadding,
-                        onAction = ::permissionAction,
-                    )
                 }
             }
             Column(
                 modifier = Modifier
+                    .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .navigationBarsPadding()
                     .padding(horizontal = sidePadding + 32.dp)
@@ -388,7 +403,7 @@ internal fun OnboardingScreen(
                         OnboardingStep.Permissions -> !finishing
                         OnboardingStep.Model -> false
                     }
-                    EtaTextButton(
+                    OnboardingFloatingButton(
                         text = stringResource(
                             if (step == OnboardingStep.Permissions) R.string.onboarding_finish else R.string.onboarding_next,
                         ),
@@ -401,13 +416,13 @@ internal fun OnboardingScreen(
                             }
                         },
                         enabled = primaryActionEnabled,
-                        modifier = Modifier.fillMaxWidth().onboardingPrimaryGlass(primaryActionEnabled),
-                        colors = ButtonDefaults.textButtonColorsPrimary(),
+                        primary = true,
+                        modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                 }
                 Row(modifier = Modifier.fillMaxWidth()) {
-                    EtaTextButton(
+                    OnboardingFloatingButton(
                         text = stringResource(R.string.action_back),
                         onClick = {
                             step = when (step) {
@@ -418,14 +433,14 @@ internal fun OnboardingScreen(
                             }
                         },
                         enabled = step != OnboardingStep.Provider && !finishing,
-                        modifier = Modifier.weight(1f).onboardingSecondaryGlass(),
+                        modifier = Modifier.weight(1f),
                     )
                     Spacer(modifier = Modifier.width(12.dp))
-                    EtaTextButton(
+                    OnboardingFloatingButton(
                         text = stringResource(R.string.onboarding_skip),
                         onClick = { finish(skip = true) },
                         enabled = !finishing,
-                        modifier = Modifier.weight(1f).onboardingSecondaryGlass(),
+                        modifier = Modifier.weight(1f),
                     )
                 }
             }
@@ -454,17 +469,69 @@ internal suspend fun saveOnboardingModel(
 private enum class OnboardingCustomType { OpenAi, Anthropic }
 
 @Composable
-private fun Modifier.onboardingSecondaryGlass(): Modifier = etaPseudoGlass(
-    EtaGlassStyles.InputBar.copy(shape = CircleShape),
-)
+private fun OnboardingFloatingButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    primary: Boolean = false,
+) {
+    val backdrop = LocalLiquidGlassBackdrop.current
+    if (backdrop == null) {
+        EtaTextButton(
+            text = text,
+            onClick = onClick,
+            enabled = enabled,
+            modifier = modifier.onboardingContentGlass(primary = primary, enabled = enabled),
+            colors = if (primary) ButtonDefaults.textButtonColorsPrimary() else ButtonDefaults.textButtonColors(),
+        )
+        return
+    }
+    val style = EtaGlassStyles.InputBar.copy(shape = CircleShape)
+    Box(
+        modifier = modifier
+            .heightIn(min = EtaControlDefaults.ButtonMinHeight)
+            .etaGlass(
+                style = style,
+                backdrop = backdrop,
+                tint = if (primary && enabled) {
+                    MiuixTheme.colorScheme.primary.copy(alpha = 0.5f)
+                } else {
+                    MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.12f)
+                },
+            )
+            .clip(CircleShape)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .padding(EtaControlDefaults.ButtonPadding),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            style = MiuixTheme.textStyles.body1,
+            fontWeight = FontWeight.Medium,
+            color = when {
+                !enabled -> MiuixTheme.colorScheme.disabledOnSurface
+                primary -> MiuixTheme.colorScheme.onPrimary
+                else -> MiuixTheme.colorScheme.onSurface
+            },
+        )
+    }
+}
 
 @Composable
-private fun Modifier.onboardingPrimaryGlass(enabled: Boolean): Modifier = etaPseudoGlass(
+private fun Modifier.onboardingContentGlass(
+    primary: Boolean = false,
+    enabled: Boolean = true,
+): Modifier = etaPseudoGlass(
     style = EtaGlassStyles.InputBar.copy(shape = CircleShape),
-    pseudoBackground = if (enabled) {
-        MiuixTheme.colorScheme.primary.copy(alpha = 0.85f)
+    pseudoBackground = if (primary) {
+        if (enabled) {
+            MiuixTheme.colorScheme.primary.copy(alpha = 0.85f)
+        } else {
+            MiuixTheme.colorScheme.surface.copy(alpha = 0.45f)
+        }
     } else {
-        MiuixTheme.colorScheme.surface.copy(alpha = 0.45f)
+        null
     },
 )
 
@@ -491,6 +558,7 @@ private fun OnboardingStepHeader(step: OnboardingStep) {
                 progress = (step.ordinal + 1).toFloat() / OnboardingStep.entries.size,
                 size = 24.dp,
                 strokeWidth = 2.5.dp,
+                modifier = Modifier.offset(y = with(LocalDensity.current) { 2.toDp() }),
                 colors = ProgressIndicatorDefaults.progressIndicatorColors(
                     foregroundColor = MiuixTheme.colorScheme.primary,
                     disabledForegroundColor = MiuixTheme.colorScheme.primary,
@@ -520,15 +588,14 @@ private fun OnboardingStepHeader(step: OnboardingStep) {
 private fun OnboardingProviderPage(
     providers: List<ProviderSetting>,
     selected: ProviderSetting?,
-    scrollBehavior: ScrollBehavior,
     step: OnboardingStep,
     sidePadding: Dp,
     onSelect: (ProviderSetting, Boolean) -> Unit,
     onCustom: (OnboardingCustomType) -> Unit,
 ) {
     LazyColumn(
-        modifier = Modifier.onboardingScroll(scrollBehavior),
-        contentPadding = onboardingContentPadding(sidePadding),
+        modifier = Modifier.onboardingScroll(),
+        contentPadding = onboardingContentPadding(sidePadding, step),
         verticalArrangement = Arrangement.Center,
     ) {
         item { OnboardingStepHeader(step) }
@@ -550,7 +617,12 @@ private fun OnboardingProviderPage(
                         startAction = { ProviderIcon(provider) },
                         endActions = {
                             if (selected?.id == provider.id) {
-                                Icon(Icons.Rounded.Check, contentDescription = null)
+                                Icon(
+                                    imageVector = Icons.Rounded.Check,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp),
+                                    tint = MiuixTheme.colorScheme.primary,
+                                )
                             }
                         },
                         onClick = { onSelect(provider, false) },
@@ -583,7 +655,6 @@ private fun OnboardingConnectionPage(
     draft: ProviderConfigDraft,
     onDraftChange: (ProviderConfigDraft) -> Unit,
     testMode: Boolean,
-    scrollBehavior: ScrollBehavior,
     step: OnboardingStep,
     sidePadding: Dp,
     errorMessage: String?,
@@ -614,8 +685,8 @@ private fun OnboardingConnectionPage(
         }
     }
     LazyColumn(
-        modifier = Modifier.onboardingScroll(scrollBehavior),
-        contentPadding = onboardingContentPadding(sidePadding),
+        modifier = Modifier.onboardingScroll(),
+        contentPadding = onboardingContentPadding(sidePadding, step),
         verticalArrangement = Arrangement.Center,
     ) {
         item { OnboardingStepHeader(step) }
@@ -683,15 +754,14 @@ private fun OnboardingModelPage(
     models: List<Model>,
     loading: Boolean,
     errorMessage: String?,
-    scrollBehavior: ScrollBehavior,
     step: OnboardingStep,
     sidePadding: Dp,
     onRetry: () -> Unit,
     onSelect: (Model) -> Unit,
 ) {
     LazyColumn(
-        modifier = Modifier.onboardingScroll(scrollBehavior),
-        contentPadding = onboardingContentPadding(sidePadding),
+        modifier = Modifier.onboardingScroll(),
+        contentPadding = onboardingContentPadding(sidePadding, step),
         verticalArrangement = Arrangement.Center,
     ) {
         item { OnboardingStepHeader(step) }
@@ -743,7 +813,7 @@ private fun OnboardingModelPage(
                 EtaTextButton(
                     text = stringResource(R.string.action_retry),
                     onClick = onRetry,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp).onboardingSecondaryGlass(),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp).onboardingContentGlass(),
                 )
             }
         }
@@ -755,14 +825,13 @@ private fun OnboardingPermissionsPage(
     overlayGranted: Boolean,
     accessibilityGranted: Boolean,
     notificationsGranted: Boolean,
-    scrollBehavior: ScrollBehavior,
     step: OnboardingStep,
     sidePadding: Dp,
     onAction: (String) -> Unit,
 ) {
     LazyColumn(
-        modifier = Modifier.onboardingScroll(scrollBehavior),
-        contentPadding = onboardingContentPadding(sidePadding),
+        modifier = Modifier.onboardingScroll(),
+        contentPadding = onboardingContentPadding(sidePadding, step),
         verticalArrangement = Arrangement.Center,
     ) {
         item { OnboardingStepHeader(step) }
@@ -822,17 +891,16 @@ private fun OnboardingPermissionRow(
     )
 }
 
-private fun Modifier.onboardingScroll(scrollBehavior: ScrollBehavior): Modifier =
+private fun Modifier.onboardingScroll(): Modifier =
     fillMaxSize()
-        .nestedScroll(scrollBehavior.nestedScrollConnection)
         .scrollEndHaptic()
         .overScrollVertical()
 
-private fun onboardingContentPadding(sidePadding: Dp) = PaddingValues(
+private fun onboardingContentPadding(sidePadding: Dp, step: OnboardingStep) = PaddingValues(
     start = sidePadding,
     top = 12.dp,
     end = sidePadding,
-    bottom = 12.dp,
+    bottom = if (step == OnboardingStep.Model) 100.dp else 156.dp,
 )
 
 @SuppressLint("MissingPermission")

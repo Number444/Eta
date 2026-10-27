@@ -7,11 +7,14 @@ import androidx.compose.runtime.key
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.datastore.SettingsDataStore
 import io.github.mangi.eta.data.db.EtaDatabase
@@ -78,6 +81,23 @@ class OnboardingScreenTest {
     }
 
     @Test
+    fun providerPageSupportsGestureScrollingWithFullCatalog() {
+        runBlocking {
+            BuiltinProviders.PROVIDERS.forEach { ProviderRepository.addProvider(it) }
+        }
+        composeRule.setContent {
+            AgentAppTheme(appearance = AppearanceSettings(), applyInterfaceScale = false) {
+                OnboardingScreen(testMode = true, onFinished = {})
+            }
+        }
+        repeat(6) {
+            composeRule.onNode(hasScrollAction()).performTouchInput { swipeUp() }
+            composeRule.waitForIdle()
+        }
+        composeRule.onNodeWithText(text(R.string.ui_new_anthropic_db6098)).assertIsDisplayed()
+    }
+
+    @Test
     fun testModeWalksAllStepsWithoutChangingConfigurationOrLaunchingIntents() {
         val provider = runBlocking { ProviderRepository.allProviders().single() }
         val beforeProviders = listOf(provider)
@@ -96,6 +116,7 @@ class OnboardingScreenTest {
         waitForText(provider.name)
         screenshot("provider")
         composeRule.onNodeWithText(provider.name).performClick()
+        screenshot("provider-selected")
         composeRule.onNodeWithText(text(R.string.onboarding_next)).performClick()
         composeRule.onNodeWithText(text(R.string.onboarding_step_connection)).assertIsDisplayed()
         screenshot("connection")
