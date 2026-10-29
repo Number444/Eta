@@ -15,7 +15,7 @@ import org.junit.Test
 
 class AgentCompactionProviderTest {
     @Test
-    fun allProtocolsDisableToolsAndIgnoreCustomInputOverridesForSummaries() {
+    fun allProtocolsReuseToolsWithoutCallingThemForSummaries() {
         assertIsolatedRequests(ProviderRequestPurpose.COMPACTION)
     }
 
@@ -90,11 +90,18 @@ class AgentCompactionProviderTest {
                 }
                 val body = captured.get()
                 assertNotNull(body)
-                assertFalse(body.has("tools"))
-                assertFalse(body.has("tool_choice"))
-                assertFalse(body.toString().contains("BAD_INPUT"))
-                assertFalse(body.toString().contains("BAD_MESSAGES"))
-                assertTrue(body.toString().contains("总结以下历史"))
+                if (purpose == ProviderRequestPurpose.COMPACTION) {
+                    assertTrue(body.optJSONArray("tools")?.length()?.let { it > 0 } == true)
+                    val toolChoice = body.opt("tool_choice")
+                    assertTrue(toolChoice == "none" ||
+                        toolChoice is JSONObject && toolChoice.optString("type") == "none")
+                } else {
+                    assertFalse(body.has("tools"))
+                    assertFalse(body.has("tool_choice"))
+                    assertFalse(body.toString().contains("BAD_INPUT"))
+                    assertFalse(body.toString().contains("BAD_MESSAGES"))
+                    assertTrue(body.toString().contains("总结以下历史"))
+                }
             } finally {
                 server.stop(0)
             }
