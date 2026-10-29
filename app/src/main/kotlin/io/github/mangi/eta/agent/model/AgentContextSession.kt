@@ -20,6 +20,7 @@ internal class AgentContextSession(
     /** Eta Mod：上下文压缩专用配置与延迟初始化的 provider；缺省时回退主模型。 */
     private val compactConfig: AgentModelClient.ModelConfig? = null,
     private val compactProvider: () -> AgentProviderClient? = { null },
+    private val mainTools: JSONArray = JSONArray(),
 ) {
     private val contextWindow = config.knownContextWindow
     private var inputTokens: Int? = null
@@ -62,7 +63,13 @@ internal class AgentContextSession(
         )
     }
 
-    fun compact(force: Boolean = false, final: Boolean = false) {
+    fun compact(
+        force: Boolean = false,
+        final: Boolean = false,
+        mainRequestMessages: JSONArray? = null,
+        mainRequestTools: JSONArray? = null,
+        mainRequestSessionId: String = operationId,
+    ) {
         val before = inputTokens
         if (AnthropicEphemeralState.hasPendingToolResponse(messages)) {
             if (force) {
@@ -95,13 +102,20 @@ internal class AgentContextSession(
                     if (compactConfig != null) compactProvider() ?: provider else provider,
                     runController,
                     roleplay = roleplay,
+                    mainRequestMessages = if (compactConfig == null) mainRequestMessages ?: messages else null,
+                    mainTools = if (compactConfig == null) mainRequestTools ?: mainTools else null,
+                    mainSessionId = mainRequestSessionId,
                 ).compact(messages, systemCount, sensitiveIds())
             }.getOrElse { failure ->
                 // 压缩专用模型失败（网络/配置失效）时回退主模型重试，保证压缩可用。
                 runController.throwIfCancelled()
                 if (compactConfig == null) throw failure
-                AgentContextCompactor(config, provider, runController, roleplay = roleplay)
-                    .compact(messages, systemCount, sensitiveIds())
+                AgentContextCompactor(
+                    config, provider, runController, roleplay = roleplay,
+                    mainRequestMessages = mainRequestMessages ?: messages,
+                    mainTools = mainRequestTools ?: mainTools,
+                    mainSessionId = mainRequestSessionId,
+                ).compact(messages, systemCount, sensitiveIds())
             }
             runController.throwIfCancelled()
             val wasCompacted = compacted

@@ -50,7 +50,11 @@ internal object AnthropicMessagesProvider : AgentProviderClient {
             .url(ProviderUrls.anthropicMessagesUrl(config.baseUrl))
             .headers(headers)
             .post(
-                buildRequestJson(config, request.messages, request.effectiveTools)
+                buildRequestJson(config, request.messages, request.effectiveTools).apply {
+                    if (request.purpose == ProviderRequestPurpose.COMPACTION && optJSONArray("tools")?.length()?.let { it > 0 } == true) {
+                        put("tool_choice", JSONObject().put("type", "none"))
+                    }
+                }
                     .toString()
                     .toRequestBody(JSON_MEDIA_TYPE)
             )

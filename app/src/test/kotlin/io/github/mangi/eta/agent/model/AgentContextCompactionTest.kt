@@ -71,7 +71,8 @@ class AgentContextCompactionTest {
         val provider = provider { request, emit ->
             if (request.purpose == ProviderRequestPurpose.COMPACTION) {
                 summaries++
-                assertEquals(0, request.effectiveTools.length())
+                assertTrue(request.effectiveTools.length() > 0)
+                assertFalse(request.purpose.allowsTools)
                 response("已完成前面的任务，继续处理最新请求。")
             } else {
                 assertTrue(request.messages.toString().contains("最新请求必须保留"))
@@ -285,11 +286,48 @@ class AgentContextCompactionTest {
     }
 
     @Test
+    fun followingMainModelReusesExactProjectedPrefixToolsAndConfig() {
+        val messages = jsonHistory()
+        val projected = JSONArray(messages.toString())
+        projected.getJSONObject(1).put("content", "投影问题 1")
+        projected.getJSONObject(2).put("reasoning_content", "PRESERVE_MAIN_REASONING")
+        val tools = JSONArray().put(JSONObject().put("type", "function").put("function",
+            JSONObject().put("name", "fixture").put("parameters", JSONObject())))
+        val mainConfig = config.copy(hostedWebSearchEnabled = true, extraBodyJson = """{"fixture":true}""")
+        var requests = 0
+        val session = AgentContextSession(mainConfig, messages, 1, "operation", provider { request, _ ->
+            requests++
+            assertEquals(projected.getJSONObject(0).toString(), request.messages.getJSONObject(0).toString())
+            assertEquals(projected.getJSONObject(1).toString(), request.messages.getJSONObject(1).toString())
+            assertEquals(projected.getJSONObject(2).toString(), request.messages.getJSONObject(2).toString())
+            assertEquals(tools.toString(), request.effectiveTools.toString())
+            assertEquals("main-session", request.sessionId)
+            assertTrue(request.effectiveConfig.hostedWebSearchEnabled)
+            assertEquals(mainConfig.extraBodyJson, request.effectiveConfig.extraBodyJson)
+            assertFalse(request.purpose.allowsTools)
+            val instruction = request.messages.getJSONObject(request.messages.length() - 1)
+            assertEquals("user", instruction.getString("role"))
+            assertTrue(instruction.getString("content").contains("只输出摘要正文"))
+            response("此前任务已完成。")
+        }, AgentRunController(), { emptySet() }, {}, {})
+
+        session.compact(
+            force = true,
+            mainRequestMessages = projected,
+            mainRequestTools = tools,
+            mainRequestSessionId = "main-session",
+        )
+
+        assertEquals(1, requests)
+    }
+
+    @Test
     fun summaryRequestIncludesAllCompletedHistoryInOneRequest() {
         var requests = 0
         val seen = mutableListOf<String>()
         val result = AgentContextCompactor(config, provider { request, _ ->
             requests++
+            assertEquals(0, request.effectiveTools.length())
             val historyText = request.messages.getJSONObject(1).getString("content")
             seen += historyText
             response("之前的工作已完成。")

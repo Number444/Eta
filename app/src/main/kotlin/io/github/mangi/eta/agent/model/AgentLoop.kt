@@ -78,8 +78,17 @@ internal class AgentLoop(
         publishedTranscriptSize = transcript.length()
     }
 
+    private fun projectRequestMessages(): JSONArray = AssistantScreenContextProjection.project(
+        roleplayContext?.projectMessages(messages) ?: messages,
+    )
+
     fun compactOnly(): Result {
-        context.compact(force = true)
+        context.compact(
+            force = true,
+            mainRequestMessages = projectRequestMessages(),
+            mainRequestTools = tools,
+            mainRequestSessionId = sessionId,
+        )
         return Result("", "", emptySet())
     }
 
@@ -108,10 +117,14 @@ internal class AgentLoop(
                 roundTools.optJSONObject(index)?.optJSONObject("function")?.optString("name")
             }
             publishTranscript()
-            if (purpose.allowsTools) context.compact()
-            val requestMessages = AssistantScreenContextProjection.project(
-                roleplayContext?.projectMessages(messages) ?: messages,
-            )
+            if (purpose.allowsTools) {
+                context.compact(
+                    mainRequestMessages = projectRequestMessages(),
+                    mainRequestTools = roundTools,
+                    mainRequestSessionId = sessionId,
+                )
+            }
+            val requestMessages = projectRequestMessages()
             var roundInputTokens: Int? = null
             val reasoningLengthBeforeRound = accumulatedReasoning.length
             val completedRound = try {
@@ -222,7 +235,14 @@ internal class AgentLoop(
             }
 
             publishTranscript()
-            if (purpose.allowsTools) context.compact(final = true)
+            if (purpose.allowsTools) {
+                context.compact(
+                    final = true,
+                    mainRequestMessages = projectRequestMessages(),
+                    mainRequestTools = roundTools,
+                    mainRequestSessionId = sessionId,
+                )
+            }
             onEvent(AgentEvent.RunFinished(round = round, contentChars = content.length))
             return Result(
                 content = content,
